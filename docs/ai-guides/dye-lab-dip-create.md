@@ -26,6 +26,9 @@ keywords:
   - रंग मिलाना
   - रंग सैंपल
   - कपड़े की रंगाई
+  - buyer style code
+  - buyer ka style code
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -52,7 +55,7 @@ route: /manufacturing/dyeing/lab-dips/new
 2. On the **Dyeing & Printing** page, click the **New Lab Dip** button at the top right (left of **New Job Work Order**).
 
 3. In the **Style & Submission** card:
-   - **Style** * - Search and select the style. Type at least 2 characters to search. The dropdown shows style code and name.
+   - **Style** * - Click **Search styles...** and type part of the buyer style code, style code or name, then pick the style. Each option shows the **Buyer Style Code** first (our Style Code in brackets when it differs, e.g. `SP27DR27 (EBWW-021)`) with the style name under it.
    - **Submission Date** * - Defaults to today. Change if submitting samples on a different date.
 
 4. After selecting a style, the **Fabrics** table appears showing all DYED and PRINTED fabrics from the style's components. For each fabric row:
@@ -83,7 +86,7 @@ route: /manufacturing/dyeing/lab-dips/new
 ## After saving
 
 - Each included fabric creates a separate lab dip record with status PENDING
-- Lab dips appear in the **Lab Dips** tab of the Dyeing & Printing page. To find one, type in the search box (it matches lab dip number, style, buyer ref, fabric, colour, design or processor), or narrow the list with **All types** (Dyeing / Printing), **All processors** and **All statuses**. **Clear N filters** (e.g. "Clear 2 filters") resets them
+- Lab dips appear in the **Lab Dips** tab of the Dyeing & Printing page. The list shows a **Buyer Style Code** column (bold, style name under it) followed by our **Style Code**. To find one, type in the search box ("Search lab dip, buyer style code, style code, fabric, colour, design, processor…"), or narrow the list with **All types** (Dyeing / Printing), **All processors** and **All statuses**. **Clear N filters** (e.g. "Clear 2 filters") resets them
 - Send physical fabric swatches to the processor for shade matching
 - When samples return, update the lab dip status to SUBMITTED and record the color match rating
 - Approved lab dips can proceed to bulk dyeing via Job Work Orders

@@ -33,6 +33,9 @@ keywords:
   - kaunse roll bheje smocking
   - स्मॉकिंग रोल
   - स्मॉकिंग के थान
+  - buyer style code
+  - buyer ka style code
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/SmockingDashboard.tsx
@@ -57,7 +60,7 @@ route: /manufacturing/smocking
    - **Received** - fully received
    - **Overdue** - past expected return date
 3. A **By Vendor** table shows pending/received/overdue counts per vendor
-4. The main table lists all smocking send-outs with status badges
+4. The main table lists all smocking send-outs with status badges. Each row shows the work order, the **Buyer Style Code** (the style name under it) and our **Style Code**, then the vendor
 5. Use the search box (**Search batch number, vendor, work order…**) to find a send-out
 6. Narrow the list with **All vendors** (click it and type part of the vendor's code or name) and **All statuses** (Sent, Partial, Received, Cancelled). **Clear N filters** resets them
 
@@ -65,7 +68,7 @@ route: /manufacturing/smocking
 
 1. Go to **Manufacturing** > **Smocking**
 2. Click **New Send-Out** button (top right)
-3. **Step 1 - Select Work Order**: click **Select work order...** and type part of the run number, style code or buyer's style ref (**Search by run number, style, buyer ref...**), then pick it. Only runs in PENDING or IN_PRODUCTION status are listed
+3. **Step 1 - Select Work Order**: click **Select work order...** and type part of the run number, buyer style code, our style code or style name (**Search by run number, buyer style code, style code, style name...**), then pick it. Each run reads its number, then the style by buyer style code first (our Style Code in brackets when it differs), then the style name and pieces. Only runs in PENDING or IN_PRODUCTION status are listed
 4. **Step 2 - Select Job Work Order**: Select the SMOCKING job work order linked to this work order
    - If none exist, first generate one from the work order's service requirements
 5. **Step 3 - Select Source**: Choose where the material comes from:
@@ -97,7 +100,7 @@ route: /manufacturing/smocking
 
 ### Enter receipt details
 1. Review the **Send-Out Details** card showing:
-   - Batch number, vendor, work order, style
+   - Batch number, vendor, work order, **Buyer Style Code** (and our **Style Code** when it differs)
    - Quantity sent, send date, agreed rate
 2. **Receive by SKU** (if pieces were sent):
    - **Received** - enter actual quantity returned per color/size

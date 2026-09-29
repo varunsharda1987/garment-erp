@@ -47,7 +47,7 @@ route: /manufacturing/dispatch
 3. In **Create Invoice for DN-…**:
    - **Invoice Date \*** — today by default.
    - **Due Date \*** — today plus the customer's credit days (30 if none are set).
-   - Check the **Billed (what the buyer received)** table: Style, Colour, Size, Qty. For a partial delivery each line shows the quantity received on the POD, not the quantity sent.
+   - Check the **Billed (what the buyer received)** table: Style, Colour, Size, Qty. The Style column names each style by its Buyer Style Code, with our Style Code in brackets when it is different (for example `SP27DR27 (EBWW-021)`). For a partial delivery each line shows the quantity received on the POD, not the quantity sent.
    - **Remarks** — optional.
 4. Click **Create Invoice**. The invoice opens.
 
@@ -55,7 +55,7 @@ route: /manufacturing/dispatch
 
 - **Create Invoice** only shows on a Delivered note that has no invoice yet. Once invoiced, the button becomes **Invoice INV…**, which opens the invoice.
 - One invoice per delivery note — a second attempt is refused, naming the invoice already raised.
-- "No selling price for …" means the style has no price on the sale order or production order — set it there, then try again.
+- "No selling price for … — set it on the sale order or production order before invoicing." names each unpriced style by its Buyer Style Code (our Style Code in brackets). Set the price there, then try again.
 - GST (CGST + SGST, or IGST) is worked out from the customer's billing state; the customer must have a billing state.
 
 ## After saving

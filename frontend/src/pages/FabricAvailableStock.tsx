@@ -783,7 +783,7 @@ export default function FabricAvailableStock() {
             <StyleCombobox
               value={selectedStyleId}
               onChange={(styleId) => setSelectedStyleId(styleId)}
-              placeholder="Search by style code..."
+              placeholder="Search by buyer style code or style code..."
             />
             <div className="flex justify-end gap-2">
               <Button

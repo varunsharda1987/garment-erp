@@ -62,6 +62,9 @@ keywords:
   - use cost sheet
   - price kahan se aata hai
   - यूनिट प्राइस
+  - buyer style code
+  - buyer ka style code
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -92,7 +95,7 @@ The style must be published (**Active** status) and must already have an **Appro
 1. Open **Orders & Sales → Orders** in the sidebar.
 2. Click **+ Create New Order** (top right). The page title reads **Create New Order**.
 3. Click **Customer Name \*** (**Select customer**) and type part of the customer's code, name or brand, then pick the customer.
-4. Click **Style \*** (**Search & select style...**) and type part of the style code, buyer style code, style name or customer, then pick the style. Only published (**Active**) styles are listed; if the list is long it tells you to type more to narrow it.
+4. Click **Style \*** (**Search & select style...**) and type part of the buyer style code, our style code, the style name or the customer (**Type buyer style code or style code...**), then pick the style. Each style reads buyer style code first, with our Style Code in brackets when it differs — for example `SP27DR27 (EBWW-021) - GEMINI (customer)` — and the list is sorted by buyer style code. Only published (**Active**) styles are listed; if the list is long it tells you to type more to narrow it.
 5. Watch the message that appears under the row. Green means approved cost sheets are available; a red **No Approved Cost Sheet** panel means you must click **Create Cost Sheet** and get it approved first.
    - **If this customer has a confirmed sale order for the style** that no production order is made for yet, the form fills itself from it and a banner says **Filled from SO… · Buyer PO … · N pcs — this order will be linked to the sale order**: the size grid, **Total Qty**, **Delivery** (the sale order's Expected Ship Date, else its Buyer Deadline), **Order Date** (the buyer's PO date, else today) and **Unit Price** (the sale order's price for the style — the quantity-weighted average when its lines carry different prices). In the size grid, a style with no colour is filled by size alone, and a line ordered without a colour goes in the style's only colour. When the style comes in several colours, a line without a colour cannot be placed: the banner lists it after **Enter by hand:** so you type it into the right colour row yourself. When several sale orders match, click the sale-order box in the banner (it shows the sale order now filled in) and pick another — you can type part of the sale order number or buyer PO to find it. **Undo** puts the form back; the banner then turns amber, warning that the sale order stays unlinked (link it later from the sale order with **Link to Production Order**), with **Fill from sale order** to fill it again.
 6. Enter **Total Qty \*** (total pieces) and set **Delivery \*** (expected delivery date). **Order Date** defaults to today and can be changed, including to a past date.

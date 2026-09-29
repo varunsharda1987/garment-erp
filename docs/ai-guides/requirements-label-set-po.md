@@ -52,6 +52,9 @@ keywords:
   - khula po
   - साइज़ पीओ से जोड़ें
   - खुला पीओ
+  - buyer style code
+  - buyer ka style code
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -69,6 +72,7 @@ sources:
   - frontend/src/components/requirements/open-po-supply.ts
   - frontend/src/components/purchase-orders/AllocateToOrdersDialog.tsx
   - backend/src/services/helpers/po-line-category.helper.ts
+  - backend/src/services/helpers/po-default-delivery.helper.ts
   - frontend/src/components/SupplierCombobox.tsx
 route: /procurement/requirements
 ---
@@ -79,8 +83,8 @@ For each style you order its labels together — main-cum-size, traceability, wa
 ## Steps
 1. Open **Procurement → Requirements** in the sidebar and stay on the **Material Requirements** tab.
 2. The page opens on **Show: Order & Style** with the status box on **Needs action** — every order + style that still has something to order, soonest-needed first. (If another view is chosen, click **Order & Style** in the **Show:** row.)
-3. Narrow it down if you like: pick the order in **All orders** (type the order number or the buyer's name), pick a style in **All styles**, or choose **Label** in **All materials** to see only labels. From a purchase order's **Order label set…** box, the warning link **Requirements → Order & Style** opens this view already filtered to that order and style.
-4. Each **order + style** is one card: the style code and name, the order number and customer, and on the right its statuses (for example "PO Required ×28"), the vendor (**Several vendors** or **No vendor yet** when not one), **Needed** with the earliest required date, and a badge like "5 labels · 24 sizes". Click the card to open or close it.
+3. Narrow it down if you like: pick the order in **All orders** (type the order number or the buyer's name), pick a style in **All styles** (type the Buyer Style Code, our Style Code or the style name), or choose **Label** in **All materials** to see only labels. From a purchase order's **Order label set…** box, the warning link **Requirements → Order & Style** opens this view already filtered to that order and style.
+4. Each **order + style** is one card: the style — its Buyer Style Code, our Style Code in brackets when it is different, then the name — the order number and customer, and on the right its statuses (for example "PO Required ×28"), the vendor (**Several vendors** or **No vendor yet** when not one), **Needed** with the earliest required date, and a badge like "5 labels · 24 sizes". Click the card to open or close it.
 5. Inside, each label is one heading row — its name, code, type and "6 sizes", with the total **Required** and **Shortfall** of all its sizes, a status summary (for example "PO Required ×6"), the **Vendor** (or **Mixed** when the sizes have different vendors) and any **PO** numbers. Click the heading to show its sizes: one row per size (**Size XS**, **Size S** …), in size order. When an order has two colours, both colours of a size are added into one size row (it lists both requirement numbers and "2 colours"). Other materials of the style (buttons, fusing, interlining…) are single rows in the same card.
 6. Tick what you want to order:
    - the box on the card = everything orderable for that style, all labels and all sizes;
@@ -92,6 +96,7 @@ For each style you order its labels together — main-cum-size, traceability, wa
    - **Manual PO** — puts everything ticked with ONE supplier. When every ticked row has the same vendor (for example NRM Industries for the House of Kasya labels), that vendor is already chosen. Pick the **Expected Delivery Date**, check the preview, and click **Generate PO**.
    Either way, each vendor gets **one PO per category**: labels and packaging go on an **Accessories** PO, buttons, fusing, interlining and other trims on a **Trims** PO. So ticking a style's labels and its buttons from one vendor makes two POs; the message lists every PO number made.
 8. On the new Accessories PO each label shows as one heading row with its sizes beneath, in size order, and each size keeps its own quantity and rate.
+9. The new PO delivers to **Kashaya Fabs** (our store) by default. To send it somewhere else, open the PO and use **Change delivery** on its **Deliver To** card.
 
 ## An open PO already has room? Link instead of ordering again
 A PO that was already sent (for example one raised for another order, or bought over) may have room for these labels. Then:

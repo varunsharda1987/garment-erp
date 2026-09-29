@@ -15,18 +15,21 @@ keywords:
   - buyer approval
   - internal approval
   - color match rating
+  - buyer style code
   # Hinglish
   - lab dip approve karna
   - shade pass karna
   - color OK karna
   - lab dip reject karna
   - buyer se approval
+  - buyer ka style code
   # Devanagari
   - लैब डिप अप्रूव
   - शेड पास
   - कलर ओके
   - लैब डिप रिजेक्ट
   - बायर अप्रूवल
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -57,8 +60,8 @@ route: /manufacturing/processing
 1. Open **Manufacturing** (in the sidebar)
 2. Click **Dyeing & Printing**
 3. You land on the **Dyeing & Printing** page, on the **Lab Dips** tab
-4. Find the lab dip: type in the search box (lab dip number, style, buyer ref, fabric, colour, design or processor), or use the filters in the same row — **All types** (pick **Dyeing**), **All processors** (a searchable picker) and **All statuses**. **Clear filters** resets them all
-5. Click the lab dip row to open its detail page
+4. Find the lab dip: type in the **Search lab dip, buyer style code, style code, fabric, colour, design, processor…** box, or use the filters in the same row — **All types** (pick **Dyeing**), **All processors** (a searchable picker) and **All statuses**. **Clear filters** resets them all
+5. Click the lab dip row to open its detail page. The table shows the style in a **Buyer Style Code** column (style name under it) followed by a **Style Code** column, and the detail page lists **Buyer Style Code** and **Style Code** separately
 6. In the header, click the green **Approve** button
 7. In the dialog:
    - Enter **Approved Sample #** (required) - e.g., "S1", "S2"

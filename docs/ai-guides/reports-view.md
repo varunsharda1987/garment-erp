@@ -30,6 +30,9 @@ keywords:
   - स्टाइल रिपोर्ट
   - जीएसटी रिपोर्ट
   - कितना बना सकते
+  - buyer style code
+  - buyer ka style code
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/StyleFabricReport.tsx
@@ -51,12 +54,12 @@ The system provides three main report types:
 1. Go to **Reports & Finance** in the sidebar
 2. Click **Style-Fabric Report**
 3. Use the filter row at the top:
-   - **Search** (style code, buyer ref, name, buyer, season) — every word you type must match
+   - **Search** (buyer style code, style code, name, buyer, season) — every word you type must match
    - **All buyers**: a searchable buyer picker
    - **All seasons**: pick a season
    - **All stock statuses**: Has Stock / Low Stock / No Stock
    - **Clear N filters** resets them all; when nothing matches, the page says so with a **Clear filters** button
-4. Click any row to expand and see fabric details
+4. Each row is headed by the style's buyer style code, with our Style Code in brackets when it differs. Click any row to expand and see fabric details
 5. The expanded view shows:
    - Component name and fabric code
    - Required meters per garment
@@ -76,7 +79,7 @@ The system provides three main report types:
    - **Clear N filters** resets both
 4. Click any fabric row to expand
 5. The expanded view shows two sections:
-   - **Styles using this fabric**: Style code, buyer ref, component, CAD meters, allocated, consumed
+   - **Used in N Style(s)**: Buyer Style Code, Style Code, Style Name, Component, CAD (meters), Allocated, Consumed
    - **Stock History**: Receipt records with quantity, width, roll numbers, warehouse, cost, date
 6. The badge shows number of styles using each fabric
 

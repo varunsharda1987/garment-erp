@@ -44,6 +44,7 @@ sources:
   - frontend/src/pages/TrimMastersDashboard.tsx
   - frontend/src/pages/ButtonList.tsx
   - frontend/src/pages/ButtonForm.tsx
+  - frontend/src/components/StyleCodeMultiSelect.tsx
   - frontend/src/components/SupplierCombobox.tsx
   - frontend/src/types/supplier.types.ts
   - backend/src/schemas/trimMasters.schema.ts
@@ -79,7 +80,7 @@ Nothing is mandatory first. But if you want to link a supplier, that supplier mu
 11. You may leave a supplier's price boxes empty — the row still saves, and the supplier is simply stored without a price. A typed price saves as entered. Add more rows with **Add Supplier** for each extra source.
 12. Trap: a supplier row where you did not choose a supplier is dropped silently on save. Remove empty rows with the bin icon.
 13. Optional: enter the **Supplier Reference Code** (the supplier's own item code) under **Reference Codes**.
-14. Optional: under **Style Associations**, use **Associated Styles** to search and select the styles that use this button. The first style you pick is marked primary.
+14. Optional: under **Style Associations**, use **Associated Styles** to search and select the styles that use this button — type the buyer style code, style code or name. Each style shows its Buyer Style Code first, our Style Code in brackets when it differs (e.g. `SP27DR27 (EBWW-021)`). The first style you pick is marked primary. On the **Button Management** list, the **Styles** column names the linked styles the same way.
 15. Add any **Description** notes under **Additional Information**.
 16. Click **Create Button**. On success you land back on the **Button Management** list with the new code visible. **Cancel** returns to the list without saving.
 

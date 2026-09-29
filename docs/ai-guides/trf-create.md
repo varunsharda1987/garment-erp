@@ -24,6 +24,8 @@ keywords:
   - retest trf
   - previous report number
   - link trf to sample
+  - buyer style code
+  - style no
   # Hinglish
   - trf banana
   - test form banana
@@ -35,6 +37,7 @@ keywords:
   - trf print kaise kare
   - retest ka form
   - dobara test bhejna
+  - buyer ka style code
   # Devanagari
   - टेस्ट फॉर्म
   - लैब फॉर्म
@@ -44,6 +47,7 @@ keywords:
   - फॉर्म प्रिंट करना
   - रीटेस्ट फॉर्म
   - दोबारा टेस्ट
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -54,6 +58,8 @@ sources:
   - frontend/src/components/fabric/WashCareCodes.tsx
   - backend/src/schemas/buyerTrf.schema.ts
   - backend/src/constants/buyer-trf.constants.ts
+  - backend/src/services/buyerTrf.service.ts
+  - frontend/src/components/StyleCombobox.tsx
 route: /test-requirement-forms/new
 ---
 
@@ -63,12 +69,17 @@ route: /test-requirement-forms/new
    the **Test Requirement Forms** card on the Testing dashboard.) If the form is for a particular
    sample, start from the sample instead — see **Starting from a sample** below.
 2. Click **New TRF**.
-3. Under **Style & order**, pick the **Style**, then the **Sale order**. Search the sale order
-   box by the buyer's PO number — it is shown next to each order. Optionally pick the **Sample**
-   this form is for; the list shows that style's samples for the buyer.
-4. Wait a moment. Most of the form fills itself: sample description, end use, colour, fibre
-   content, count, construction, order number, vendor code, processing house and your contact
-   details.
+3. Under **Style & order**, pick the **Style**, then the **Sale order**. The style box
+   (**Search by buyer style code or style code...**) lists styles by their Buyer Style Code, with
+   our Style Code in brackets when it is different — type either code to find the style. Search
+   the sale order box by the buyer's PO number — it is shown next to each order. Optionally pick
+   the **Sample** this form is for; the list shows that style's samples for the buyer.
+4. Wait a moment. Most of the form fills itself: sample description, **Style No.**, end use,
+   colour, fibre content, count, construction, order number, vendor code, processing house and
+   your contact details. **Style No.** is filled with the buyer's own code — the Buyer Style Code
+   written on the sale order line, else the style's Buyer Style Code, else our Style Code when the
+   style has no buyer code. This only happens on a new form; a saved form keeps the Style No. it
+   was saved with.
 5. If an amber note appears saying **Some fields could not be filled in**, read the list. Type
    what you know. Anything you leave blank prints as a shaded box for someone to complete by
    hand — it is not left silently empty.
@@ -110,8 +121,9 @@ your corrections such as the fibre content and season — ticks **Retest** in th
 ## Reprinting an old form
 
 1. Open **Test Requirement Forms**.
-2. Find the row. Type in the search box (**Search TRF number, style, buyer's code, buyer, order
-   number, SO / WO, colour…**), or narrow the list with the filters in the same row: **All
+2. Find the row. The list shows a **Buyer Style Code** column (the style name under it) and then
+   our **Style Code**. Type in the search box (**Search TRF number, style, buyer style code, buyer,
+   order number, SO / WO, colour…**), or narrow the list with the filters in the same row: **All
    statuses**, **All stages**, the **All buyers** picker and the **All styles** picker.
 3. Click **Print** on the row. A reprint shows exactly what was sent, even if the style has
    changed since.

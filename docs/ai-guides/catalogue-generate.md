@@ -15,6 +15,7 @@ keywords:
   - WhatsApp catalogue
   - filter styles
   - clear filters
+  - buyer style code
   # Hinglish
   - catalogue generate karna
   - catalogue banana
@@ -23,6 +24,7 @@ keywords:
   - catalogue share karna
   - WhatsApp pe catalogue bhejana
   - catalogue filter karna
+  - buyer ka style code
   # Devanagari
   - कैटलॉग
   - स्टाइल कैटलॉग
@@ -31,9 +33,12 @@ keywords:
   - कैटलॉग डाउनलोड
   - कैटलॉग शेयर
   - फिल्टर
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/CatalogueGenerator.tsx
+  - backend/src/services/document-data/catalogue.doc-data.ts
+  - backend/templates/kf/catalogue.hbs
 route: /catalogue-generator
 ---
 
@@ -42,16 +47,16 @@ route: /catalogue-generator
 ### Open the Catalogue Generator
 1. Click **Pre-Production** in the sidebar
 2. Click **Catalogue Generator**
-3. The page shows all ACTIVE styles with images, codes, and prices
+3. The page shows all ACTIVE styles with images, codes, and prices. The table columns are **Image**, **Buyer Style Code** (bold), **Style Code** (our code), **Name**, **Category**, **Season** and **Price**. A style with no separate buyer code shows its Style Code in both code columns
 
 ### Select Styles
 1. **Manual selection**: Click the checkbox next to each style you want to include
 2. **Select all visible**: Click the **Select All** button at the top to select all styles matching current filters
-3. **Bulk selection**: In the left panel under **Bulk Selection**, paste style codes separated by commas, newlines, or tabs (e.g., `KF-001, KF-002, KF-003`), then click **Add Styles**
+3. **Bulk selection**: In the left panel under **Bulk Selection**, paste buyer style codes or style codes (either works, and you can mix them) separated by commas, newlines, or tabs (e.g., `SP27DR27, KF-002, KF-003`), then click **Add Styles**. Only styles already loaded on the page are matched
 
 ### Filter Styles (Optional)
 Use the **Filters** panel on the left to narrow down styles:
-- **Search**: Type style code, buyer's code, name, category, brand category or season. Every word you type must match
+- **Search**: Type the buyer style code, style code, name, category, brand category or season. Every word you type must match
 - **Category**: Starts at **All categories**. Click it and type to find a product category (e.g., Kurta, Dupatta)
 - **Brand Category**: Pick a brand category, or **All brand categories**
 - **Season**: Starts at **All seasons**. Click it and type to find a season (e.g., SS24, AW24)
@@ -82,6 +87,7 @@ In the **Catalogue Options** panel:
 1. Click the **Download** button (shows count of selected styles)
 2. Select **Download PDF** from the dropdown menu
 3. The PDF file downloads automatically with name format: `{CatalogueName}_{Date}.pdf`
+4. In the PDF each style is named by its **Buyer Style Code** first; each card and the index line reads e.g. `SP27DR27 (EBWW-021)` (our Style Code in brackets only when it differs), and the index column is headed **Buyer Style Code**
 
 ### Share via WhatsApp
 1. Click the **Download** button

@@ -39,6 +39,7 @@ sources:
   - frontend/src/pages/ChallanDetail.tsx
   - frontend/src/pages/ChallanList.tsx
   - frontend/src/hooks/useHeldStockConfirm.tsx
+  - frontend/src/lib/held-stock-confirm.ts
   - frontend/src/components/WorkOrderCombobox.tsx
   - frontend/src/components/filters/FilterBar.tsx
   - backend/src/services/challan.service.ts
@@ -60,7 +61,7 @@ route: /manufacturing/challans
    - In the status dropdown (starts at **All statuses**), select **Issued**, **In Transit**, or **Partially Received** to see receivable challans.
    - Narrow by type (**All types**) or item type (**All item types**) if needed.
    - Use **Challan date** (From / To) or the **Today only** button to narrow by date.
-   - To see one production run's challans, open the **All production runs** picker, type the run number and pick it.
+   - To see one production run's challans, open the **All production runs** picker ("Search by run number, buyer style code, style code, order..."), type the run number or the style's buyer style code, and pick it. Each run reads e.g. `WO2609-0087 — SP27DR27 (EBWW-021)`: the Buyer Style Code first, our Style Code in brackets when it differs.
    - Click **Clear N filters** (e.g. **Clear 2 filters**) to remove every filter. If nothing matches, the list says **No challans match these filters.** with a **Clear filters** button.
 
 3. Click the **challan number** link to open the challan detail page.
@@ -68,6 +69,7 @@ route: /manufacturing/challans
 4. Verify the challan details:
    - Check the **Movement Details** card showing **From → To** locations.
    - Review the **Items** table showing all materials with their sent quantities.
+   - For a challan linked to a production run, the **References & Transport** card shows the **Production Run**, the **Buyer Style Code** (with the style name) and our **Style Code**.
 
 5. Click the **Receive** button in the top-right action bar.
 
@@ -85,7 +87,7 @@ route: /manufacturing/challans
 ## Traps
 
 - **Receive button not visible**: The challan status must be Issued, In Transit, or Partially Received. Draft challans must be issued first (**Issue Challan**); Received or Cancelled challans cannot be received again.
-- **Issuing asks about goods held for another order**: when you click **Issue Challan** on a draft and some of the goods are held for another order (they arrived on a PO linked to that order, or were taken for it with Use Stock), a box **These goods are held for another order** lists "Held for ORD… (STYLE): N" and asks "Take them anyway? That order will need them bought again." **No, keep them** issues nothing; **Take them anyway** issues the challan and that order's requirement goes back to needing the goods bought.
+- **Issuing asks about goods held for another order**: when you click **Issue Challan** on a draft and some of the goods are held for another order (they arrived on a PO linked to that order, or were taken for it with Use Stock), a box **These goods are held for another order** lists "Held for ORD… · SP27DR27 (EBWW-021): N" (the order, then the style by its Buyer Style Code) and asks "Take them anyway? That order will need them bought again." **No, keep them** issues nothing; **Take them anyway** issues the challan and that order's requirement goes back to needing the goods bought.
 - **Partial receipts**: If you enter less than the sent quantity, the challan status becomes Partially Received and you can receive the balance later.
 - **Damaged quantity**: Damaged items are tracked separately — they count as received but are flagged. Enter the damaged count in the **Damaged** column.
 - **Cannot undo**: Once confirmed, a receipt cannot be reversed through the UI. Verify quantities before clicking Confirm Receipt.

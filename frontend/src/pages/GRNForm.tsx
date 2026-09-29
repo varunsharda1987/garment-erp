@@ -1194,7 +1194,7 @@ export default function GRNForm() {
             <Label>Purchase Order *</Label>
             {/* allow-raw-search: narrows the receivable POs already loaded into the Select below, in memory — no request per keystroke */}
             <Input
-              placeholder="Search by PO number, supplier, or material..."
+              placeholder="Search by PO number, supplier, material, buyer style code or style code..."
               value={poSearch}
               onChange={(e) => setPoSearch(e.target.value)}
             />

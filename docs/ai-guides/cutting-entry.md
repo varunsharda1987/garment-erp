@@ -36,6 +36,9 @@ keywords:
   - रोल
   - थान
   - कटिंग में रोल
+  - buyer style code
+  - buyer ka style code
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -65,8 +68,8 @@ A cutting entry has two parts: first create a **batch** from the Cutting Chart, 
 ## Create the batch
 1. Open **Manufacturing → Cutting** in the sidebar.
 2. Click **New Batch**. The **Cutting Chart** page opens.
-3. Click **Production Run** ("Select a production run") and type part of the run number, style code, buyer ref or style name, then pick it. Only runs still waiting to be cut are listed (each shows its pieces pending); if none are, it says "No production runs waiting to be cut." If the style has more than one colour, also pick **Color** from its dropdown or leave **All Colors**.
-4. Check **Cutting Date** in the Order Details card.
+3. Click **Production Run** ("Select a production run") and type part of the run number, buyer style code, style code or style name, then pick it. Each run reads e.g. `WO2609-0087 - SP27DR27 (EBWW-021) (120 pcs pending)` — the Buyer Style Code first, our Style Code in brackets when it differs. Only runs still waiting to be cut are listed; if none are, it says "No production runs waiting to be cut." If the style has more than one colour, also pick **Color** from its dropdown or leave **All Colors**.
+4. Check **Cutting Date** in the Order Details card. The card shows the **Buyer Style Code** and our **Style Code** side by side.
 5. In **Size Breakup**, set **Extra %**. The **Cut Qty** row fills automatically. You can type over any size's Cut Qty.
 6. If stock is short, click **Fill to Max** to spread the cuttable quantity across sizes by ratio.
 7. In **Lot Details**, tick at least one lot for every fabric listed. A component that uses two different fabrics now shows **one row per fabric** (labelled with its width, e.g. "Shirt (54\")"), and each needs its own lots — previously two such fabrics were shown as a single row with only one of the two CAD averages.
@@ -84,6 +87,10 @@ A cutting entry has two parts: first create a **batch** from the Cutting Chart, 
 13a. Rolls or thans that came back **whole** (rare) can be ticked under a lot in **Whole rolls / thans back (optional)** — open it only if needed. The rest of the metres typed comes back as **one end piece** (the line says "… comes back as one end piece"); the Fabric Stock page lists it as "End · <batch>". Ticking rolls worth more than the metres returned is refused.
 
 If a batch is **deleted** before any lay is recorded (or cancelled with no lays), the fabric issued for it goes back to the store automatically on a return challan — the panel lists it as **Returned to store** — and exactly the rolls / thans it took go back on the lot's list. Once lays exist, the leftover is returned at **Complete** instead.
+
+## Find a batch later
+- On **Manufacturing → Cutting**, search by batch number, run number, buyer style code, style or component ("Search batch number, run number, buyer style code, style, component…").
+- The batch table shows the **Buyer Style Code** column first (bold, style name under it), then our **Style Code**. The batch page header names the style the same way, e.g. `SP27DR27 (EBWW-021) - Style Name`.
 
 ## Traps to avoid
 - **Number of Layers** must be at least 1 and **Layer Length** must be more than zero.

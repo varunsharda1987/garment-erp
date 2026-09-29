@@ -16,6 +16,7 @@ keywords:
   - push to tally
   - generate IRN
   - e-invoice
+  - buyer style code
   # Hinglish
   - invoice dekhna
   - invoice print karna
@@ -23,12 +24,14 @@ keywords:
   - invoice download karna
   - payment record karna
   - tally push
+  - buyer ka style code
   # Devanagari
   - इनवॉइस देखना
   - इनवॉइस प्रिंट करना
   - बिल निकालना
   - इनवॉइस डाउनलोड
   - पेमेंट रिकॉर्ड
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/InvoiceDetail.tsx
@@ -44,10 +47,10 @@ route: /invoices
 ## Steps to find an invoice
 
 1. Open **Orders & Sales > Invoices** in the sidebar.
-2. Type in the search box (**Search invoice number, customer, order, sale order, style, buyer style…**).
+2. Type in the search box (**Search invoice number, customer, order, sale order, style, buyer style code…**).
 3. Use the filter row to narrow down:
    - **All customers** picker: type to search, then pick a customer.
-   - **All orders** picker: type to search, then pick an order.
+   - **All orders** picker: type the order number, customer, buyer style code or style code, then pick an order. Each order lists its styles by Buyer Style Code first, with our Style Code in brackets when different.
    - **All statuses** dropdown: Pending, Partially Paid, Paid, Overdue, or Settled with Credit.
    - **Invoice date**: set a **From** and/or **To** date.
 4. Click **Clear N filters** to reset all filters and go back to page 1.
@@ -82,7 +85,7 @@ The detail page shows:
 - **e-Invoice (IRN) Status** (if registered): Shows the IRN number, acknowledgment details, and a lock icon indicating the invoice is immutable.
 - **Invoice Information**: Invoice Date, Due Date, Subtotal, Tax Amount, and Remarks.
 - **Customer & Order Information**: Customer name, linked Order Number (click to navigate), the **Delivery Note** it was raised from (click to open the note), Created By, and Created At.
-- **Invoice Items**: Table with Description, HSN, Qty, Unit Price, Amount, GST %, Tax, and Total.
+- **Invoice Items**: Table with Description, HSN, Qty, Unit Price, Amount, GST %, Tax, and Total. Under each description the style is named by its Buyer Style Code first (the code on the order line when it was taken), then our Style Code in brackets when different, then the style name.
 - **Tax Breakdown**: Subtotal, IGST (or CGST+SGST for intra-state), Total Tax, Grand Total.
 - **Payment History**: Shows all recorded payments with amount, date, method, and reference.
 

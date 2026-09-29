@@ -20,6 +20,9 @@ keywords:
   - kanban board
   - board view
   - compact view
+  - buyer style code
+  - buyer ka style code
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -60,18 +63,18 @@ There are three screens for progress. Use the one that matches your question.
 ## B. One production run
 1. Open **Manufacturing → Production Runs**.
 2. Narrow the list with the filter row:
-   - The search box finds a run by run number, order, customer, SPO, style, buyer style or location.
+   - The search box finds a run by run number, order, customer, SPO, buyer style code, our style code or location.
    - **All statuses** — Pending, In Production, Completed, Dispatched, Cancelled, Split.
    - **All priorities** — Urgent, High, Medium, Low.
    - **All orders**, **All styles** and **All locations** — searchable pickers; type to find one, or pick the "All …" row to see everything.
    - **Clear N filters** removes every filter at once, including **Overdue only**. If nothing matches, the list says "No production runs match these filters." with a **Clear filters** button.
    The **Dashboard** button at the top opens the Production Dashboard.
-3. The **Quantity** and **Progress** columns show completed versus total pieces and a percent bar.
-4. Click any row to open it. The **Status Overview** card repeats status, priority, quantity and progress. Further down, **Color × Size Breakup** lists the planned, completed and remaining pieces per colour and size, and **Production Location** and **Created By** show where the run is made and who raised it.
+3. Each run shows the **Buyer Style Code** (the style name under it) and our **Style Code** in separate columns. The **Quantity** and **Progress** columns show completed versus total pieces and a percent bar.
+4. Click any row to open it. The **Status Overview** card repeats status, priority, quantity and progress; the **Order Details** card lists the **Buyer Style Code** first, then the **Style Code**. Further down, **Color × Size Breakup** lists the planned, completed and remaining pieces per colour and size, and **Production Location** and **Created By** show where the run is made and who raised it.
 5. Scroll to **Manufacturing Progress**. It shows pieces done at **Cutting**, **Stitching** and **Finishing**, each with its own bar. Use **View Batches** or **View Issues** to drill down.
 
 ## C. Size-wise cutting progress
-Open **Manufacturing → Cutting** and click the **Size-wise Status** tab. Each running style lists **Planned**, **Cut**, **Good Pcs** and **Pending** per size, plus days in cutting and idle days.
+Open **Manufacturing → Cutting** and click the **Size-wise Status** tab. Each running style is headed by its buyer style code (with **Style Code:** our code beside it when it differs) and lists **Planned**, **Cut**, **Good Pcs** and **Pending** per size, plus days in cutting and idle days.
 
 ## Notes
 - Completed quantity is calculated by the system from packing entries. It cannot be typed in by hand.

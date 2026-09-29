@@ -21,6 +21,7 @@ keywords:
   - how was the run costed
   - compare costing runs
   - old costing run
+  - buyer style code
   # Hinglish
   - PO wala rate
   - greige rate reason kyun
@@ -32,6 +33,7 @@ keywords:
   - purana run dekhna
   - run kaise bana tha
   - run ki detail
+  - buyer ka style code
   # Devanagari
   - फैब्रिक कॉस्टिंग
   - कॉस्टिंग रन
@@ -43,6 +45,7 @@ keywords:
   - सिकुड़न
   - रन की डिटेल
   - पुराना रन
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/FabricCostingPage.tsx
@@ -74,14 +77,14 @@ route: /fabric-costing
 Two ways to find a style:
 
 **Quick Search (recommended):**
-- Type in the "Quick Search" box (**Search by style code, buyer ref or name...**)
-- Results show costing status (Approved/Pending) and option count
+- Type in the "Quick Search" box (**Search by buyer style code, style code or name...**) — either code finds the style
+- Each result names the style by its Buyer Style Code first, with our Style Code in brackets when different (e.g. SP27DR27 (EBWW-021)), and shows costing status (Approved/Pending) and option count
 - Click a result to select
 - Click the ✕ in the box to clear the search and the selected style
 
 **Or Customer > Style pickers:**
 - Click **Select customer...** and type part of the customer's name
-- Then click **Select style** and type part of the style code, buyer ref or name — only that customer's styles are listed
+- Then click **Select style** and type part of the buyer style code, style code or name — only that customer's styles are listed
 
 ### 3. Choose the Mode
 

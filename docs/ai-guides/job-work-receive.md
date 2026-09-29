@@ -107,6 +107,9 @@ keywords:
   - bill baad mein
   - प्रोसेसर का बिल
   - बिल बाद में
+  - buyer style code
+  - buyer ka style code
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -147,7 +150,7 @@ Receiving is one action on the job. There is no GRN form to fill and no separate
 ### Open the dialog
 Any of these opens the same dialog, titled **Receive from** followed by the processor's name:
 - Open the job work order and click **Receive from processor** in the Actions card.
-- On **Manufacturing → Dyeing & Printing**, **Job Work Orders** tab, click the green **Receive from processor** icon in the Actions column on the job showing **At Mill** or **Partial Receipt** (the name shows when you hover). The same icon is on the Dyeing page and the Printing page.
+- On **Manufacturing → Dyeing & Printing**, **Job Work Orders** tab, click the green **Receive from processor** icon in the Actions column on the job showing **At Mill** or **Partial Receipt** (the name shows when you hover). The same icon is on the Dyeing page and the Printing page. To find the job there, type its order number, the buyer style code or our style code in the **Search order number, buyer style code, style code, …** box; the table shows the style in a **Buyer Style Code** column (style name under it) followed by a **Style Code** column.
 
 ### Fill it in
 1. Read **Expected back** (or **Expected dyed lace**) — the quantity due back: the greige sent minus the expected shrinkage. **Maximum you can receive** appears once you start typing a quantity.

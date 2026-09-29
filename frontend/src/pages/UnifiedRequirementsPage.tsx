@@ -1116,7 +1116,7 @@ function MaterialRequirementsTab({
               value={searchParams.get('styleId') || ''}
               onValueChange={(v) => updateURLParams({ styleId: v || undefined, page: undefined })}
               placeholder="All styles"
-              searchPlaceholder="Style code or name…"
+              searchPlaceholder="Buyer style code, style code or name…"
               emptyText="No style with requirements matches"
               className="w-[240px]"
             />

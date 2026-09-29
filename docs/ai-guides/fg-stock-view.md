@@ -40,6 +40,9 @@ keywords:
   - colour wise tayaar maal
   - रंग वाइज तैयार माल
   - स्टाइल वाइज तैयार माल
+  - buyer style code
+  - buyer ka style code
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -61,8 +64,8 @@ route: /inventory/fg-stock
 
 ## Search and filter
 
-1. Type in the **Search style, buyer's code, colour, size, work order, location...** box. It matches the style code, style name, buyer style code, colour name, size, work order number and location.
-2. To see one style only, open the **All styles** picker, type the style code and pick it. Archived styles are listed too, because stock can outlive a style.
+1. Type in the **Search buyer style code, style, colour, size, work order, location...** box. It matches the buyer style code, style code, style name, colour name, size, work order number and location.
+2. To see one style only, open the **All styles** picker, type the buyer style code or our style code and pick it. Styles are listed by Buyer Style Code first, with our Style Code in brackets when different (e.g. SP27DR27 (EBWW-021)), sorted by buyer style code. Archived styles are listed too, because stock can outlive a style.
 3. To see one colour of that style, open the **All colours** picker and pick the colour. It lists only the chosen style's colours, so pick a style first (until then it reads "Pick a style first"). Changing the style clears the colour.
 4. Results update straight away and go back to page 1.
 5. Click **Clear N filters** (e.g. **Clear 2 filters**) to empty the search, the style and the colour and go back to page 1. Your rows-per-page choice stays.
@@ -72,7 +75,8 @@ route: /inventory/fg-stock
 
 | Column | Description |
 |--------|-------------|
-| **Style** | Style code, with the style name underneath |
+| **Buyer Style Code** | The buyer's style code (bold), with the style name underneath |
+| **Style Code** | Our internal style code. A style with no separate buyer code shows the same code in both columns |
 | **Color** | Colour swatch and name. A style with no colour has its stock with no colour — this column shows **-** |
 | **Size** | Size label (S, M, L, XL, etc.) |
 | **Quantity** | Number of pieces in stock |

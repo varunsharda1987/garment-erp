@@ -69,6 +69,9 @@ keywords:
   - linked order receipt
   - order ke liye rakha maal
   - ऑर्डर के लिए रखा माल
+  - buyer style code
+  - buyer ka style code
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -99,7 +102,7 @@ A Purchase Order must already exist and be in **Sent**, **Acknowledged** or **Pa
 ## Steps
 1. Open **Procurement → GRN (Goods Receipt)** in the sidebar. The page title is **Goods Receiving Notes**. (To find an existing GRN there, type in the search box — GRN, PO or JWO number, invoice, material, supplier, style or warehouse — or use **All suppliers**, **All statuses** and the **Inward date** From/To filter; the **Clear N filters** button resets them.)
 2. Click **+ Create GRN**. The page title reads **Create Goods Receiving Note**. (Shortcut: from the PO page click **Receive Goods** and the PO is already selected — or, in the PO's **Deliver To** card, click **Receive here** on a delivery place and that place is chosen too.)
-3. Under **Purchase Order Selection**, search by PO number, supplier, material or style, or click a category chip — **All (N)** plus one chip for each category that has POs waiting, named as on the PO page (Greige, Greige Lace, Trims, Accessories, Machine Parts…) — then pick the PO in **Purchase Order ***. Labels and packaging are bought on an **Accessories** PO; an older PO may still show the retired **Packaging** chip.
+3. Under **Purchase Order Selection**, type in the **Search by PO number, supplier, material, buyer style code or style code...** box — it also finds a PO by the buyer's name — or click a category chip — **All (N)** plus one chip for each category that has POs waiting, named as on the PO page (Greige, Greige Lace, Trims, Accessories, Machine Parts…) — then pick the PO in **Purchase Order ***. Each PO reads its number, supplier, material type, the styles it is for (Buyer Style Code first, our Style Code in brackets when different, e.g. SP27DR27 (EBWW-021)) and the buyer. Labels and packaging are bought on an **Accessories** PO; an older PO may still show the retired **Packaging** chip.
 4. If you came here to receive from a processor, stop: under the PO list the form says **Receiving from a processor? Open the job work order and click Receive from processor**. There is no job work box on this form any more.
 5. If the PO is **split across several places**, a **Delivery point *** box appears: pick which of the PO's places this delivery is for. Each option shows that place's planned, received and still-to-come quantity, and picking it fills the Warehouse.
 6. Choose **Warehouse *** and confirm **Receiving Date *** (defaults to today). On a PO that delivers to one place, the Warehouse is pre-filled with that place ("The PO delivers here."). If the goods actually arrived somewhere else, change it — an amber note says "The PO plans this delivery for …. Book it here only if the goods actually arrived here." If the supplier delivered straight to a dyer, pick that dyer's **<Dyer> - Processing Unit** as the Warehouse and the day the dyer received it as the Receiving Date. On approval the greige is booked as ours, held at the dyer, with a job-work challan (see *Approve a GRN*).

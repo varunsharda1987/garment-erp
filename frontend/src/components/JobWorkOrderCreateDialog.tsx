@@ -571,7 +571,7 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
                 value={styleId}
                 onValueChange={setStyleId}
                 status={null}
-                placeholder="Search style code..."
+                placeholder="Search by buyer style code or style code..."
               />
             </div>
           )}

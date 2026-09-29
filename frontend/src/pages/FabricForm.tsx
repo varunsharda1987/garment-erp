@@ -1007,7 +1007,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                   <StyleCombobox
                     value={selectedStyleId}
                     onChange={(styleId) => handleStyleChangeFromCombobox(styleId)}
-                    placeholder="Search by style code..."
+                    placeholder="Search by buyer style code or style code..."
                     disabled={mode === 'edit'}
                   />
                 </div>

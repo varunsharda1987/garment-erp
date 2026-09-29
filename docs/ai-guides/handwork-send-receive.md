@@ -12,18 +12,21 @@ keywords:
   - external process
   - stitching issue
   - handwork vendor
+  - buyer style code
   # Hinglish
   - handwork bhejana
   - handwork lena
   - haath ka kaam
   - haath ka kaam bhejein
   - vendor ko bhejein
+  - buyer ka style code
   # Devanagari
   - हैंडवर्क
   - हाथ का काम
   - हैंडवर्क भेजना
   - हैंडवर्क लेना
   - वेंडर को भेजना
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/HandworkDashboard.tsx
@@ -43,13 +46,13 @@ Handwork is an external process done after stitching (post-stitching, pre-finish
 3. See the dashboard with:
    - **Summary cards**: Total Sent, Pending, Partial, Received, Overdue
    - **By Vendor** table: breakdown of work at each vendor
-   - **Send-outs list**: all handwork batches with status and actions
+   - **Send-outs list**: all handwork batches with status and actions. The style shows in two columns: **Buyer Style Code** (bold, style name under it), then **Style Code** (our code)
 
 ## Send out for handwork
 
 1. Go to **Manufacturing > Handwork**
 2. Click **New Send-Out** button (top right)
-3. **Step 1 - Select Work Order**: Click **Select work order...** and type part of the run number, style code or buyer ref, then pick the work order (only PENDING or IN_PRODUCTION runs are listed)
+3. **Step 1 - Select Work Order**: Click **Select work order...** and type part of the run number, buyer style code, style code or style name (**Search by run number, buyer style code, style code, style name...**), then pick the work order. Each run reads run number — style (Buyer Style Code first, our Style Code in brackets when different) - style name (pieces). Only PENDING or IN_PRODUCTION runs are listed
 4. **Step 2 - Select Job Work Order**: Choose a HANDWORK-type job work order for that work order
    - If no job work order exists, create one first from the work order's service requirements
 5. **Step 3 - Select Stitching Issue**: Choose which stitching issue to send pieces from
@@ -76,7 +79,7 @@ Handwork is an external process done after stitching (post-stitching, pre-finish
 
 ### Recording the receipt
 1. If not pre-selected, choose the pending send-out from the dropdown
-2. Review the send-out details (batch, vendor, work order, style, qty sent, send date, agreed rate)
+2. Review the send-out details (batch, vendor, work order, **Buyer Style Code**, our **Style Code** when different, qty sent, send date, agreed rate)
 3. In the **Receive by SKU** table:
    - Enter **Received** quantity for each color/size
    - Enter **Damaged** quantity if any pieces are damaged

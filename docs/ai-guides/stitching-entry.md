@@ -35,6 +35,9 @@ keywords:
   - बिना रंग
   - रंग नहीं है
   - रंग वैकल्पिक
+  - buyer style code
+  - buyer ka style code
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -57,10 +60,13 @@ Stitching has two parts: first create a **stitching issue** from a cutting trans
 ## Create the stitching issue
 1. Open **Manufacturing → Stitching** in the sidebar (under the **Production Stages** heading). The **Stitching Department** page opens.
 2. Click **New Issue**. You can also open the **Incoming from Cutting** tab and click **Receive & Create Issue** on a slip, which pre-ticks it.
-3. On the **New Stitching Issue** page, in **Source Selection**, tick one or more transfer slips. Use the work-order checkbox to tick all slips of that run at once.
+3. On the **New Stitching Issue** page, in **Source Selection**, tick one or more transfer slips. Each slip shows its number, the style by buyer style code first (our Style Code in brackets when it differs) and the style name. Use the work-order checkbox to tick all slips of that run at once.
 4. In **Issue Details** fill **Issue Date** (required) and pick the **Stitching Contractor** (required). **Expected Completion** defaults to 7 days ahead and can be changed.
 5. In **SKU Breakdown**, set **Issue Qty** for each colour and size. It is pre-filled with the full **Available** quantity.
 6. Click **Create Stitching Issue**. The issue page opens.
+
+## Find an issue later
+On the **Stitching Issues** tab, the filter row has a search box (**Search issue number, run number, buyer style code, style…**), **All statuses**, and **All production runs** (type a run number, buyer style code, style code or order to pick one). **Clear N filters** removes them all. Each issue shows the **Work Order**, the **Buyer Style Code** (the style name under it) and our **Style Code**. The issue page lists **Buyer Style Code**, **Style Code** and **Style Name** separately.
 
 ## Record the work
 7. Click **Receive from Cutting** (Step 1), then **Start Stitching** (Step 2).

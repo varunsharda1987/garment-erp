@@ -29,6 +29,9 @@ keywords:
   - प्रिंटिंग ट्रायल
   - प्रिंट मिल
   - छपाई का सैंपल
+  - buyer style code
+  - buyer ka style code
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -52,8 +55,8 @@ route: /manufacturing/printing/lab-dips/new
 2. Click the **Lab Dips** tab if not already selected.
 3. Click **New Lab Dip** button in the header.
 4. In the **Style & Submission** card:
-   - Click the **Style** box (it reads "Search styles...") and type part of the style code or name.
-   - Select the style from the results.
+   - Click the **Style** box (it reads "Search styles...") and type part of the buyer style code, our style code or the style name.
+   - Select the style from the results. Each style shows its buyer style code first, with our Style Code in brackets when it differs, and the style name under it.
    - Set the **Submission Date** (defaults to today).
 5. The system loads all fabrics from the style. A table appears showing:
    - **Include** checkbox (all selected by default)

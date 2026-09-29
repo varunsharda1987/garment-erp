@@ -66,7 +66,7 @@ route: /manufacturing/dispatch/asn/new
    - **Expected Delivery** date
 
 5. In the **SKU Breakdown** table, review each line showing:
-   - **Style** (name and code)
+   - **Style** — the **Buyer Style Code** in bold, with the style name (and our Style Code, when it differs) under it
    - **Color** (with colour swatch if available; **—** for a style with no colour)
    - **Size**
    - **Order Qty** (original order quantity)

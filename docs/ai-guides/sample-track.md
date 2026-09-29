@@ -36,6 +36,9 @@ keywords:
   - सैंपल प्रोग्रेस
   - सैंपल अप्रूव
   - सैंपल रिजेक्ट
+  - buyer style code
+  - buyer ka style code
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -61,17 +64,18 @@ route: /samples
    - **Approved** — samples approved by buyer
 
 3. Use the **Filters** row to find specific samples:
-   - **Search** — sample number, style code, the buyer's style code, style name or customer name
+   - **Search** — sample number, buyer style code, our style code, style name or customer name
    - **All types** dropdown — FIT Sample, PP Sample (Pre-Production), Size Set Sample, Photoshoot Sample, Production Sample or Shipment Sample
    - **All statuses** dropdown — Requested, In Progress, Submitted, Approved, Rejected, Sent to Buyer, Awaiting Feedback, Revision Needed or Approved (with comments)
-   - **All customers** and **All styles** — searchable pickers; type to find one, or pick the "All …" row to see everything
+   - **All customers** and **All styles** — searchable pickers; type to find one, or pick the "All …" row to see everything. In **All styles**, type the buyer style code or our style code — each style reads buyer style code first, our Style Code in brackets
    - **Group by** dropdown — **No grouping**, **By sample type**, **By customer** or **Overdue first**
    - Click **Clear N filters** to remove every filter and go back to page 1. It keeps your **Group by** choice. If nothing matches, the list says "No samples match these filters." with a **Clear filters** button.
 
 4. The table shows each sample with:
+   - **Buyer Style Code** — the buyer's code for the style, with the style name under it ("No style" when the sample has none)
+   - **Style Code** — our style code
    - **Sample #** — sample number with version badge and overdue indicator (red alert icon)
    - **Type** — FIT Sample, PP Sample, Size Set Sample, etc.
-   - **Style** — style code and buyer reference
    - **Customer** — customer name
    - **Required By** — due date (red if overdue)
    - **Status** — current status badge
@@ -127,8 +131,8 @@ On the **Sample Detail** page:
    - Overdue badge if past due date
 
 2. **Sample Details** card shows:
-   - Style code with link to style
-   - Buyer Reference
+   - **Buyer Style Code**, with the style name under it and a link button that opens the style
+   - **Style Code** (our code)
    - Customer
    - Request Date and Required By date
    - Created By and Created On

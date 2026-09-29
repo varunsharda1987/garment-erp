@@ -57,6 +57,10 @@ keywords:
   - बिना रंग
   - रंग नहीं है
   - रंग चुनें
+  # Style code
+  - buyer style code
+  - buyer ka style code
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -88,14 +92,14 @@ route: /manufacturing/dispatch/delivery/new
    From a sale order you can also open **Actions** → **Create Delivery Note** on the sale order page (see *Dispatching a sale order* below).
 
 3. In the **Delivery Details** card:
-   - Click **Order *** ("Select order...") and type part of the order number, customer or style code, then pick the order. Newest orders come first; if the list says **Showing … of …**, keep typing to bring up an older one.
+   - Click **Order *** ("Select order...") and type part of the order number, customer, buyer style code or style code, then pick the order. Each order lists its styles under it, Buyer Style Code first (e.g. `SP27DR27 (EBWW-021)`). Newest orders come first; if the list says **Showing … of …**, keep typing to bring up an older one.
    - The **Customer *** auto-fills from the selected order. To change it, click the box and type part of the customer code or name.
    - Set the **Delivery Date *** (defaults to today).
 
 4. In the **Items** card:
    - The system pre-fills items from the order's SKU breakup.
    - For each row, verify or select:
-     - **Style** — click the box ("Select style") and type part of the style code or name; only the styles on the order are listed
+     - **Style** — click the box ("Select style") and type part of the buyer style code, style code or name; only the styles on the order are listed. Each reads e.g. `SP27DR27 (EBWW-021) — Style Name` (our Style Code in brackets only when it differs). Against a sale order, the buyer style code is the one captured on the sale order line
      - **Color** (from the selected style's colours). A style with no colour shows **—** here and the box is greyed out — leave it. A style that comes in several colours must have one chosen.
      - **Size** (from the selected style's size options)
      - **Quantity** (number of pieces to dispatch)
@@ -130,7 +134,7 @@ When you click **Create Delivery Note** from an approved ASN:
 - Finished-goods stock with no colour (from a style with no colour) can ship against any row of that style and size, whatever colour the row names.
 - **Quantity** must be a positive whole number (no decimals, no zero).
 - You need at least one item row with valid data. An empty items list blocks submission.
-- If FG stock does not cover a size, the note is **refused** and nothing is saved. A red box lists each short size (e.g. "need 50, in stock 30"). Record finishing first (**Generate Transfer Slip**), or ask an administrator: an admin sees **Create anyway (admin override)** and must write a reason (at least 10 characters), which is saved on the note.
+- If FG stock does not cover a size, the note is **refused** and nothing is saved. A red box lists each short size, style named Buyer Style Code first (e.g. "SP27DR27 (EBWW-021) Red M: need 50, in stock 30"). Record finishing first (**Generate Transfer Slip**), or ask an administrator: an admin sees **Create anyway (admin override)** and must write a reason (at least 10 characters), which is saved on the note.
 - Stock reserved (allocated) for this sale order is used first. Stock reserved for a **different** sale order is never taken, even if it is on the shelf.
 - A size cannot ship more than the buyer ordered — unless the customer has an **Over-shipment allowed (%)** set on the Customer page (for example 5 lets 100 ordered ship as up to 105). Anything above that is refused, naming the size and how many can still go.
 - Against a sale order, every row must match one of its lines: same style and size, and the colour must match — or the line was ordered without a colour, or (for a row with no colour) the sale order has only one line of that style and size. Otherwise it is refused ("… has no line for [style] size [size] in that colour.").

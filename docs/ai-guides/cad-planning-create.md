@@ -51,6 +51,7 @@ keywords:
   - margin
   - layer margin
   - how is CAD average calculated
+  - buyer style code
   # Hinglish
   - CAD banana
   - marker banane ka tarika
@@ -76,6 +77,7 @@ keywords:
   - reason dekar save karna
   - margin kitna hai
   - average kaise nikla
+  - buyer ka style code
   # Devanagari (MANDATORY)
   - कैड
   - कैड प्लानिंग
@@ -106,6 +108,7 @@ keywords:
   - कारण के साथ सेव
   - मार्जिन
   - एवरेज कैसे निकला
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/CADPlanningPage.tsx
@@ -141,7 +144,8 @@ A style must exist with:
 
 ### 2. Find your style
 
-- Type in the **Search** box ("Search style code, buyer ref, name, buyer, brand, greige…"). It searches across both tabs.
+- Type in the **Search** box ("Search buyer style code, style code, name, buyer, brand, greige…"). It searches across both tabs.
+- Each row shows the **Buyer Style Code** first (bold, with the style name under it), then our **Style Code** in the next column. A style with no separate buyer code shows its Style Code in both.
 - Narrow the list with the filters in the row above the tabs. They work on both tabs, and the numbers on the **Pending** and **Approved** tabs change to count only the matching styles:
   - **Buyer** - starts at **All buyers**; tick one or more buyers
   - **Brand** - starts at **All brands**; tick one or more brands
@@ -161,7 +165,7 @@ A style must exist with:
 ### 3. Open the CAD spreadsheet
 
 1. Click **Open CAD** button on your style row.
-2. The CAD Planning page opens with three tabs:
+2. The CAD Planning page opens. Under the **CAD Planning** heading it names the style, Buyer Style Code first, e.g. `SP27DR27 (EBWW-021) — Style Name`. It has three tabs:
    - **CAD Spreadsheet** - main editing area (default)
    - **CAD History** - view all historical CAD options
    - **Order History** - orders using this style's CAD

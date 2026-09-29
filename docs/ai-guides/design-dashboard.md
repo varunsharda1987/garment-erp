@@ -59,8 +59,8 @@ The dashboard displays 4 stat cards at the top:
 2. Each card displays:
    - Style image (or placeholder if no image)
    - Status badge (DRAFT, ACTIVE, DISCONTINUED, ARCHIVED)
-   - Style code
-   - Buyer reference (if available)
+   - Buyer Style Code (bold; our Style Code when the style has no separate buyer code)
+   - **Style Code:** our code, shown only when it differs from the Buyer Style Code
    - Style name
    - Season (if assigned)
 3. Click any style card to open that style's detail page
@@ -81,10 +81,10 @@ The **Team Activity** section shows recent comments from team members:
 1. Each entry shows:
    - Team member's avatar with initials
    - Team member's name
-   - Style code link (click to view that style)
+   - Style link, Buyer Style Code first with our Style Code in brackets when it differs, e.g. `SP27DR27 (EBWW-021)` (click to view that style)
    - Comment excerpt
    - Timestamp (e.g., "2 hours ago")
-2. Click the style code link to navigate directly to that style
+2. Click the style link to navigate directly to that style
 
 ### Viewing Styles by Season
 

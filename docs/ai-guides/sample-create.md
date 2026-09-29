@@ -50,6 +50,9 @@ keywords:
   - शिपमेंट सैंपल
   - फोटोशूट सैंपल
   - बायर अप्रूवल
+  - buyer style code
+  - buyer ka style code
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -83,7 +86,7 @@ route: /samples/new
      - Shipment Sample
      - Photoshoot Sample
      - Production Sample
-   - **Style (Optional)** — Opens once a customer is chosen. Click **Select style** and type part of the style code, the buyer's code or the style name to pick one of the chosen customer's styles, or pick **No style**. If nothing matches it says "No styles found for this customer."
+   - **Style (Optional)** — Opens once a customer is chosen. Click **Select style** and type part of the buyer style code, our style code or the style name (**Search buyer style code, style code or name...**) to pick one of the chosen customer's styles, or pick **No style**. Each style reads buyer style code first, with our Style Code in brackets when it differs, then the style name. If nothing matches it says "No styles found for this customer."
    - **Required By** * — Date when the sample is needed (defaults to 7 days from today).
    - **Notes** — Any special instructions or remarks.
 

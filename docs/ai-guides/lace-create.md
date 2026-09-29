@@ -38,6 +38,9 @@ keywords:
   - lace banana
   - nayi lace
   - lace master
+  - buyer style code
+  - buyer ka style code
+  - बायर स्टाइल कोड
   - lace supplier
   - shrinkage
   - lace shrinkage
@@ -75,6 +78,7 @@ sources:
   - backend/src/services/helpers/po-line-category.helper.ts
   - frontend/src/types/purchaseOrder.types.ts
   - frontend/src/components/LaceCombobox.tsx
+  - frontend/src/components/StyleCodeMultiSelect.tsx
 route: /materials/lace/new
 ---
 
@@ -97,10 +101,10 @@ route: /materials/lace/new
 13. Fill **Composition**, **Design** and **Buyer Code** if known. All are optional.
 14. Under **Suppliers**, click **Add Supplier**. On each row select the **Supplier** (only suppliers tagged with the **Lace Supplier** category are listed), then fill **Price/Meter (₹)** and **Notes** if known. Tick **Preferred Supplier** and **Active** as needed — the first row you add is ticked as preferred automatically. Use the bin icon to remove a row.
 15. Add a **Supplier Reference Code** under **Reference Codes** if the supplier uses their own SKU.
-16. Under **Style Associations**, use **Associated Styles** to select the styles that use this lace. The first style picked is treated as the primary one. (A style appears in the name only on a dyed lace made for that style.)
+16. Under **Style Associations**, use **Associated Styles** (**Search and select styles to associate with this lace...**) to select the styles that use this lace — type the buyer style code or our style code. Styles are shown by their Buyer Style Code first, with our Style Code in brackets when different (e.g. SP27DR27 (EBWW-021)). The first style picked is treated as the primary one. (A style appears in the name only on a dyed lace made for that style, written the same way — Buyer Style Code first. Names saved before this change keep their old order and are not renamed.)
 17. Under **Additional Information**, add a **Description** if useful.
 18. To attach a photo, scroll to **Lace Image** and click the box that says **Click to upload lace image**. JPG, PNG or WEBP files up to 5MB are accepted. On the preview, the upload button replaces the photo and the ✕ button removes it.
-19. Click **Create Lace**. You return to the lace list, where the **Type** column shows **Greige**, **Ready**, or **Processed** (a finished lace linked to a source greige, with the greige code shown under it).
+19. Click **Create Lace**. You return to the lace list, where the **Type** column shows **Greige**, **Ready**, or **Processed** (a finished lace linked to a source greige, with the greige code → the style it was made for shown under it). The **Styles** column lists the styles using the lace by Buyer Style Code first.
 
 ## HSN and buying
 - There is no HSN box on this form. The 6-digit HSN code is filled in automatically when the lace is first saved, chosen from its **Lace Type**, **Design** and **Composition** — fill them so the right code is picked.

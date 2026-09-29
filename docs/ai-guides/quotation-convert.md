@@ -43,7 +43,7 @@ A quotation must be in **Accepted** status before it can be converted to a produ
 
 ## Steps
 1. Open **Orders & Sales → Quotations** in the sidebar.
-2. Find the quotation you want to convert. Narrow the list with the filter row: the search box (quotation number, customer, style or buyer style), the **All customers** picker (type to find a customer), the **All statuses** dropdown (choose **Accepted** to see only quotations ready to convert), or the **Quotation date** range (a from date and a to date). **Clear N filters** removes them all and goes back to page 1. If nothing matches, the list says "No quotations match these filters." with a **Clear filters** button.
+2. Find the quotation you want to convert. Narrow the list with the filter row: the search box (quotation number, customer, style or buyer style code), the **All customers** picker (type to find a customer), the **All statuses** dropdown (choose **Accepted** to see only quotations ready to convert), or the **Quotation date** range (a from date and a to date). **Clear N filters** removes them all and goes back to page 1. If nothing matches, the list says "No quotations match these filters." with a **Clear filters** button.
 3. Click the quotation row or click **View** to open the quotation detail page.
 4. If the quotation is in **Draft** status, first click **Mark as Sent** to move it to Sent status.
 5. If the quotation is in **Sent** status, click **Accept** to move it to Accepted status. A confirmation dialog appears — click **Update Status** to confirm.

@@ -331,7 +331,7 @@ export default function FabricCostingOptionsPage() {
           <SearchInput
             value={filters.search || ''}
             onChange={(v) => setFilters((prev) => ({ ...prev, search: v || undefined, page: 1 }))}
-            placeholder="Search style, buyer code, customer, component, greige, processor…"
+            placeholder="Search style, buyer style code, customer, component, greige, processor…"
             className="w-[340px]"
           />
 

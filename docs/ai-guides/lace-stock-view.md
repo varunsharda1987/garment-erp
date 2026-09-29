@@ -15,6 +15,7 @@ keywords:
   - lace allocation
   - lace transfer
   - lace return
+  - buyer style code
   # Hinglish
   - lace stock dekhna
   - lace kitna hai
@@ -22,6 +23,7 @@ keywords:
   - lace inventory dekhna
   - lace available kitna
   - lace aging report
+  - buyer ka style code
   # Devanagari (MANDATORY)
   - लेस स्टॉक
   - लेस इन्वेंटरी
@@ -31,6 +33,7 @@ keywords:
   - लेस रिज़र्व
   - ग्रेज लेस
   - डाई लेस
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/LaceStockList.tsx
@@ -62,12 +65,12 @@ The page shows four summary cards:
 
 Use the filter row above the list:
 
-1. Type in the search box (**Search lace, color, lot or dye lot, style or buyer ref...**).
+1. Type in the search box (**Search lace, color, lot or dye lot, style or buyer style code...**).
 2. Pick one lace in the **All laces** picker. Type a lace code, name, colour or style to narrow the list.
 3. Pick a status in the **All statuses** dropdown: Available, Reserved, Exhausted, Issued or Pending Return.
 4. Pick a stock type in the **All types** dropdown: Generic, Planned, Excess, MOQ Excess, Cross-Style Reuse, Returned or Variance Unused.
 5. Pick a grade in the **All grades** dropdown: Grade A, Grade B or Defect.
-6. Pick a style in the **All origin styles** picker. Type to search the style list.
+6. Pick a style in the **All origin styles** picker. Type the buyer style code or our style code to search; styles are listed by Buyer Style Code first, with our Style Code in brackets when different (e.g. SP27DR27 (EBWW-021)).
 7. Click **Clear N filters** to reset all filters and go back to page 1.
 8. If nothing matches, the list says **No lace stock lots match these filters.** Click **Clear filters** to see every lot.
 
@@ -78,7 +81,7 @@ Click **Refresh** to reload the list.
 | Column | Meaning |
 |--------|---------|
 | **Lace / Lot** | Lace name, code, color, origin style, lot number, dye lot number |
-| **Origin Style** | Style the lace was originally purchased for (or "Generic" if no specific style) |
+| **Origin Style** | Style the lace was originally purchased for, Buyer Style Code first with our Style Code in brackets when different (or "Generic" if no specific style) |
 | **Available** | Meters available for use (green) |
 | **Reserved** | Meters reserved for orders but not yet consumed (blue) |
 | **WAC** | Weighted Average Cost per meter |
@@ -113,7 +116,7 @@ The detail page has three tabs:
 Shows:
 - **Stock Quantities**: Available, Reserved, Consumed, Total Original (in meters)
 - **Cost Information**: Weighted Avg Cost, Purchase Cost, Total Value
-- **Origin & Traceability**: Origin Style, Origin Order, Procurement Ref, Processing Batch
+- **Origin & Traceability**: Origin Style (Buyer Style Code first, our Style Code in brackets), Origin Order, Procurement Ref, Processing Batch
 - **Location & Dates**: Warehouse, Rack, Received Date, Last Consumed Date
 
 ### Allocations tab
@@ -122,7 +125,7 @@ Shows all allocations from this lot:
 
 | Column | Meaning |
 |--------|---------|
-| **Style** | Style code allocated to |
+| **Style** | Style allocated to — Buyer Style Code first, our Style Code in brackets when different (with **From:** the original style when it was moved) |
 | **Order** | Order number |
 | **Type** | Allocation type (STYLE_BOM, CROSS_STYLE, etc.) |
 | **Allocated** | Total meters allocated |

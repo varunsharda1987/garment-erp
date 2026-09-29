@@ -41,6 +41,9 @@ keywords:
   - filter costing options
   - search costing options
   - costing option dhundho
+  - buyer style code
+  - buyer ka style code
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/FabricCostingOptionsPage.tsx
@@ -57,15 +60,15 @@ route: /fabric-costing/options
 
 1. Click **Pre-Production** in the sidebar
 2. Click **Costing Options**
-3. The page shows all saved fabric costing options grouped by style
+3. The page shows all saved fabric costing options grouped by style. Each style's block is headed by its **Buyer Style Code**, our Style Code in brackets when it differs, then the style name (e.g. `SP27DR27 (EBWW-021) — GEMINI`), with the customer and option counts under it. Click the header to open or close the block
 
 ## Filter Options
 
 Use the filter row at the top to narrow down results:
 
-1. **Search** - Type in the box **Search style, buyer code, customer, component, greige, processor…** to find options by any of those
+1. **Search** - Type in the box **Search style, buyer style code, customer, component, greige, processor…** to find options by any of those
 2. **Customer** - Open the **All customers** picker, type a customer name and pick it
-3. **Style** - Open the **All styles** picker, type a style code or name and pick it (you do not need to pick a customer first)
+3. **Style** - Open the **All styles** picker, type the buyer style code, style code or name and pick it (you do not need to pick a customer first). Styles are listed by buyer style code, e.g. `SP27DR27 (EBWW-021) - GEMINI (Easybuy)`. Once picked, the page title reads **Costing Options - SP27DR27 (EBWW-021)**
 4. **Processor** - Open the **All processors** picker, type a processor name and pick it
 5. **Status** - Choose **All statuses**, **Approved**, or **Pending**
 6. Click **Clear N filters** to reset every filter and go back to page 1. The purpose tab and the rows-per-page choice stay as they are.

@@ -22,6 +22,9 @@ keywords:
   - एम्ब्रॉयडरी डिस्पैच
   - कढ़ाई का काम
   - कटे पीस भेजना
+  - buyer style code
+  - buyer ka style code
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/EmbroideryPieceSendOut.tsx
@@ -46,8 +49,8 @@ route: /embroidery-stock/piece-send-out
 2. Click **New Piece Send-Out** button (top right)
 
 3. **Step 1 - Select Work Order:**
-   - Click **Select work order...** and type part of the run number, style code, buyer ref or style name
-   - Pick the work order (shows: WO number, style code, style name, quantity)
+   - Click **Select work order...** and type part of the run number, buyer style code, style code or style name
+   - Pick the work order. Each reads: WO number — Buyer Style Code (our Style Code in brackets when it differs) - style name (quantity), e.g. `WO2609-0087 — SP27DR27 (EBWW-021) - GEMINI (500 pcs)`
 
 4. **Step 2 - Select Job Work Order & Design:**
    - **Job Work Order (Required):** Select from dropdown (shows: JWO number, vendor name, status)

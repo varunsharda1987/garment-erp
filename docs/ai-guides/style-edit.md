@@ -15,6 +15,8 @@ keywords:
   - size preset
   - size category preset
   - size preset resets to none
+  - buyer style code
+  - find style by buyer code
   # Hinglish
   - style edit karna
   - style change karna
@@ -23,6 +25,7 @@ keywords:
   - style mein changes
   - size preset save nahi hota
   - size preset none ho jata hai
+  - buyer ka style code
   # Devanagari
   - स्टाइल एडिट
   - स्टाइल बदलना
@@ -31,6 +34,7 @@ keywords:
   - स्टाइल संशोधन
   - साइज़ प्रीसेट
   - साइज प्रीसेट
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/StyleFormRedesigned.tsx
@@ -38,6 +42,8 @@ sources:
   - frontend/src/components/filters/FilterBar.tsx
   - frontend/src/components/CustomerCombobox.tsx
   - frontend/src/components/SearchInput.tsx
+  - frontend/src/components/StyleIdentity.tsx
+  - frontend/src/lib/style-code.ts
   - backend/src/schemas/style.schema.ts
   - backend/src/services/style.service.ts
   - backend/src/services/helpers/material-unit.helper.ts
@@ -50,19 +56,19 @@ route: /styles
 
 1. Click **Styles** in the sidebar (top-level item)
 2. The list has three tabs: **Active Styles**, **Drafts** and **Inactive**
-3. Type in the search box (**Search style code, buyer ref, name, buyer, brand, category…**) to find the style. On **Active Styles** you can also narrow the list with the status dropdown (**All statuses**, **Active only**, **Drafts only**); **Clear N filters** resets the search and status, goes back to page 1 and keeps your tab and rows-per-page choice. If nothing matches on **Active Styles**, the list says **No styles match these filters.** with a **Clear filters** button
+3. Each row names the style in two columns: **Buyer Style Code** first (on **Active Styles** and **Drafts** in bold, with the style name under it and a **Draft** badge beside a draft), then our **Style Code**. A style with no separate buyer code shows its Style Code in both. Type in the search box (**Search buyer style code, style code, name, buyer, brand, category…**; on **Inactive** it also searches the internal code) to find the style — either code finds it. On **Active Styles** you can also narrow the list with the status dropdown (**All statuses**, **Active only**, **Drafts only**); **Clear N filters** resets the search and status, goes back to page 1 and keeps your tab and rows-per-page choice. If nothing matches on **Active Styles**, the list says **No styles match these filters.** with a **Clear filters** button
 4. Click the **Edit** button on the style row (requires ADMIN or MERCHANDISER role)
 
 ### Editing Basic Info (Tab 1)
 
-1. The style opens in edit mode at `/styles/{id}/edit`
+1. The style opens in edit mode at `/styles/{id}/edit`. The heading reads **Edit Style** followed by the Buyer Style Code, our Style Code in brackets when it is different, and the style name
 2. The **Style Code** cannot be changed after creation
 3. You can modify:
    - **Customer/Buyer** - click the box and type part of the customer's name to pick another; changing customer resets brand and brand category
    - **Brand** - select from the customer's configured brands
    - **Brand Category** - select from the brand's categories
    - **Product Category** - 3-level hierarchy (a **Type** box appears for the third level)
-   - **Buyer Style Code** - the customer's own reference
+   - **Buyer Style Code** - the buyer's own code for the style; screens and printouts name the style by it first. It must be unique — a code already on another active style is refused with "Buyer Style Code ... already exists on style ..."
    - **Style Name** - descriptive name for the style
    - **Primary Color** and **Season**
 4. Expand **Additional Details (Optional)** for **HSN Code (6-8 digits)**, **Tax Rate (2 digits %)**, **Accounting Unit**, **Description**, **Bullet Points** and **Remarks**
@@ -122,7 +128,7 @@ route: /styles
 - **Published styles with orders** cannot be archived - check for active dependencies first
 - **CAD approval is separate** - CAD Planning approval (geometry) is different from Fabric Costing approval (price)
 - **Changing a fabric's greige or finish drops its received fabric** - Once dyed or printed fabric has been received, the fabric row is linked to it, and saving the style keeps that link. Changing that row's **Generic Greige Name** or **Fabric Finish Type**, or switching **Ready Fabric** back to **Greige / Process**, removes the link — CAD Planning then cannot match the received lots to the style until it is linked again
-- **Buyer Style Code for in-house brands** - for Kasya/Nihsamah, the buyer code IS the style code (fixed at the first save; editing it later changes only the buyer reference)
+- **Buyer Style Code for in-house brands** - for Kasya/Nihsamah, the buyer code IS the style code (fixed at the first save; editing it later changes only the Buyer Style Code, never the Style Code)
 
 ## After saving
 

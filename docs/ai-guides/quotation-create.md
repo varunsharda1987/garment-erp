@@ -26,6 +26,9 @@ keywords:
   - कोटेशन कैसे बनाये
   - नया कोटेशन
   - कस्टमर कोटेशन
+  - buyer style code
+  - buyer ka style code
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/QuotationForm.tsx
@@ -51,7 +54,7 @@ route: /quotations/new
    - **Remarks** — Optional notes about the quotation
    - **Terms and Conditions** — Payment terms, delivery conditions, etc.
 4. Add items in the **Quotation Items** section:
-   - **Style** * — Click **Select style...** and type part of the style code, then pick the style being quoted (required; only ACTIVE styles are listed)
+   - **Style** * — Click **Select style...** and type part of the buyer style code or our style code (**Type buyer style code or style code...**), then pick the style being quoted (required; only ACTIVE styles are listed). Each style reads buyer style code first, our Style Code in brackets when it differs, and the list is sorted by buyer style code
    - **Quantity** * — Enter number of pieces (must be greater than 0)
    - **Unit Price** * — Enter the price per piece in Rupees (required)
    - **Delivery Days** — Expected delivery timeline (defaults to 30 days)

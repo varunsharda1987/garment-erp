@@ -18,6 +18,9 @@ keywords:
   - fabric master
   - warehouse
   - godown
+  - buyer style code
+  - buyer ka style code
+  - बायर स्टाइल कोड
   - गोदाम
 sources:
   - frontend/src/config/navigation.ts
@@ -39,7 +42,7 @@ route: /fabric-stock
 2. Press **Add Stock** at the top right. (If the list is empty the button reads **Add First Stock Entry**.) The page **Finished Fabric Stock Entry** opens.
 3. In **Select Finished Fabric \*** search by code, name or colour and pick the fabric. This field is required.
 4. A **Fabric Details** panel appears with code, name, finish type, colour, actual width and cutable width. Press **Greige Base Details** to expand the greige it was made from.
-5. Read the coloured strip below the details. Green means the fabric is **Linked to N style(s)**. Yellow means **Not linked to any style** — stock for unlinked fabric cannot be used for cutting, so link it in **Styles** first if you plan to cut it.
+5. Read the coloured strip below the details. Green means the fabric is **Linked to N style(s)**, followed by those styles, each named by its Buyer Style Code first with our Style Code in brackets when different (e.g. SP27DR27 (EBWW-021)); click one to open the style. Yellow means **Not linked to any style** — stock for unlinked fabric cannot be used for cutting, so link it in **Styles** first if you plan to cut it.
 6. Fill **Quantity (meters) \***. Required, must be more than zero.
 7. **Width (inches) \*** fills in automatically from the Fabric Master and is read-only. If it is blank or wrong, correct the fabric's actual width in the Fabric Master, or the save will be rejected.
 8. Set **Quality Grade \*** — **Grade A (Premium)**, **Grade B (Standard)** or **Defect (Rejected)**. It starts on Grade A.
@@ -54,5 +57,5 @@ route: /fabric-stock
 - Quantity and width must both be positive numbers; purchase cost cannot be negative. **Notes** is limited to 500 characters.
 - **Warehouse Location** starts empty. It is a searchable dropdown — search by warehouse code, name or city and pick from the list; it cannot be typed in free-form.
 - If the warehouse box reads **Could not load — open to retry** (the server was busy for a moment), open it again — the list is fetched afresh. It is never stuck.
-- To book stock directly against a style instead, use **Add Stock Against Style** on the **Finished Fabric Stock** page and pick the style code.
+- To book stock directly against a style instead, press **Add Stock Against Style** on the **Finished Fabric Stock** page. In **Select Style for Fabric Stock Entry** type the buyer style code or our style code (the list is sorted by buyer style code), pick the style and press **Continue**.
 - A lot entered here has no roll or than list — its **Rolls / thans** column reads "No list". To list them, click **Record rolls & thans** on the lot's row (see "Record or check the rolls & thans of a fabric lot"). Fabric received back from a processor than-wise, bale-wise or roll-wise gets its list automatically.

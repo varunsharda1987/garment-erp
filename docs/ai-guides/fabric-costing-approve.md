@@ -22,6 +22,9 @@ keywords:
   - कॉस्टिंग लॉक करना
   - रेट अप्रूव करो
   - फैब्रिक रेट पास
+  - buyer style code
+  - buyer ka style code
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/FabricCostingPage.tsx
@@ -42,11 +45,11 @@ route: /fabric-costing
 1. Go to **Pre-Production** in the sidebar
 2. Click **Costing Options**
 3. Filter to find your style:
-   - Type the style code, buyer code or customer in the search box, or
-   - Pick from the **All styles** picker (searchable — type the style code), or the **All customers** picker
+   - Type the buyer style code, style code or customer in the search box ("Search style, buyer style code, customer, component, greige, processor…"), or
+   - Pick from the **All styles** picker (searchable — type the buyer style code or style code; styles are listed by buyer style code, e.g. `SP27DR27 (EBWW-021) - GEMINI (Easybuy)`), or the **All customers** picker
    - Or use the Purpose tabs (All / Costing / Raw Mat) to filter
    - Click **Clear N filters** to reset the filters
-4. Find the costing option you want to approve in the table
+4. Find the costing option you want to approve in the table. Each style's block is headed by its Buyer Style Code, our Style Code in brackets when it differs, then the style name (e.g. `SP27DR27 (EBWW-021) — GEMINI`)
 5. Click the **three-dot menu** (More options) on the right side of the row
 6. Click **Approve**
 7. The status will change to show a green **Approved** badge with a lock icon

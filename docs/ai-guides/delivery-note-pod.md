@@ -51,6 +51,7 @@ You need a delivery note that is **In Transit** status. POD cannot be recorded f
 3. Click **View** to open the delivery note detail page.
 
 4. Click the **Record POD** button (only visible when status is In Transit).
+   The POD page lists the note's items: **Buyer Style Code** (bold, style name under it), **Style Code** (our code), **Color**, **Size** and **Quantity**.
 
 5. In the **Proof of Delivery Details** section, fill in:
    - **Delivery Date** (required) - when goods were delivered
@@ -60,7 +61,7 @@ You need a delivery note that is **In Transit** status. POD cannot be recorded f
 
 6. Select the **Delivery Status**:
    - **Delivered** - all items received in full
-   - **Partial** - some items missing. A **Received on each line** table appears (Style, Colour, Size, Sent, **Received**): type what actually arrived on each line. The **Short** total is worked out for you.
+   - **Partial** - some items missing. A **Received on each line** table appears (**Buyer Style Code**, **Style Code**, **Colour**, **Size**, **Sent**, **Received**): type what actually arrived on each line. The **Short** total is worked out for you.
    - **Rejected** - delivery refused (you must enter **Rejection Reason**)
 
 7. Tick **Customer sign-off received** if the customer signed the delivery documents.

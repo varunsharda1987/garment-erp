@@ -92,6 +92,9 @@ keywords:
   - रंग नहीं है
   - रंग के बिना साइज़
   - कपड़ा जारी
+  - buyer style code
+  - buyer ka style code
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -119,9 +122,9 @@ route: /orders
 
 ## Find the order
 1. Open **Orders & Sales → Orders** in the sidebar.
-2. Type in **Search by order number, customer or style...** — the order number, customer name or code, style code / buyer style / style name, or the sale order / buyer PO it came from. Several words narrow the list: each word must match something.
+2. Type in **Search by order number, customer or style...** — the order number, customer name or code, the buyer style code, our style code or the style name, or the sale order / buyer PO it came from. Several words narrow the list: each word must match something.
 3. Narrow the list with **All Customers** and **All Status** (Pending, In Production, Completed, Dispatched, Cancelled).
-4. The row shows the order number with its order date (and an **SO …** chip when it came from a sale order — click it to open the sale order), Customer, Style, Buyer Style, Delivery Date, Quantity, Amount ("Price TBD" when no price is set) and Status.
+4. The row shows the order number with its order date (and an **SO …** chip when it came from a sale order — click it to open the sale order), Customer, **Buyer Style Code** (the buyer's code for each style on the order), **Style Code** (our code for each of those styles), Delivery Date, Quantity, Amount ("Price TBD" when no price is set) and Status.
 5. Click the order number, the row, or **View** to open the order page.
 
 **Export** (top right) downloads the list as CSV, Excel or PDF, with the same search and filters you applied.
@@ -155,8 +158,8 @@ It also moves back: a cancelled or rejected delivery note takes a Dispatched ord
 
    A style that already has a production run shows the run number and its status instead — follow it in **Production**. "Checking…" shows while the checks load. A cancelled order says "This order is cancelled."; a completed one says "Production is finished" (and "and shipped" once dispatched).
 4. **Materials** — the **Materials to buy — N lines** row counts every live requirement line of the order once: **To order**, **On order**, **Received**, **From stock**, and, when there are any, **Waiting for sizes**, **Needs a decision** and **Not checked**, with "% ordered or in hand". Cancelled lines are not counted. A second row, **Processing (dyeing / printing)**, has an **Open** button for the Outsourced Work tab; **Services on the production runs** shows To assign / Job work created / Completed. **Open Requirements** opens **Requirements** filtered to this order. Before the BOM is approved it reads "No requirements yet".
-5. **Production** — one box per production run: number, status, style, planned dates and location, then **Fabric issued**, **Cut** (of the run's total), **Stitched**, **Finished** and **Completed** with a %. **Fabric issued** is net of any fabric returned from Cutting (fabric sent back and issued again is not counted twice), with how much is "still at Cutting" underneath. **View** opens the run. **Split** appears on a Pending run of more than one piece that has sizes. **Create Production Run** appears at the top when a style with sizes has no run yet.
-6. **Items & Sizes** — each style with its quantity and price per piece ("Price not set" when there is none), the colour × size grid (the **Colour** column reads **—** for sizes saved without a colour) and **Edit Size Breakdown**, and a **Costing (per piece)** box. The costing box uses the cost sheet's own words: the section totals (**Fabric Total**, **Trims Total** and so on), **Subtotal**, **Value Loss**, **Total After Value Loss**, **Markup**, **Total Product Cost** (the calculated cost) and **Closed Cost per Piece** (the buyer's agreed price, excluding GST — "not set on the cost sheet" when blank). Once a run has an actual cost, **Actual Total Product Cost** is shown against the Closed Cost.
+5. **Production** — one box per production run: number, status, style (buyer style code first, our Style Code in brackets when it differs), planned dates and location, then **Fabric issued**, **Cut** (of the run's total), **Stitched**, **Finished** and **Completed** with a %. **Fabric issued** is net of any fabric returned from Cutting (fabric sent back and issued again is not counted twice), with how much is "still at Cutting" underneath. **View** opens the run. **Split** appears on a Pending run of more than one piece that has sizes. **Create Production Run** appears at the top when a style with sizes has no run yet.
+6. **Items & Sizes** — each style (named by its buyer style code, our Style Code in brackets when it differs) with its quantity and price per piece ("Price not set" when there is none), the colour × size grid (the **Colour** column reads **—** for sizes saved without a colour) and **Edit Size Breakdown**, and a **Costing (per piece)** box. The costing box uses the cost sheet's own words: the section totals (**Fabric Total**, **Trims Total** and so on), **Subtotal**, **Value Loss**, **Total After Value Loss**, **Markup**, **Total Product Cost** (the calculated cost) and **Closed Cost per Piece** (the buyer's agreed price, excluding GST — "not set on the cost sheet" when blank). Once a run has an actual cost, **Actual Total Product Cost** is shown against the Closed Cost.
 7. **Order BOM** — one row per style with its BOM version, status and number of lines. **Review BOM** (draft) or **View BOM** opens it; **Create BOM** appears when the style has none.
 8. **Dispatch & Billing** — appears once there are delivery notes or invoices, including those made from the linked sale order. The heading says how many pieces of the order have shipped. Click a note or invoice to open it.
 
@@ -191,6 +194,8 @@ Saving refreshes the order's material requirements and creates the production ru
 4. Type the order number in the confirm box, then click **Cancel order**. **Keep order** leaves it as it is.
 
 Cancelling is refused once production has started — a run in production, fabric issued to Cutting, or a cutting batch. The message names each run; close or cancel those runs first. It is also refused when a run is already completed or dispatched, and while a job work of the order has material issued or received. The reason shows inside the dialog.
+
+Requirement lines already on a sent purchase order stay on that PO — it is a real document — but the cancelled order takes nothing more from it: what arrived for it and was not issued passes to the next order waiting for that material, and a PO link left with nothing is removed.
 
 **Delete** (Orders list, administrators only, on Pending or Cancelled orders) removes the order for good. It is refused, with the reason, when the order has production started, job work with material activity, shipped deliveries, paid invoices, processed ASN, fabric or lace allocations, lace issue notes, cutting batches, or requirement lines already on a PO or job work. A refused Delete never cancels anything; if the order is not yet cancelled, the refusal offers **Cancel the order instead…**, which opens the Cancel dialog above.
 

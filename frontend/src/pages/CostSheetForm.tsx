@@ -2098,10 +2098,12 @@ const CostSheetForm = () => {
                   }
                 }}
                 disabled={isEditMode || isApprovedCostSheet}
-                placeholder="Type style code to search..."
+                placeholder="Type buyer style code or style code to search..."
                 status={null} // Include both ACTIVE and DRAFT styles for costing
               />
-              <p className="text-xs text-muted-foreground mt-1">Search by style code, name, or customer</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Search by buyer style code, style code, name, or customer
+              </p>
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-2">Customer</label>

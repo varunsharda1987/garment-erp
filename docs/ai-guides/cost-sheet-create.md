@@ -69,6 +69,9 @@ keywords:
   - replaced version
   - purana version revoke
   - पुराना वर्जन
+  - buyer style code
+  - buyer ka style code
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -80,6 +83,7 @@ sources:
   - frontend/src/components/cost-sheet/CadCorrectionBanner.tsx
   - frontend/src/components/cost-sheet/LaceCostingSection.tsx
   - frontend/src/components/ui/combobox.tsx
+  - frontend/src/components/StyleCombobox.tsx
   - frontend/src/components/cost-sheet/LaceSourcingStrategySelector.tsx
   - frontend/src/components/cost-sheet/LaceCostingRow.tsx
   - backend/src/controllers/style-costing-calc.controller.ts
@@ -101,7 +105,7 @@ The style must exist and its fabrics must be costed: the CAD approved in **CAD P
 
 1. Open **Pre-Production → Cost Sheets** in the sidebar.
 2. Click **+ New Cost Sheet**. The page **Create Cost Sheet** opens.
-3. In **Search Style**, type the style code and pick the style. It is required. You can also type the style name, the customer, or the buyer's own style code, and several words together narrow it — "kasya LNG229" finds that one style. **Customer** fills itself and stays read-only.
+3. In **Search Style**, click the box and type the style's buyer style code or our style code, then pick the style. It is required. Each option reads the **Buyer Style Code** first, our Style Code in brackets when it differs, then the name and customer — e.g. `SP27DR27 (EBWW-021) - GEMINI (Easybuy)` — and the list is sorted by buyer style code. You can also type the style name or the customer, and several words together narrow it — "kasya LNG229" finds that one style. **Customer** fills itself and stays read-only.
 4. Picking the style fills the form by itself — fabrics come from the approved fabric costings, and trims, lace, embroidery and accessories come from the style's BOM. There is no button to press for this. Nothing is saved yet.
 5. Choose **Fabric Costing Mode**: **Costing (Buyer Quotation)** or **Raw Material Calculation**. Only approved costing options from that mode are used for fabric rates, and changing the mode refills the fabric rows. The system remembers your last choice. There is no Production mode — orders and production run on an approved **Raw Material Calculation** sheet.
 6. If **Costing Run** chips appear and you want that specific run's fabrics instead, just click the chip — it loads straight away and the chip shows **✓ fabric rows loaded from this run**. To see how a run was costed before choosing it, click the **ⓘ** next to its chip: a window shows every fabric's greige, transport, processing, shrinkage and screen cost as the run was saved. A run loads its own saved figures; if any of its fabrics were changed after the run was saved, a warning says how many. A green tick on the chip means all its costs are complete; a warning sign means some are missing. Clicking a different chip switches to that run. This replaces the fabric rows only; trims, lace, embroidery and accessories are untouched.
@@ -116,7 +120,7 @@ The style must exist and its fabrics must be costed: the CAD approved in **CAD P
 15. Under **Value Loss & Markup**, set **Value Loss (%)** and **Markup (%)**. Both must be between 0 and 100.
 16. Optionally, under **Closed Cost (Final Agreed Price)**, enter the **Closed Cost per Piece (₹)** agreed with the customer and **Notes (Optional)**. The form then shows how far the closed cost sits above or below the calculated cost, and a comparison card shows Calculated Cost, Closed Cost and Variance.
 17. Click **Create Cost Sheet** to save. Only now does the sheet exist. When editing an existing sheet the same button reads **Update Cost Sheet**.
-18. Back on the **Cost Sheets** list, use the row actions: **Approve** or **Reject** a pending sheet (rejection notes are compulsory). An approved sheet offers **New Version** instead of Edit. An older version that a newer one replaced offers only **View** and **Open newer version**.
+18. Back on the **Cost Sheets** list, each sheet is headed by the style's **Buyer Style Code**, with our **Style Code** shown in its details when it differs. Find a sheet with the search box ("Search buyer style code, style code, name, order number…"). Use the row actions: **Approve** or **Reject** a pending sheet (rejection notes are compulsory). An approved sheet offers **New Version** instead of Edit. An older version that a newer one replaced offers only **View** and **Open newer version**.
 19. To share or print a saved sheet, open it from the list and click **Download**, then **Download PDF** (opens in a new browser tab) or **Download Excel** (saves an .xlsx file). The **Download** button is on both the **Cost Sheet Details** page and the **Edit Cost Sheet** page.
 
 ## Traps

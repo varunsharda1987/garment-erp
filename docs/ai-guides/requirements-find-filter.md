@@ -9,6 +9,8 @@ keywords:
   - requirements of one order
   - requirements for a buyer
   - filter by style
+  - buyer style code
+  - filter by buyer style code
   - filter by vendor
   - filter by material type
   - needs action
@@ -40,6 +42,7 @@ keywords:
   - filter kaise lagaye
   - agla page
   - filter hatana
+  - buyer ka style code
   # Devanagari (MANDATORY)
   - रिक्वायरमेंट ढूंढना
   - रिक्वायरमेंट नहीं दिख रही
@@ -50,6 +53,7 @@ keywords:
   - सारी रिक्वायरमेंट
   - वेंडर
   - बायर
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -70,7 +74,7 @@ route: /procurement/requirements
 
 ## What the page shows first
 **Procurement → Requirements**, **Material Requirements** tab, opens on:
-- **Show: Order & Style** — one card per order + style, soonest-needed first. A label bought in sizes is one heading row with its sizes underneath.
+- **Show: Order & Style** — one card per order + style, soonest-needed first. Each card names the style by its Buyer Style Code, with our Style Code in brackets when it is different, then the style name. A label bought in sizes is one heading row with its sizes underneath.
 - Status **Needs action** — only requirements someone still has to act on: Pending, Size Split Pending, PO Required, Partially from Stock and Needs Decision.
 
 Requirements that are already on a PO, received or cancelled are hidden until you choose them in the status box.
@@ -78,10 +82,10 @@ Requirements that are already on a PO, received or cancelled are hidden until yo
 ## Steps to find a requirement
 1. Open **Procurement → Requirements** in the sidebar and stay on the **Material Requirements** tab.
 2. Narrow the list with the filters in the top box (use any together):
-   - **Search** — requirement number, material code or name, order number, style code / buyer style / style name, the buyer's name, the vendor's name or code, or the number of the PO raised for it.
+   - **Search** — requirement number, material code or name, order number, Buyer Style Code / Style Code / style name, the buyer's name, the vendor's name or code, or the number of the PO raised for it.
    - **Status** — the quick choices **Needs action**, **On order** (PO Generated, PO Sent, Partially Received), **Received / from stock**, **Cancelled**, **All (not cancelled)**; or one status under **Exact status** (for example **Needs Decision**).
    - **All orders** — type the order number or the buyer's name; it lists only orders that have requirements.
-   - **All styles** — type the style code, buyer style or name.
+   - **All styles** — lists only styles that have requirements, each as Buyer Style Code (our Style Code in brackets when different) — style name. Type the Buyer Style Code, our Style Code or the name.
    - **All vendors** — the preferred vendor on the requirement; a searchable picker, type the vendor's name.
    - **All materials** — the material type (Label, Button, Greige…), or **Accessories (labels + packaging)** for both together.
 3. Choose how to see it in the **Show:** row:

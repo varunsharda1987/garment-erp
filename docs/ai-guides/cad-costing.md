@@ -32,6 +32,7 @@ keywords:
   - production mode
   - production tab missing
   - price approval cleared
+  - buyer style code
   # Hinglish
   - fabric costing karna
   - CAD ki costing
@@ -50,6 +51,7 @@ keywords:
   - costing save nahi ho rahi
   - production ki costing kaise kare
   - production tab kahan hai
+  - buyer ka style code
   # Devanagari (MANDATORY)
   - फैब्रिक कॉस्टिंग
   - कैड कॉस्टिंग
@@ -70,6 +72,7 @@ keywords:
   - कॉस्टिंग सेव नहीं हो रही
   - प्रोडक्शन कॉस्टिंग
   - प्रोडक्शन मोड
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/FabricCostingPage.tsx
@@ -99,14 +102,15 @@ route: /fabric-costing
 
 **Option 2: Direct navigation**
 1. Go to **Pre-Production > Fabric Costing**
-2. Search for the style using the **Quick Search** box
-3. Or select **Customer** first, then click **Style** and type part of the style code, buyer ref or name to pick it
+2. Search for the style using the **Quick Search** box (type its buyer style code, style code or name)
+3. Or select **Customer** first, then click **Style** and type part of the buyer style code, style code or name to pick it
 
 ## Steps
 
 ### 1. Select the style
-- Use the **Quick Search** box to find by style code, buyer ref, or name
-- Or pick **Customer** first, then click **Style** (**Select style**) and type part of the style code, buyer ref or name to pick it. It lists that customer's styles only
+- Use the **Quick Search** box ("Search by buyer style code, style code or name...") to find the style. Each result reads the **Buyer Style Code** first, with our Style Code in brackets when it differs, e.g. `SP27DR27 (EBWW-021)`
+- Or pick **Customer** first, then click **Style** (**Select style**) and type part of the buyer style code, style code or name to pick it. It lists that customer's styles only
+- Once picked, the box shows the style as `Buyer Style Code (Style Code) - Style Name`
 - The **✕** in the Quick Search box clears the search and the picked customer and style
 
 ### 2. Choose the costing mode (tabs)

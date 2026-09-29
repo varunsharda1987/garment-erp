@@ -9,6 +9,7 @@ keywords:
   - style code
   - buyer reference
   - buyer style code
+  - buyer ka style code
   - naya style kaise banaye
   - style banana
   - स्टाइल
@@ -69,6 +70,7 @@ sources:
   - frontend/src/pages/StyleFormRedesigned.tsx
   - frontend/src/components/CustomerCombobox.tsx
   - frontend/src/components/SearchInput.tsx
+  - frontend/src/lib/style-code.ts
   - frontend/src/components/GenericGreigeSelector.tsx
   - frontend/src/constants/fabric-finish-types.ts
   - backend/src/schemas/style.schema.ts
@@ -90,8 +92,8 @@ The customer must already exist in the Customers master, and the customer needs 
 3. The page opens as **Create New Style** with a **DRAFT** badge and four tabs: **1. Basic Info**, **2. Fabrics**, **3. Trims & Materials**, **4. Accessories**.
 4. In **Basic Information**, fill **Customer/Buyer** first: click the box (**Select customer...**), type part of the customer's name and pick it. It is required and it unlocks the **Brand** list.
 5. Pick **Brand**, then **Brand Category**. **Product Category** usually fills itself to match the brand category. If that category has sub-types, the dropdown asks you to pick one, and a **Type** box appears when there is a third level. Picking a product category can also auto-fill the component count and the components.
-6. Fill **Buyer Style Code**. It shows on documents, and it must be unique — a code already used on another active style is rejected. For an in-house brand (customer name containing "Kasya" or "Nihsamah") this box is also the Style Code: type the final code here, **2 to 50 characters**, before you save or click any **Next: ...** button.
-7. **Style Code** sits in the row below and stays read-only. For a normal buyer it is labelled **Style Code (Auto-generated)** and fills itself once Brand Category and Product Category are both set (hint: **Generated from brand prefix + category prefix**). For an in-house brand it is labelled **Style Code (From Buyer Reference)** and mirrors what you type in Buyer Style Code; the hint under Buyer Style Code reads **Will be used as Style Code**. That mirrored code is what gets saved as the Style Code.
+6. Fill **Buyer Style Code** (the buyer's own code for the style). Screens, pickers and printouts name the style by this code first, with our Style Code in brackets when it is different — for example `SP27DR27 (EBWW-021)`. It must be unique — a code already used on another active style is rejected. For an in-house brand (customer name containing "Kasya" or "Nihsamah") this box is also the Style Code: type the final code here, **2 to 50 characters**, before you save or click any **Next: ...** button.
+7. **Style Code** sits in the row below and stays read-only. For a normal buyer it is labelled **Style Code (Auto-generated)** and fills itself once Brand Category and Product Category are both set (hint: **Generated from brand prefix + category prefix**). For an in-house brand it is labelled **Style Code (From Buyer Style Code)** (empty box: **Enter Buyer Style Code above**) and mirrors what you type in Buyer Style Code; the hint under Buyer Style Code reads **Will be used as Style Code**. That mirrored code is what gets saved as the Style Code.
 8. **Style Name**, **Primary Color** and **Season** are optional. Set **Primary Color** if the style is a specific colour — it is the colour that then appears on sale-order lines, on finished-goods stock, on delivery notes and in dispatch for this style. A style with no Primary Color shows no colour anywhere downstream.
 9. Set **Number of Components**. If the product category sets a minimum or maximum, staying outside that range shows a red warning.
 10. Under **Component Selection**, choose a component for each box (**Component 1**, **Component 2**, and so on) using **Search component...**. The list only shows components allowed for the chosen product category.
@@ -110,11 +112,11 @@ The customer must already exist in the Customers master, and the customer needs 
 
 - Every new style is saved as a **DRAFT**, whichever button you press. **Create Style** does not publish it; only **Publish Style** (in the form) or **Publish** (on the **Drafts** tab) makes it **ACTIVE**, and only ACTIVE styles can be used for orders. After Create Style on a brand-new style you land back on Style Master — look under **Drafts**, not **Active Styles**.
 - Publishing is refused unless the style has a customer, a brand or brand category, and at least one fabric.
-- For a normal buyer, the Style Code shown before saving is a preview; the server assigns the final code when the style is first saved, so check the code on the Style Master list if it matters. For in-house brands (Kasya / Nihsamah) there is no preview — the Buyer Style Code is sent as the Style Code on the first save, so what you see under **Style Code (From Buyer Reference)** is what gets saved.
+- For a normal buyer, the Style Code shown before saving is a preview; the server assigns the final code when the style is first saved, so check it in the **Style Code** column of the Style Master list if it matters (the list shows **Buyer Style Code** first, then **Style Code**). For in-house brands (Kasya / Nihsamah) there is no preview — the Buyer Style Code is sent as the Style Code on the first save, so what you see under **Style Code (From Buyer Style Code)** is what gets saved.
 - In-house brands: the Buyer Style Code must be **2 to 50 characters** at the first save. Outside that range the save is blocked and this message appears under the Buyer Style Code box (and as a toast): **Buyer Style Code becomes the Style Code for this customer — enter 2 to 50 characters.**
 - In-house brands: if another active style already uses that code as its Style Code, the save is refused with **Style code already exists** — shown under the Buyer Style Code box and as a toast. Change the Buyer Style Code and save again.
-- In-house brands: the Style Code is fixed by the **first** save — **Create Style**, **Save as Draft**, or the first **Next: ...** auto-save all count. Editing Buyer Style Code after that only changes the buyer reference; the Style Code stays as it was. Get the code right before the first save.
-- **Buyer Style Code** must be unique across active styles. A duplicate is rejected with "Buyer reference ... already exists on style ...".
+- In-house brands: the Style Code is fixed by the **first** save — **Create Style**, **Save as Draft**, or the first **Next: ...** auto-save all count. Editing Buyer Style Code after that only changes the Buyer Style Code; the Style Code stays as it was. Get the code right before the first save.
+- **Buyer Style Code** must be unique across active styles. A duplicate is rejected with "Buyer Style Code ... already exists on style ...".
 - Every non-draft save needs at least one fabric that has either a greige name or a ready fabric selected. **Printed** and **Yarn Dyed** fabrics must have a **Design Name**. **Solid/Dyed** fabrics must have a **Color**.
 - Not ready yet? Click **Save as Draft**. A draft only needs the Style Code on screen, so it saves with no fabrics, trims or accessories. The Style Code fills only after Brand Category and Product Category are picked (or, for in-house brands, once the Buyer Style Code is typed — and it must still be 2 to 50 characters).
 - Clicking a **Next: ...** button auto-saves in the background once a Style Code exists. On a new style this first background save already creates the draft record — the page address changes to the edit page and **Publish Style** appears. Clicking the tab headers directly does not auto-save.

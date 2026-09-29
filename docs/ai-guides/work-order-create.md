@@ -33,6 +33,9 @@ keywords:
   - run kaise banaye order se
   - ऑर्डर से प्रोडक्शन रन
   - कटिंग के लिए तैयार
+  - buyer style code
+  - buyer ka style code
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -43,6 +46,7 @@ sources:
   - frontend/src/pages/WorkOrderForm.tsx
   - frontend/src/pages/WorkOrderDetail.tsx
   - frontend/src/components/StyleCombobox.tsx
+  - frontend/src/lib/style-code.ts
   - frontend/src/components/SplitProductionModal.tsx
   - frontend/src/pages/SaleOrderDetail.tsx
   - frontend/src/pages/OrderDetail.tsx
@@ -53,18 +57,20 @@ sources:
   - backend/src/services/workOrder.service.ts
   - backend/src/services/helpers/material-sync.helper.ts
   - backend/src/services/productionBlockingValidation.service.ts
+  - backend/src/services/saleOrder.service.ts
+  - backend/src/services/helpers/sku-colour.helper.ts
 route: /production/work-orders/new
 ---
 
 Note: in this ERP a work order is shown as a **Production Run**. Both words mean the same thing.
 
 ## Before you start
-The style must already exist, be published (draft styles are not listed), and have variants (colours and sizes) configured. The colour and size dropdowns are filled from the style's variants. If the style has no variants, no sizes will appear and you cannot save.
+The style must already exist, be published (draft styles are not listed), and have its sizes (variants) configured. The colour and size dropdowns are filled from the style's variants; a colour is optional. If the style has no variants, no sizes will appear and you cannot save.
 
 ## Steps
 1. Open **Manufacturing → Production Runs** in the sidebar.
 2. Click **Create Work Order** at the top right.
-3. Under **Style Selection**, click the **Style** box and type part of the style code, the buyer's code, the style name or the customer. Every published style can be found this way — when the box says "Showing N of M", keep typing to narrow it. Pick one. This field is required.
+3. Under **Style Selection**, click the **Style** box (**Select a style...**) and type part of the Buyer Style Code, our Style Code, the style name or the customer. Each style is listed as Buyer Style Code, our Style Code in brackets when it is different, then name and customer — for example `SP27DR27 (EBWW-021) - GEMINI (Easybuy)` — in Buyer Style Code order. Every published style can be found this way — when the box says "Showing N of M", keep typing to narrow it. Pick one. This field is required. The grey box under it then shows the style's **Buyer Style Code**, **Style Code** and **Name**.
 4. Under **Planning Details**, set **Planned Start Date** and **Planned End Date**. Both are required, and the end date cannot be before the start date. Today's date and a date one week later are filled in for you.
 5. Choose **Priority**: **Low**, **Medium**, **High** or **Urgent**. Medium is the default.
 6. Type notes in **Remarks** if needed. This is optional, maximum 1000 characters.
@@ -89,7 +95,7 @@ There is no location field on this page. Every new production run, including one
 ## Other ways in
 From a production order: open **Orders & Sales → Orders** and open the order. When a style has nothing left blocking it, the **What's stopping it** card shows **Ready to cut — plan the production run.** with **Create Production Run**. The **Production** card also shows **Create Production Run** at the top while a style with sizes has no run yet. It makes one run per order line from the order's own sizes, planned from today to the order's delivery date; you can change the dates afterwards with **Edit** on the run. "Nothing to create" means every order line already has a run. A line with no size breakdown gets no run — click **Add Size Breakdown** on the order page first (saving the sizes creates the run too).
 
-From a sale order, open **Orders & Sales → Sale Orders**, open the order, open **Actions** and click **Start Production**. If a production order for that style was raised earlier and is not linked to a sale order, **Link to Production Order** appears instead — linking copies the sale order's sizes onto it and creates its production run. That creates the production run for you — by default only for the pieces finished-goods stock does not already cover (choose **Full sale-order quantity** in the dialog to make everything). The order must be Confirmed, every line must have a size, each style needs an approved cost sheet, and a line with no colour needs a style that has exactly one colour — otherwise the button explains exactly which of those is missing.
+From a sale order, open **Orders & Sales → Sale Orders**, open the order, open **Actions** and click **Start Production**. If a production order for that style was raised earlier and is not linked to a sale order, **Link to Production Order** appears instead — linking copies the sale order's sizes onto it and creates its production run. That creates the production run for you — by default only for the pieces finished-goods stock does not already cover (choose **Full sale-order quantity** in the dialog to make everything). The order must be Confirmed, every line must have a size and each style needs an approved cost sheet. Colour is optional: a line with no colour takes the style's colour when the style has exactly one, and is made with no colour when the style has none; only a style with several colours must have the colour chosen on each sale-order line. Otherwise the button explains exactly what is missing.
 
 ## After creating
 Open the run and use **Push to Cutting** when materials are ready.

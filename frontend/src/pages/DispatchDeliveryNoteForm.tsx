@@ -558,7 +558,7 @@ export default function DispatchDeliveryNoteForm() {
                                   updateItem(row.tempId, { styleId: v, colorId: '', sizeId: '' })
                                 }
                                 placeholder="Select style"
-                                searchPlaceholder="Search style code or name..."
+                                searchPlaceholder="Search buyer style code, style code or name..."
                                 emptyText="No style on this order matches."
                               />
                             </TableCell>

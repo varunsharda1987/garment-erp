@@ -23,6 +23,9 @@ keywords:
   - भाव बदलना
   - कोटेशन में बदलाव
   - कोटेशन संशोधन
+  - buyer style code
+  - buyer ka style code
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/QuotationForm.tsx
@@ -56,7 +59,7 @@ route: /quotations
    - **Terms and Conditions** - payment terms, delivery conditions
 
 7. Modify quotation items:
-   - To change the **Style**, click the style field and type part of the style code, then pick the new style
+   - To change the **Style**, click the style field and type part of the buyer style code or our style code, then pick the new style. Each style reads buyer style code first, our Style Code in brackets when it differs
    - Update **Quantity** (must be greater than 0)
    - Adjust **Unit Price** 
    - Set **Delivery Days** for lead time

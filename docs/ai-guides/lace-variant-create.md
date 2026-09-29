@@ -95,7 +95,7 @@ Use this when costing a style that uses greige lace - the system creates the var
 
 ## After saving
 
-- The dyed variant appears in the Lace Master list with a link back to its source greige
+- The dyed variant appears in the Lace Master list as **Processed**, with a link back to its source greige and, when it was made for a style, that style named by its Buyer Style Code first (our Style Code in brackets when different). The **Styles** column lists the styles using it the same way
 - The variant is available for selection in orders and BOMs
 - Cost sheets can now use the GREIGE_PROCESSED strategy with this variant
 - MRP will split requirements into greige purchase + dyeing job work order

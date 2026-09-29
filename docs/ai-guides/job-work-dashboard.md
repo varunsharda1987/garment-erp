@@ -6,6 +6,8 @@ keywords:
   - JWO tracking
   - track job work
   - maal kahan hai
+  - buyer style code
+  - buyer ka style code
   - outstanding at processor
   - section 143
   - ITC-04
@@ -24,6 +26,7 @@ keywords:
   - प्रोसेसर
   - बकाया
   - माल कहाँ है
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -47,8 +50,8 @@ route: /job-work-orders
 
 ## On the Job Work Orders list
 1. Four tiles show **Outstanding at Processors**, **Section 143 Warnings**, **Over Tolerance (Debit Due)** and **By Process Type**.
-2. Type in **Search JWO number, challan, processor, style, buyer style, fabric…** to find a job. Typing several words narrows the list — each word must match something, so a processor name and a style code together find exactly that job. In the same row, **All process types** filters to Dyeing, Printing, Embroidery, Stitching and so on, **All statuses** to one status, and **All processors** (a searchable picker — every job-work processor: dyers and printers, embroiderers, hand workers, smockers, CMT units, stitching and finishing contractors, washers and other services; type a code, name or contact) to one processor. **Clear N filters** resets them; when nothing matches, the page says "No job work orders match these filters." with a **Clear filters** button.
-3. The table shows **JWO Number**, **Process**, **Processor**, **Style**, **Greige**, **Fabric**, **Width**, **Qty Received**, **Sent Date**, **Need By**, **Status** and **Section 143**.
+2. Type in **Search JWO number, challan, processor, buyer style code, style code, fabric…** to find a job. Typing several words narrows the list — each word must match something, so a processor name and a buyer style code (or our style code) together find exactly that job. In the same row, **All process types** filters to Dyeing, Printing, Embroidery, Stitching and so on, **All statuses** to one status, and **All processors** (a searchable picker — every job-work processor: dyers and printers, embroiderers, hand workers, smockers, CMT units, stitching and finishing contractors, washers and other services; type a code, name or contact) to one processor. **Clear N filters** resets them; when nothing matches, the page says "No job work orders match these filters." with a **Clear filters** button.
+3. The table shows **JWO Number**, **Process**, **Processor**, **Style**, **Greige**, **Fabric**, **Width**, **Qty Received**, **Sent Date**, **Need By**, **Status** and **Section 143**. The **Style** column names the style by its Buyer Style Code first, with our Style Code in brackets when different (e.g. SP27DR27 (EBWW-021)); the order's page shows its **Style** the same way.
 4. **Need By** turns red when the date has passed and nothing has come back. Closed and cancelled orders never turn red.
 5. The **Section 143** column shows days out with a colour: green is OK, yellow is a warning past 270 days, red is critical past 300 days and breached past 365 days. The days count from the day the processor received the goods. For cloth the supplier delivered straight to the processor and the job took where it lay, that is the delivery day, not the job's Sent Date.
 6. Click any row to open the order, or use the **⋯** menu for **View Details**, **Print JWO** and **Send via WhatsApp**.

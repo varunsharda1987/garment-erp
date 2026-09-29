@@ -17,6 +17,7 @@ keywords:
   - pp sample garment test
   - record garment test result
   - garment retest
+  - buyer style code
   # Hinglish
   - GPT banana
   - garment test karna
@@ -26,6 +27,7 @@ keywords:
   - test lab mein bhejana
   - garment quality
   - garment test ka result
+  - buyer ka style code
   # Devanagari (MANDATORY)
   - जीपीटी
   - गारमेंट टेस्ट
@@ -36,6 +38,7 @@ keywords:
   - रंग पक्कापन
   - फिजिकल टेस्टिंग
   - गारमेंट टेस्ट रिजल्ट
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/GarmentPhysicalTestForm.tsx
@@ -68,9 +71,9 @@ route: /garment-physical-tests/new
 2. Click the **Create GPT** button in the top-right corner.
 
 3. In the **Select Work Order** card, click the search field and type the work order number. Select the work order from the dropdown.
-   - The **Style** is automatically filled from the work order.
+   - The **Style** is automatically filled from the work order, shown by its Buyer Style Code first with our Style Code in brackets when different (e.g. SP27DR27 (EBWW-021)).
 
-4. (Optional) If you need to override the style, use the **Style** search field to select a different style.
+4. (Optional) If you need to override the style, use the **Style** search field (**Search by buyer style code, style code or name...**) to select a different style.
 
 5. In the **Testing Lab** card, search for and select the lab where the sample will be tested. Leave blank for in-house testing.
 
@@ -94,7 +97,7 @@ route: /garment-physical-tests/new
 ## After saving
 
 - The test is created with status **PENDING**.
-- The test appears in the Garment Physical Tests list with its auto-generated test number. A sample's
+- The test appears in the Garment Physical Tests list with its auto-generated test number. Each card shows the **Buyer Style Code** and our **Style Code**; find a test with the **Search test, TRF or sample number, work order, buyer style code or style...** box. A sample's
   garment test shows **None — sample test** as its work order, with its form and sample number beside
   the test number (click it to open the sample's **Lab Tests** tab).
 - When the lab answers, click **Record result** on the test's card and enter the lab report no., date,

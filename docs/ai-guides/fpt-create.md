@@ -17,6 +17,7 @@ keywords:
   - record fabric test result
   - fabric retest
   - fabric test failed
+  - buyer style code
   # Hinglish
   - FPT banana
   - fabric test karna
@@ -27,6 +28,7 @@ keywords:
   - cloth test
   - fabric test ka result
   - fabric dobara test
+  - buyer ka style code
   # Devanagari
   - एफपीटी
   - फैब्रिक टेस्ट
@@ -37,6 +39,7 @@ keywords:
   - टेस्टिंग लैब
   - फैब्रिक टेस्ट रिजल्ट
   - फैब्रिक रीटेस्ट
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/FabricPhysicalTestForm.tsx
@@ -88,7 +91,7 @@ test is the garment test, recorded on the sample's **Lab Tests** tab.)
 ### Link to Style or Customer (Optional)
 
 10. In the **Related Information** section:
-    - **Style** - Search and link to a specific style if this test is for a particular design
+    - **Style** - Search and link to a specific style if this test is for a particular design. Type the buyer style code, our style code or the style name; each style is shown by its Buyer Style Code first, with our Style Code in brackets when different (e.g. SP27DR27 (EBWW-021))
     - **Customer** - Search and link to a customer if testing is customer-specific
 
 ### Save

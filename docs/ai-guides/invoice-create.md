@@ -13,6 +13,7 @@ keywords:
   - generate invoice
   - customer invoice
   - GST invoice
+  - buyer style code
   # Hinglish
   - invoice kaise banaye
   - bill banana
@@ -21,6 +22,7 @@ keywords:
   - naya invoice
   - bill kaise banaye
   - customer ka bill
+  - buyer ka style code
   # Devanagari
   - इनवॉइस
   - बिल
@@ -30,6 +32,7 @@ keywords:
   - बिल बनाना
   - नया इनवॉइस
   - कस्टमर बिल
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/InvoiceForm.tsx
@@ -54,7 +57,7 @@ route: /invoices/new
 
 3. Fill in the **Invoice Details** section:
    - **Customer** * - Select the customer from the dropdown (type to search)
-   - **Order** * - Once customer is selected, click **Select order** and type part of the order number (or style) to find the order to invoice. Only that customer's orders are listed; if there are none the list says "No orders found for this customer."
+   - **Order** * - Once customer is selected, click **Select order** and type part of the order number, the buyer style code, our style code or the style name to find the order to invoice. Each order shows its number and customer, with its styles underneath — Buyer Style Code first, our Style Code in brackets when different (e.g. SP27DR27 (EBWW-021)). Only that customer's orders are listed; if there are none the list says "No orders found for this customer."
    - **Invoice Date** - Defaults to today; change if needed
    - **Due Date** * - Select when payment is expected
    - **Remarks** - Optional notes (max 500 characters)
@@ -63,7 +66,7 @@ route: /invoices/new
    - When you select an Order, items are **auto-populated** from that order (style, quantity, unit price)
    - To add items manually, click **Add Item**
    - For each line item:
-     - **Description** * - Item description (auto-filled from style if from order)
+     - **Description** * - Item description (auto-filled from style if from order). The auto-filled description keeps its old shape — our Style Code, the buyer's code in brackets, then the style name — because Tally uses it as the stock item name
      - **HSN Code** - Harmonized System Nomenclature code for GST
      - **Qty** * - Quantity (positive number, max 10 lakh units)
      - **Unit Price** * - Price per unit in Rupees
@@ -88,7 +91,7 @@ route: /invoices/new
 
 - **Invoice number generated** - System assigns a unique invoice number (e.g., INV-2026-0001)
 - **Status is PENDING** - New invoices start with Pending status
-- **View the invoice** - You're redirected to the invoice list; click the invoice number to view details. To find an invoice there, type in **Search invoice number, customer, order, sale order, style, buyer style…**, or use the **All customers**, **All orders** and **All statuses** filters and the **Invoice date** From/To range. **Clear filters** resets them
+- **View the invoice** - You're redirected to the invoice list; click the invoice number to view details. To find an invoice there, type in **Search invoice number, customer, order, sale order, style, buyer style code…**, or use the **All customers**, **All orders** and **All statuses** filters and the **Invoice date** From/To range. **Clear filters** resets them
 - **Print or download** - From the invoice detail page, you can print the tax invoice or generate PDF
 - **Record payments** - Track payments against the invoice from the detail page
 - **E-Invoice (IRN)** - If e-invoicing is enabled, generate the IRN from Team & Settings -> GST e-Invoice

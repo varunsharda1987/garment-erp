@@ -36,6 +36,9 @@ keywords:
   - रंग नहीं है
   - रंग वैकल्पिक
   - तैयार माल स्टॉक
+  - buyer style code
+  - buyer ka style code
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -57,10 +60,14 @@ Finishing starts from a stitching transfer slip, then moves through output, pack
 ## Create the finishing issue
 1. Open **Manufacturing → Finishing** in the sidebar (under the **Production Stages** heading).
 2. Click **New Issue**. You can also use **Receive & Create Issue** on a slip in the **Incoming from Stitching** tab.
-3. On the **New Finishing Issue** page, pick **Transfer Slip from Stitching** (required). Only one slip per issue is allowed here.
+3. On the **New Finishing Issue** page, pick **Transfer Slip from Stitching** (required). Each slip reads slip number - work order - style, the style named by its Buyer Style Code first with our Style Code in brackets when different (e.g. SP27DR27 (EBWW-021)). Only one slip per issue is allowed here.
 4. Fill **Issue Date** (required) and pick the **Finishing Contractor** (required). **Expected Completion** defaults to 5 days ahead.
 5. In **SKU Breakdown**, set **Issue Qty** per colour and size. It is pre-filled with the full **Available** quantity.
 6. Click **Create Finishing Issue**.
+
+## Find an existing issue
+- On **Manufacturing → Finishing**, type in the **Search issue number, run number, buyer style code, style, contractor…** box.
+- The issues table shows a **Buyer Style Code** column (bold, style name under it) followed by a **Style Code** column (our code). The issue page shows **Buyer Style Code**, **Style Code** and **Style Name** as separate lines.
 
 ## Run the finishing work
 7. On the issue page click **Receive from Stitching**, then **Start Finishing**.

@@ -94,7 +94,7 @@ Who can do it: anyone with the **MRP** or the **Purchase Orders** permission. An
 1. Open **Procurement → Purchase Orders** in the sidebar and click the PO number.
 2. The PO must be **Sent**, **Acknowledged** or **Partially Received**. A draft, cancelled, closed-short or fully received PO cannot be allocated.
 3. If running orders need what this PO brings and are not linked, a banner says **"N running orders need these and are not linked"**. Click **Allocate to orders** in the banner or in the top bar.
-4. The box **Allocate <PO number> to orders** lists each PO line with **Free to link** and **Left free**, and under it every running order that needs that material, **earliest delivery first**: **Order**, **Style**, **Delivery**, **Needs** and **Allocate**.
+4. The box **Allocate <PO number> to orders** lists each PO line with **Free to link** and **Left free**, and under it every running order that needs that material, **earliest delivery first**: **Order**, **Style**, **Delivery**, **Needs** and **Allocate**. **Style** names each style by its Buyer Style Code, with our Style Code in brackets when it is different (for example `SP27DR27 (EBWW-021)`).
 5. It opens already ticked the suggested way: each order gets its full need, in delivery order, until the line runs out (the last one may get part).
    - **Untick** an order to leave it out.
    - **Type a quantity** in **Allocate** to give it less. Rows you did not type in then share what is left, in the same order.
@@ -114,7 +114,7 @@ For greige and lace lines the box also shows **Delivers to** and each order's **
 
 On the PO page the card **Allocated to orders** shows, per line, in the material's own unit: **Ordered**, **Arrived**, **Linked**, **Received for orders**, **Held**, **Free to link**, **Arrived free** and **To come**. A label bought in sizes shows one heading with its sizes under it.
 
-Click a line to open its orders, listed in fill order (**#**): **Order**, **Style**, **Delivery**, **Allocated**, **Received**, **Held**, **Issued** and **Status**. Warnings under an order say, for example, "Order cancelled — undo to free …" or "BOM now needs … less".
+Click a line to open its orders, listed in fill order (**#**): **Order**, **Style** (Buyer Style Code first), **Delivery**, **Allocated**, **Received**, **Held**, **Issued** and **Status**. Warnings under an order say, for example, "Order cancelled — undo to free …" or "BOM now needs … less".
 
 ## Undo an allocation
 
@@ -138,7 +138,7 @@ If you tick rows that an open PO already has room for, the selection bar says "N
 
 ## Goods held for another order
 
-When an issue screen (**Issue Challan** on a challan, **Stock Out**, a job-work issue or **Send to Mill**, or **Issue to Stitching** / **Issue to Finishing** on a work order) would take goods held for another order, a box **These goods are held for another order** lists "Held for ORD… (STYLE): N" and asks **"Take them anyway? That order will need them bought again."**
+When an issue screen (**Issue Challan** on a challan, **Stock Out**, a job-work issue or **Send to Mill**, or **Issue to Stitching** / **Issue to Finishing** on a work order) would take goods held for another order, a box **These goods are held for another order** lists "Held for ORD… · SP27DR27 (EBWW-021): N" — the order, then its style by Buyer Style Code with our Style Code in brackets — and asks **"Take them anyway? That order will need them bought again."**
 - **No, keep them** — nothing is issued.
 - **Take them anyway** — the goods are issued, and that order's requirement goes back to needing them bought.
 

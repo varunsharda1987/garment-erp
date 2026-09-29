@@ -21,6 +21,9 @@ keywords:
   - find fabric
   - search fabric
   - fabric kaise dhunde
+  - buyer style code
+  - buyer ka style code
+  - बायर स्टाइल कोड
   - fabric list filter
   - filter lagao
   - colour filter
@@ -81,11 +84,11 @@ If the fabric already exists, open it and edit it rather than adding a second en
 1. Open **Materials & Masters → Fabric Master** in the sidebar.
 2. Click **+ New Fabric**. The page title becomes **New Fabric Master**.
 3. In the **Source & Linking** card, choose **Source** (required): **Style-Linked** for fabric made for one style, or **Stock/Generic** for general stock fabric. Source cannot be changed later, so pick correctly.
-4. If you chose **Style-Linked**, search the **Style** by style code, then tick one or more **Components**. Both are required for this source.
+4. If you chose **Style-Linked**, open the **Style** picker and type part of the buyer style code or our style code — either finds it. Styles are listed by Buyer Style Code first, with our Style Code in brackets when different (e.g. SP27DR27 (EBWW-021)), sorted by buyer style code. Then tick one or more **Components**. Both are required for this source.
 5. If the component uses embroidery, a purple panel appears. Set **This fabric will be embroidered** to Yes or No, and pick an **Embroidery Design** if it is decided.
 6. Choose **Finish Type** (required): Solid/Dyed, Printed, Yarn Dyed, or Raw/Unfinished. Choosing Printed reveals the **Print Design** box.
 7. Select **Pattern Parts** and **Color** if they apply. Pattern parts only load after a style and component are picked.
-8. In the **Fabric Details** card, **Code** and **Fabric Name** fill themselves and are read-only. The name is built from style, greige, finish, pattern part, colour and width.
+8. In the **Fabric Details** card, **Code** and **Fabric Name** fill themselves and are read-only. The name is built from style, greige, finish, pattern part, colour and width; the style part leads with the Buyer Style Code, our Style Code in brackets when different.
 9. Fill **Generic Greige Name**, or pick an existing greige in the **Greige Name** dropdown. One of the two is required. Selecting a greige fills the generic name and cutable width for you.
 10. To create a missing greige on the spot, click **New** next to the **Greige Name** dropdown.
 11. In the **Specifications** card, enter **Width"** (required, more than 0). **Cutable"** fills itself as Width minus 2, unless the fabric is embroidered, where you type it yourself. **GSM**, **Yarn Count**, **Construction** and **Composition** are optional.

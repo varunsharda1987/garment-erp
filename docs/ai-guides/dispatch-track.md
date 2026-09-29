@@ -43,6 +43,9 @@ keywords:
   - filter by order
   - customer se filter karna
   - फिल्टर
+  - buyer style code
+  - buyer ka style code
+  - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -79,7 +82,7 @@ route: /manufacturing/dispatch
    - **In Transit** - shipped, awaiting delivery
    - **Delivered** - confirmed received
    - **Cancelled** - pending notes that were cancelled (the record is kept)
-4. To see one customer's or one order's notes, click **All customers** or **All orders** and type to find it.
+4. To see one customer's or one order's notes, click **All customers** or **All orders** and type to find it. The order picker takes the order number, customer, buyer style code or style code, and lists each order's styles under it, Buyer Style Code first (e.g. `SP27DR27 (EBWW-021)`).
 5. Results update as you type — there is no Search button. The cross in the box clears it.
 6. Click **Clear N filters** (e.g. **Clear 2 filters**) to remove every filter on this tab. If nothing matches, the list says **No delivery notes match these filters.** with a **Clear filters** button.
 
@@ -100,7 +103,7 @@ route: /manufacturing/dispatch
    - **Delivery Details** card: Order number, Customer, Dispatch Date, Total Pieces, Cartons, ASN reference, Remarks
    - **Transport** card: Transporter name, Vehicle number and type, Driver name and phone, LR No, Expected Delivery date
    - **Proof of Delivery** card (if delivered): Delivery date, Received By, Delivery status, Customer GRN, Shortage qty, Rejection reason
-   - **Items** table: Style, Buyer Ref, Color, Size, Quantity, and **Received** once the proof of delivery is recorded. **Color** reads **-** for a style with no colour — that is normal
+   - **Items** table: **Buyer Style Code** (bold, style name under it), **Style Code** (our code), Color, Size, Quantity, and **Received** once the proof of delivery is recorded. **Color** reads **-** for a style with no colour — that is normal
    - A red box on a **Cancelled** note (when, and the reason), and a note if an administrator let it ship past finished-goods stock
 4. Buttons at the top: **Cancel Delivery Note** (Pending), **Record POD** (In Transit), **Create Invoice** (Delivered, not yet invoiced), or **Invoice INV…** to open the invoice already raised.
 
@@ -114,7 +117,7 @@ route: /manufacturing/dispatch
 ## Checking ASN application status
 
 1. Switch to the **ASN Applications** tab.
-2. Search by ASN number, buyer ref, order, customer, style or buyer style ("Search ASN number, buyer ref, order, customer, style, buyer style…"). To see one order's ASNs, click **All orders** and type to find it.
+2. Search by ASN number, the buyer's reference number (given when the buyer approves the ASN), order, customer, style or buyer style code ("Search ASN number, buyer reference number, order, customer, style, buyer style code…"). To see one order's ASNs, click **All orders** and type to find it.
 3. Filter by status (starts at **All statuses**):
    - **Pending** - ASN created, not yet applied
    - **Applied** - Submitted to customer, awaiting response

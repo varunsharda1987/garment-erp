@@ -1325,7 +1325,7 @@
       "frontend/src/config/navigation.ts": "ca630f08ce15",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
-      "frontend/src/pages/SaleOrderList.tsx": "022d274bcf72",
+      "frontend/src/pages/SaleOrderList.tsx": "cfddfcacd524",
       "frontend/src/components/filters/FilterBar.tsx": "4863a4852b38",
       "frontend/src/components/filters/DateRangeFilter.tsx": "d50739883fae",
       "frontend/src/components/ui/combobox.tsx": "d1b66a9f97a1",
@@ -1339,17 +1339,17 @@
       "frontend/src/components/DataTable.tsx": "3f941d111764",
       "frontend/src/components/sale-order/sale-order-lines.ts": "55db918c430a",
       "frontend/src/services/saleOrder.service.ts": "9c8dffa30ed5",
-      "backend/src/schemas/saleOrder.schema.ts": "7deaab9940a8",
+      "backend/src/schemas/saleOrder.schema.ts": "f87ba95130d1",
       "backend/src/routes/saleOrder.routes.ts": "594a5d992718",
-      "backend/src/services/saleOrder.service.ts": "58815654bf3a",
-      "backend/src/controllers/saleOrder.controller.ts": "f7fedb8d2fb8",
+      "backend/src/services/saleOrder.service.ts": "0fd02e8b425f",
+      "backend/src/controllers/saleOrder.controller.ts": "5983d0fe7315",
       "backend/src/services/helpers/sku-colour.helper.ts": "4265621210fa",
       "backend/src/services/helpers/sale-order-sizes.helper.ts": "fd5e76a76277",
       "backend/src/services/helpers/buyer-po-price.helper.ts": "a9b660c2bd05",
       "frontend/src/pages/DispatchDeliveryNoteForm.tsx": "543bba33453d"
     },
-    "contentHash": "c478f7d60f42",
-    "generatedAt": "2026-09-29T09:39:58.738Z"
+    "contentHash": "001191fe736d",
+    "generatedAt": "2026-09-29T10:46:18.201Z"
   },
   "sample-approve": {
     "sources": {

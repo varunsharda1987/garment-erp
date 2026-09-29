@@ -1525,12 +1525,12 @@
       "frontend/src/constants/fabric-finish-types.ts": "d6a0b04ab71c",
       "backend/src/schemas/style.schema.ts": "92a999502be4",
       "backend/src/routes/style.routes.ts": "986623411bc3",
-      "backend/src/services/style.service.ts": "5411da8e39b0",
+      "backend/src/services/style.service.ts": "6659bd62a954",
       "backend/src/services/helpers/default-thread.helper.ts": "36c3ef3e76f8",
       "backend/src/services/helpers/material-unit.helper.ts": "97f39048c27e"
     },
     "contentHash": "b1ed1bc19dcb",
-    "generatedAt": "2026-09-29T08:02:04.459Z"
+    "generatedAt": "2026-09-29T08:35:54.772Z"
   },
   "style-edit": {
     "sources": {
@@ -1543,11 +1543,11 @@
       "frontend/src/components/StyleIdentity.tsx": "be5ca858cc1a",
       "frontend/src/lib/style-code.ts": "dc4d8aefd161",
       "backend/src/schemas/style.schema.ts": "92a999502be4",
-      "backend/src/services/style.service.ts": "5411da8e39b0",
+      "backend/src/services/style.service.ts": "6659bd62a954",
       "backend/src/services/helpers/material-unit.helper.ts": "97f39048c27e"
     },
     "contentHash": "38bd4cca67a4",
-    "generatedAt": "2026-09-29T08:02:04.468Z"
+    "generatedAt": "2026-09-29T08:35:54.899Z"
   },
   "style-import": {
     "sources": {
@@ -1556,13 +1556,14 @@
       "frontend/src/pages/StyleList.tsx": "0e06371609b3",
       "frontend/src/pages/StyleBulkImport.tsx": "a0dd0f78f522",
       "frontend/src/pages/StyleFormRedesigned.tsx": "cc4224ce25fa",
-      "backend/src/controllers/style-import.controller.ts": "99b1b82a94df",
-      "backend/src/services/style-import.service.ts": "56bc50a2281b",
-      "backend/src/types/style-import.types.ts": "89da671c9730",
-      "backend/src/schemas/styleImport.schema.ts": "d08ac04b591f"
+      "backend/src/controllers/style-import.controller.ts": "7945a34a1134",
+      "backend/src/services/style-import.service.ts": "ce684b637670",
+      "backend/src/types/style-import.types.ts": "ed9a7604a916",
+      "backend/src/schemas/styleImport.schema.ts": "d08ac04b591f",
+      "backend/src/services/helpers/buyer-style-code.helper.ts": "cda1a123e8f5"
     },
-    "contentHash": "7ae826b77612",
-    "generatedAt": "2026-09-29T08:02:04.475Z"
+    "contentHash": "fd351e1f97d8",
+    "generatedAt": "2026-09-29T08:35:54.905Z"
   },
   "supplier-create": {
     "sources": {

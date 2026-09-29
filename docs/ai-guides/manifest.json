@@ -2015,7 +2015,7 @@
       "backend/src/services/mrp.service.ts": "7152ab7af8f3"
     },
     "contentHash": "7203bda0f4e0",
-    "generatedAt": "2026-09-29T11:06:15.073Z"
+    "generatedAt": "2026-09-29T12:18:23.352Z"
   },
   "goods-in-transit-challan": {
     "sources": {
@@ -2052,5 +2052,19 @@
     },
     "contentHash": "3d144452eff9",
     "generatedAt": "2026-09-29T12:17:46.355Z"
+  },
+  "sample-lab-tests": {
+    "sources": {
+      "frontend/src/config/navigation.ts": "ca630f08ce15",
+      "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
+      "frontend/src/pages/SampleDetail.tsx": "0884e4f356a6",
+      "frontend/src/components/samples/SampleTestingPanel.tsx": "6ef40c091ada",
+      "frontend/src/components/samples/LabResultDialog.tsx": "3a1d72df6fcb",
+      "frontend/src/pages/BuyerTrfForm.tsx": "2e2dd19970fd",
+      "frontend/src/components/RecordFeedbackDialog.tsx": "7b835cdca6d4",
+      "backend/src/services/productionBlockingValidation.service.ts": "886865d6829d"
+    },
+    "contentHash": "7cc47281e3bb",
+    "generatedAt": "2026-09-29T12:18:23.618Z"
   }
 }

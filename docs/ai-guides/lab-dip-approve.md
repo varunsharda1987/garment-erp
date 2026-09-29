@@ -37,6 +37,7 @@ sources:
   - frontend/src/pages/DyeingList.tsx
   - frontend/src/pages/ProcessingList.tsx
   - frontend/src/components/ProcessorCombobox.tsx
+  - frontend/src/components/LaceCombobox.tsx
   - frontend/src/pages/LaceLabDipList.tsx
   - frontend/src/types/laceLabDip.types.ts
   - frontend/src/types/printing.types.ts
@@ -102,7 +103,7 @@ Lace lab dips have a different workflow with sequential status transitions.
 
 1. Open **Materials & Masters** (in the sidebar)
 2. Click **Lace Lab Dips**
-3. Find the lab dip that shows status **Awaiting Buyer** (yellow badge). Use the search box, or pick it in the **All statuses** filter; **All processors** narrows to one processor
+3. Find the lab dip that shows status **Awaiting Buyer** (yellow badge). Use the search box, or pick it in the **All statuses** filter; **All greige laces** narrows to one greige lace and **All processors** to one processor
 4. Click to open the detail page
 5. In the **Workflow Status** card, you'll see **Update Status** section with buttons
 6. To approve:

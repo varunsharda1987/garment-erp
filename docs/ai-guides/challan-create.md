@@ -36,6 +36,7 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/ChallanForm.tsx
   - frontend/src/pages/ChallanList.tsx
+  - frontend/src/components/WorkOrderCombobox.tsx
   - frontend/src/types/challan.types.ts
 route: /manufacturing/challans/new
 ---
@@ -115,5 +116,5 @@ route: /manufacturing/challans/new
   - Print the challan
   - Track the status (Draft, Issued, In Transit, Received, Partially Received)
   - Record receipt when material arrives
-- The challan appears in the list with filters for Type, Status, Item Type, and Date.
+- The challan appears in **Manufacturing > Challans**. To find it, type its number in the search box ("Search challan number, from, to, remarks…") or narrow the list with **All types**, **All statuses**, **All item types**, **Challan date** (From / To), **Today only** or **All production runs**. **Clear N filters** removes them all.
 - If linked to a production run, the challan will show the work order reference.

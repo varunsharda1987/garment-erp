@@ -37,6 +37,7 @@ sources:
   - frontend/src/pages/LaceStockDetail.tsx
   - frontend/src/types/laceStock.types.ts
   - frontend/src/components/StyleCombobox.tsx
+  - frontend/src/components/LaceCombobox.tsx
 route: /lace-stock
 ---
 
@@ -62,12 +63,13 @@ The page shows four summary cards:
 Use the filter row above the list:
 
 1. Type in the search box (**Search lace, color, lot or dye lot, style or buyer ref...**).
-2. Pick a status in the **All statuses** dropdown: Available, Reserved, Exhausted, Issued or Pending Return.
-3. Pick a stock type in the **All types** dropdown: Generic, Planned, Excess, MOQ Excess, Cross-Style Reuse, Returned or Variance Unused.
-4. Pick a grade in the **All grades** dropdown: Grade A, Grade B or Defect.
-5. Pick a style in the **All origin styles** picker. Type to search the style list.
-6. Click **Clear N filters** to reset all filters and go back to page 1.
-7. If nothing matches, the list says **No lace stock lots match these filters.** Click **Clear filters** to see every lot.
+2. Pick one lace in the **All laces** picker. Type a lace code, name, colour or style to narrow the list.
+3. Pick a status in the **All statuses** dropdown: Available, Reserved, Exhausted, Issued or Pending Return.
+4. Pick a stock type in the **All types** dropdown: Generic, Planned, Excess, MOQ Excess, Cross-Style Reuse, Returned or Variance Unused.
+5. Pick a grade in the **All grades** dropdown: Grade A, Grade B or Defect.
+6. Pick a style in the **All origin styles** picker. Type to search the style list.
+7. Click **Clear N filters** to reset all filters and go back to page 1.
+8. If nothing matches, the list says **No lace stock lots match these filters.** Click **Clear filters** to see every lot.
 
 Click **Refresh** to reload the list.
 

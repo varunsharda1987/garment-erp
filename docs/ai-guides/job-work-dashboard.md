@@ -30,6 +30,7 @@ sources:
   - frontend/src/App.tsx
   - frontend/src/pages/JobWorkDashboard.tsx
   - frontend/src/pages/JobWorkOrderList.tsx
+  - frontend/src/components/ProcessorCombobox.tsx
   - frontend/src/pages/JobWorkOrderDetail.tsx
   - frontend/src/pages/StockMovementDashboard.tsx
   - frontend/src/lib/section143.ts
@@ -46,7 +47,7 @@ route: /job-work-orders
 
 ## On the Job Work Orders list
 1. Four tiles show **Outstanding at Processors**, **Section 143 Warnings**, **Over Tolerance (Debit Due)** and **By Process Type**.
-2. Type in **Search JWO number, challan, processor, style, buyer style, fabric…** to find a job. Typing several words narrows the list — each word must match something, so a processor name and a style code together find exactly that job. In the same row, **All process types** filters to Dyeing, Printing, Embroidery, Stitching and so on, **All statuses** to one status, and **All processors** (a searchable picker — any supplier holding a job, including embroiderers and stitching contractors) to one processor. **Clear N filters** resets them; when nothing matches, the page says "No job work orders match these filters." with a **Clear filters** button.
+2. Type in **Search JWO number, challan, processor, style, buyer style, fabric…** to find a job. Typing several words narrows the list — each word must match something, so a processor name and a style code together find exactly that job. In the same row, **All process types** filters to Dyeing, Printing, Embroidery, Stitching and so on, **All statuses** to one status, and **All processors** (a searchable picker — every job-work processor: dyers and printers, embroiderers, hand workers, smockers, CMT units, stitching and finishing contractors, washers and other services; type a code, name or contact) to one processor. **Clear N filters** resets them; when nothing matches, the page says "No job work orders match these filters." with a **Clear filters** button.
 3. The table shows **JWO Number**, **Process**, **Processor**, **Style**, **Greige**, **Fabric**, **Width**, **Qty Received**, **Sent Date**, **Need By**, **Status** and **Section 143**.
 4. **Need By** turns red when the date has passed and nothing has come back. Closed and cancelled orders never turn red.
 5. The **Section 143** column shows days out with a colour: green is OK, yellow is a warning past 270 days, red is critical past 300 days and breached past 365 days. The days count from the day the processor received the goods. For cloth the supplier delivered straight to the processor and the job took where it lay, that is the delivery day, not the job's Sent Date.

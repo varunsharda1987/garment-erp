@@ -35,6 +35,10 @@ keywords:
   - search fg stock
   - style wise fg stock
   - style ka ready stock
+  - fg stock by colour
+  - colour wise fg stock
+  - colour wise tayaar maal
+  - रंग वाइज तैयार माल
   - स्टाइल वाइज तैयार माल
 sources:
   - frontend/src/config/navigation.ts
@@ -42,6 +46,7 @@ sources:
   - frontend/src/pages/FGStockList.tsx
   - frontend/src/components/Pagination.tsx
   - frontend/src/components/StyleCombobox.tsx
+  - frontend/src/components/StyleColourCombobox.tsx
   - frontend/src/components/filters/FilterBar.tsx
   - backend/src/controllers/fg-stock.controller.ts
   - backend/src/controllers/finishing.controller.ts
@@ -58,9 +63,10 @@ route: /inventory/fg-stock
 
 1. Type in the **Search style, buyer's code, colour, size, work order, location...** box. It matches the style code, style name, buyer style code, colour name, size, work order number and location.
 2. To see one style only, open the **All styles** picker, type the style code and pick it. Archived styles are listed too, because stock can outlive a style.
-3. Results update straight away and go back to page 1.
-4. Click **Clear N filters** to empty the search and the style picker and go back to page 1. Your rows-per-page choice stays.
-5. If nothing matches, the table says "No finished goods stock matches these filters." with a **Clear filters** button.
+3. To see one colour of that style, open the **All colours** picker and pick the colour. It lists only the chosen style's colours, so pick a style first (until then it reads "Pick a style first"). Changing the style clears the colour.
+4. Results update straight away and go back to page 1.
+5. Click **Clear N filters** (e.g. **Clear 2 filters**) to empty the search, the style and the colour and go back to page 1. Your rows-per-page choice stays.
+6. If nothing matches, the table says "No finished goods stock matches these filters." with a **Clear filters** button.
 
 ## Understanding the Table
 

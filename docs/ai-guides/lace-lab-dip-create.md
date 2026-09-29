@@ -30,6 +30,7 @@ sources:
   - frontend/src/pages/LaceLabDipForm.tsx
   - frontend/src/pages/LaceLabDipList.tsx
   - frontend/src/components/ProcessorCombobox.tsx
+  - frontend/src/components/LaceCombobox.tsx
 route: /lace-lab-dips/new
 ---
 
@@ -75,7 +76,7 @@ To advance the status, open the lab dip detail page and use the status transitio
 ## After saving
 
 - The lab dip request appears in the list with status **Pending**.
-- To find a lab dip, use the filter row on the list: the search box (**Search lab dip number, target color, lace or processor...**), the **All statuses** dropdown and the **All processors** picker (type to search).
+- To find a lab dip, use the filter row on the list: the search box (**Search lab dip number, target color, lace or processor...**), the **All statuses** dropdown, the **All greige laces** picker (type a lace code, name or colour) and the **All processors** picker (type to search).
 - Click **Clear N filters** to reset all filters and go back to page 1. If nothing matches, the list says **No lab dips match these filters.** — click **Clear filters**.
 - Click the eye icon to view details or the arrow icon to update the workflow status.
 - Once **Approved**, the color-matched lace variant can be used in production.

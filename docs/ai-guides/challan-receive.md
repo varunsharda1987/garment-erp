@@ -39,6 +39,8 @@ sources:
   - frontend/src/pages/ChallanDetail.tsx
   - frontend/src/pages/ChallanList.tsx
   - frontend/src/hooks/useHeldStockConfirm.tsx
+  - frontend/src/components/WorkOrderCombobox.tsx
+  - frontend/src/components/filters/FilterBar.tsx
   - backend/src/services/challan.service.ts
 route: /manufacturing/challans
 ---
@@ -58,6 +60,7 @@ route: /manufacturing/challans
    - In the status dropdown (starts at **All statuses**), select **Issued**, **In Transit**, or **Partially Received** to see receivable challans.
    - Narrow by type (**All types**) or item type (**All item types**) if needed.
    - Use **Challan date** (From / To) or the **Today only** button to narrow by date.
+   - To see one production run's challans, open the **All production runs** picker, type the run number and pick it.
    - Click **Clear N filters** (e.g. **Clear 2 filters**) to remove every filter. If nothing matches, the list says **No challans match these filters.** with a **Clear filters** button.
 
 3. Click the **challan number** link to open the challan detail page.

@@ -28,7 +28,7 @@ import {
   type CadCorrectionRequest,
 } from '@/services/cad-planning.service';
 import type { CADGreigeOption, CADSizeBreakdown, CADSizeOption, CADSpreadsheetRow } from '@/types/cad-planning.types';
-import type { MarkerReading } from '@/types/cadFile.types';
+import type { CadRowMarker, MarkerReading } from '@/types/cadFile.types';
 import { miniMarkerService } from '@/services/miniMarker.service';
 import { SizeBreakdownPopup } from './SizeBreakdownPopup';
 
@@ -52,10 +52,21 @@ const averageParts = (side: {
 const money = (v: number | null | undefined) => (v === null || v === undefined ? '—' : formatCurrency(v));
 const avg = (v: number | null | undefined) => (v === null || v === undefined ? '—' : `${v.toFixed(4)} m/pc`);
 
+/** The marker image a correction is checked against */
+interface MarkerFileInUse {
+  id: string;
+  fileName: string | null;
+  reading: MarkerReading;
+  /** The row's own current image — not sent: the server checks it by itself when the marker changes */
+  fromRow: boolean;
+}
+
 interface CorrectCadDialogProps {
   styleId: string;
   /** The approved CAD row to correct; null closes the dialog */
   row: CADSpreadsheetRow | null;
+  /** The row's marker image and what it reads — the correction starts from it */
+  rowMarker?: CadRowMarker;
   sizeOptions: CADSizeOption[];
   availableGreiges: CADGreigeOption[];
   onClose: () => void;
@@ -72,6 +83,7 @@ interface CorrectCadDialogProps {
 export function CorrectCadDialog({
   styleId,
   row,
+  rowMarker,
   sizeOptions,
   availableGreiges,
   onClose,
@@ -83,6 +95,7 @@ export function CorrectCadDialog({
       key={row.id}
       styleId={styleId}
       row={row}
+      rowMarker={rowMarker}
       sizeOptions={sizeOptions}
       availableGreiges={availableGreiges}
       onClose={onClose}
@@ -94,6 +107,7 @@ export function CorrectCadDialog({
 function CorrectCadForm({
   styleId,
   row,
+  rowMarker,
   sizeOptions,
   availableGreiges,
   onClose,
@@ -108,29 +122,42 @@ function CorrectCadForm({
   const [impact, setImpact] = useState<CadCorrectionImpact | null>(null);
   const [checking, setChecking] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  // The corrected marker's image (Raw Mat: required when the marker changes) — read on upload
-  const [markerFile, setMarkerFile] = useState<{ id: string; fileName: string | null; reading: MarkerReading } | null>(
-    null
-  );
+  // The corrected marker's image (Raw Mat: required when the marker changes): one uploaded or picked here, else
+  // the row's own image (correcting a row to what its image says needs nothing more). Worked out on every
+  // render, so the row's image shows even when the table's image list arrives after the dialog opened.
+  const [chosenFile, setChosenFile] = useState<MarkerFileInUse | null>(null);
+  const rowImage: MarkerFileInUse | null =
+    rowMarker?.file && rowMarker.reading
+      ? { id: rowMarker.file.id, fileName: rowMarker.file.fileName, reading: rowMarker.reading, fromRow: true }
+      : null;
+  const markerFile = chosenFile ?? rowImage;
   const [uploadingMarker, setUploadingMarker] = useState(false);
   const [markerReason, setMarkerReason] = useState('');
   const markerInput = useRef<HTMLInputElement>(null);
   const markerRequiredHere = row.purpose === 'RAW_MATERIAL_CALCULATION';
 
-  // …or an image already uploaded for the style (e.g. one an approved row did not take because it differs)
-  const [pickedImageId, setPickedImageId] = useState('');
+  // …or an image already uploaded for the style (e.g. one an approved row did not take because it differs).
+  // Picking one uses it at once — a second "Use" click was easy to miss and left Submit greyed (29-Sep).
   const { data: styleImages } = useQuery({
     queryKey: ['miniMarkers', styleId],
     queryFn: () => miniMarkerService.getAll(styleId),
   });
   const pickableImages = (styleImages?.files ?? []).filter((f) => !f.replacedAt && f.id !== markerFile?.id);
-  const onPickImage = async () => {
-    if (!pickedImageId) return;
+  // Only a choice made in the open list counts: a closed Select still picks an item when a letter is typed on it
+  // (typeahead), which would attach an image the user never chose
+  const pickerOpen = useRef(false);
+  const onPickImage = async (pickedImageId: string) => {
+    if (!pickedImageId || !pickerOpen.current) return;
     setUploadingMarker(true);
     try {
       const res = await miniMarkerService.linkForCorrection(styleId, row.id, pickedImageId);
-      setMarkerFile({ id: res.file.id, fileName: res.file.fileName, reading: res.reading });
-      setPickedImageId('');
+      setChosenFile({
+        id: res.file.id,
+        fileName: res.file.fileName,
+        reading: res.reading,
+        // the row's own image (the server returns it as is) — not sent; the server checks it by itself
+        fromRow: res.file.cadId === row.id && !res.file.replacedAt,
+      });
       invalidate();
       if (res.reading.status === 'READ' || res.reading.status === 'PARTIAL') {
         notify.success('Marker read — use its values, then check the impact');
@@ -155,7 +182,7 @@ function CorrectCadForm({
     setUploadingMarker(true);
     try {
       const res = await miniMarkerService.uploadForCorrection(styleId, row.id, chosen);
-      setMarkerFile({ id: res.file.id, fileName: res.file.fileName, reading: res.reading });
+      setChosenFile({ id: res.file.id, fileName: res.file.fileName, reading: res.reading, fromRow: false });
       invalidate();
       if (res.reading.status === 'READ' || res.reading.status === 'PARTIAL') {
         notify.success('Marker read — use its values, then check the impact');
@@ -225,7 +252,9 @@ function CorrectCadForm({
     if (greigeId !== row.greigeId) req.greigeId = greigeId;
     const widthNum = width === '' ? null : Number(width);
     if (widthNum !== null && widthNum !== row.cutableWidth) req.cutableWidth = widthNum;
-    if (markerFile) req.markerFileId = markerFile.id;
+    // The row's own image is not sent: the server checks the row's image by itself, and only when the marker
+    // changes (a correction that only carries values down is not held up by an old difference)
+    if (markerFile && !markerFile.fromRow) req.markerFileId = markerFile.id;
     return req;
   };
 
@@ -381,35 +410,35 @@ function CorrectCadForm({
                 </div>
               </div>
               {pickableImages.length > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <Select value={pickedImageId} onValueChange={setPickedImageId} disabled={uploadingMarker}>
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder="…or use an uploaded image" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {pickableImages.map((f) => (
-                        <SelectItem key={f.id} value={f.id} className="text-xs">
-                          {f.fileName ?? 'image'}
-                          {f.cadRow ? ` — on ${f.cadRow.label}` : ' — not on a row'}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={!pickedImageId || uploadingMarker}
-                    onClick={onPickImage}
-                  >
-                    Use
-                  </Button>
-                </div>
+                <Select
+                  value=""
+                  onValueChange={onPickImage}
+                  onOpenChange={(open) => {
+                    pickerOpen.current = open;
+                  }}
+                  disabled={uploadingMarker}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue
+                      placeholder={markerFile ? '…or use another uploaded image' : '…or use an uploaded image'}
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {pickableImages.map((f) => (
+                      <SelectItem key={f.id} value={f.id} className="text-xs">
+                        {f.fileName ?? 'image'}
+                        {f.cadRow ? ` — on ${f.cadRow.label}` : ' — not on a row'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
               {uploadingMarker && (
                 <p className="text-xs text-muted-foreground">Reading the marker — about 10 seconds…</p>
               )}
               {markerFile && (
                 <p className="text-xs text-muted-foreground">
+                  {markerFile.fromRow ? "This row's image, " : ''}
                   {markerFile.fileName ?? 'image'}:{' '}
                   {markerFile.reading.lengthM !== null
                     ? [
@@ -426,7 +455,8 @@ function CorrectCadForm({
               )}
               {markerMissing && (
                 <p className="text-xs text-destructive">
-                  Upload the corrected marker's image — a Raw Mat CAD's values come from its marker.
+                  Upload the corrected marker's image, or pick an uploaded one above — a Raw Mat CAD's values come from
+                  its marker.
                 </p>
               )}
               {markerNeedsReason && (

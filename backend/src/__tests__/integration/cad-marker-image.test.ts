@@ -99,6 +99,8 @@ afterAll(async () => {
     await prisma.fabric_width_cad.deleteMany({ where: { id: { in: ids } } });
   }
   await prisma.audit_logs.deleteMany({ where: { entityType: 'fabric_width_cad', entityId: { in: ids } } });
+  // the Correct test's correction record and its history lines
+  await prisma.audit_logs.deleteMany({ where: { userId: only(userId) } });
   // the rows are gone, so nothing cascades from the slot
   await prisma.style_fabrics.deleteMany({ where: { id: only(styleFabricId) } });
   await prisma.style_components.deleteMany({ where: { id: only(componentId) } });
@@ -285,6 +287,50 @@ describe('CAD row marker image — endpoints', () => {
     expect(res.body.data.file.fileUrl).toBe(onOther.fileUrl);
     // the other row keeps its own image
     expect((await prisma.cad_purpose_files.findUnique({ where: { id: onOther.id } }))?.cadId).toBe(other.id);
+  });
+
+  // ESSKY084LS (29-Sep): the 52″ Raw Mat image says 6 pieces (L×2), the approved row 5. Correcting the row to
+  // the image's 6 pieces was held back asking for "the corrected marker's image" — the row already had it.
+  it('Correct: a row corrected to what its own image says needs no other image; what still differs needs a reason', async () => {
+    const row = await createRow(
+      { cadMeters: 1.95, layerMarginMeters: 0.05, cadAverage: 0.4, approvalStatus: 'APPROVED' },
+      ['S', 'M', 'L', 'XL', 'XXL']
+    );
+    const six = S_TO_XXL.map((s) => (s.sizeName === 'L' ? { ...s, quantity: 2 } : s));
+    const image = await giveMarkerImage(prisma, { cadId: row.id, styleId, lengthM: 1.95, widthIn: 52, sizes: six });
+    const correction = `/api/cad-planning/${styleId}/row/${row.id}/correction`;
+
+    // a length the image does not say: the row's own image is checked and the difference shown
+    const off = await request(app).post(`${correction}/preview`).set(authHeader).send({ layerLengthMeters: 1.96 });
+    expect(off.status).toBe(200);
+    expect(off.body.data.markerCheck).toMatchObject({ required: true, fileId: image.id, fromRow: true });
+    expect(off.body.data.markerCheck.differences.length).toBeGreaterThan(0);
+
+    // the image's own 6 pieces: nothing else is asked for
+    const preview = await request(app).post(`${correction}/preview`).set(authHeader).send({ sizeBreakdowns: six });
+    expect(preview.status).toBe(200);
+    expect(preview.body.data.markerCheck).toMatchObject({ required: true, fileId: image.id, fromRow: true });
+    expect(preview.body.data.markerCheck.differences).toEqual([]);
+
+    const submitted = await request(app)
+      .post(correction)
+      .set(authHeader)
+      .send({ sizeBreakdowns: six, reason: 'Sizes as the marker says' });
+    expect(submitted.status).toBeLessThan(300);
+    const saved = await prisma.fabric_width_cad.findUnique({ where: { id: row.id } });
+    expect(Number(saved!.cadAverage)).toBeCloseTo(2 / 6, 4);
+    expect(saved!.markerOverrideReason).toBeNull();
+    // the image stays the row's one current image — no second record, and no "image attached" History line
+    // for an image the row already had (the correction itself is in History)
+    expect(await prisma.cad_purpose_files.findMany({ where: { cadId: row.id } })).toEqual([
+      expect.objectContaining({ id: image.id, replacedAt: null }),
+    ]);
+    const history = await prisma.audit_logs.findMany({
+      where: { entityType: 'fabric_width_cad', entityId: row.id },
+      select: { action: true },
+    });
+    expect(history.map((h) => h.action)).toContain('CORRECT');
+    expect(history.map((h) => h.action)).not.toContain('MARKER_IMAGE');
   });
 
   it("delete: a Raw Mat row's marker is replaced, not deleted; a shared file stays on disk", async () => {

@@ -2729,6 +2729,7 @@ export function CADSpreadsheetTable({
       <CorrectCadDialog
         styleId={styleId}
         row={correctRow}
+        rowMarker={correctRow ? markerByRow.get(correctRow.id) : undefined}
         sizeOptions={sizeOptions}
         availableGreiges={availableGreiges}
         onClose={() => setCorrectRow(null)}

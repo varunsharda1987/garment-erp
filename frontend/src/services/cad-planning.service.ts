@@ -194,6 +194,8 @@ export interface CadCorrectionRequest {
 export interface CadCorrectionMarkerCheck {
   required: boolean;
   fileId: string | null;
+  /** The image checked is the one already on the row */
+  fromRow?: boolean;
   reading: MarkerReading | null;
   differences: MarkerDifference[];
 }

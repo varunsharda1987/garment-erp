@@ -14,6 +14,9 @@ import type {
   DraftsListResponse,
   DraftResponse,
   StyleVariantsResponse,
+  StyleColourway,
+  CreateColourwayRequest,
+  ColourwayCreated,
 } from '../types/style.types';
 
 export const styleService = {
@@ -105,6 +108,22 @@ export const styleService = {
    */
   getStyleById: async (id: string): Promise<Style> => {
     const response = await api.get<StyleResponse>(`/styles/${id}`);
+    return response.data.data;
+  },
+
+  /**
+   * The style's colour group — the first style and every colourway copied from it
+   */
+  getColourways: async (id: string): Promise<StyleColourway[]> => {
+    const response = await api.get<{ data: StyleColourway[] }>(`/styles/${id}/colourways`);
+    return response.data.data;
+  },
+
+  /**
+   * Create Colourway — copy the style (design, trims, sizes, CAD — not costing) into a new colour
+   */
+  createColourway: async (id: string, body: CreateColourwayRequest): Promise<ColourwayCreated> => {
+    const response = await api.post<{ data: ColourwayCreated }>(`/styles/${id}/colourways`, body);
     return response.data.data;
   },
 

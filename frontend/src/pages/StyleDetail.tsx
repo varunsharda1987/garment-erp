@@ -1,7 +1,7 @@
 import { unitShort } from '@/lib/units';
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { styleService } from '@/services/style.service';
 import { miniMarkerService } from '@/services/miniMarker.service';
 import type { Style } from '@/types/style.types';
@@ -18,6 +18,8 @@ import { Badge } from '@/components/ui/badge';
 import type { StyleActualConsumption } from '@/types/cutting.types';
 import api from '@/lib/api';
 import { MiniMarkerBadge } from '@/components/cad/MiniMarkerBadge';
+import { CreateColourwayDialog } from '@/components/styles/CreateColourwayDialog';
+import { StyleIdentity } from '@/components/StyleIdentity';
 import { Input } from '@/components/ui/input';
 import { updateBOMItem } from '@/services/style-material-bom.service';
 import { notify } from '../lib/notify';
@@ -145,6 +147,15 @@ export default function StyleDetail() {
     enabled: !!id,
   });
 
+  // The style's colour group (Create Colourway) — the card shows only when there is more than this style
+  const queryClient = useQueryClient();
+  const [colourwayOpen, setColourwayOpen] = useState(false);
+  const { data: colourways = [] } = useQuery({
+    queryKey: ['styleColourways', id],
+    queryFn: () => styleService.getColourways(id!),
+    enabled: !!id,
+  });
+
   useEffect(() => {
     if (id) {
       loadStyleData(id);
@@ -244,9 +255,28 @@ export default function StyleDetail() {
             <Button variant="outline" onClick={() => navigate('/styles')}>
               Back to List
             </Button>
+            {style.isActive !== false && (
+              <Button variant="outline" onClick={() => setColourwayOpen(true)}>
+                Create Colourway
+              </Button>
+            )}
             <Button onClick={() => navigate(`/styles/${style.id}/edit`)}>Edit Style</Button>
           </div>
         </div>
+
+        <CreateColourwayDialog
+          open={colourwayOpen}
+          onOpenChange={setColourwayOpen}
+          style={style}
+          colourways={colourways}
+          onCreated={(created) => {
+            setColourwayOpen(false);
+            queryClient.invalidateQueries({ queryKey: ['styleColourways'] });
+            queryClient.invalidateQueries({ queryKey: ['styles'] });
+            // Straight to the new style's form: swap any trim whose colour follows the garment
+            navigate(`/styles/${created.id}/edit`);
+          }}
+        />
 
         {/* Main Content with Tabs */}
         <Tabs defaultValue="overview" className="space-y-4">
@@ -300,6 +330,43 @@ export default function StyleDetail() {
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Colourways — the same style in other colours (Create Colourway) */}
+              {colourways.length > 1 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Colourways</CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex flex-wrap gap-2">
+                    {colourways.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        disabled={c.isCurrent}
+                        onClick={() => navigate(`/styles/${c.id}`)}
+                        className={
+                          'flex items-center gap-2 rounded-md border px-3 py-2 text-left text-sm ' +
+                          (c.isCurrent ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted')
+                        }
+                      >
+                        <span
+                          className="inline-block h-4 w-4 shrink-0 rounded-full border border-border"
+                          style={c.colour?.hexCode ? { backgroundColor: c.colour.hexCode } : undefined}
+                        />
+                        <span>
+                          <span className="block font-medium">{c.colour?.colorName ?? 'No colour'}</span>
+                          <StyleIdentity style={c} className="text-xs" />
+                        </span>
+                        {c.isCurrent && (
+                          <Badge variant="outline" className="ml-1">
+                            This style
+                          </Badge>
+                        )}
+                      </button>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Main Info Card */}
               <Card>

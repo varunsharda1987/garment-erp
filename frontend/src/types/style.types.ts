@@ -553,6 +553,36 @@ export interface StyleVariantsResponse {
   message?: string;
 }
 
+// Create Colourway (backend services/style-colourway.service.ts)
+/** One style of a colour group — GET /styles/:id/colourways */
+export interface StyleColourway {
+  id: string;
+  styleCode: string;
+  buyerStyleRef: string | null;
+  styleName: string;
+  colour: { id: string; colorName: string; hexCode: string | null } | null;
+  /** The style the others were copied from */
+  isFirst: boolean;
+  /** The style the request was for */
+  isCurrent: boolean;
+}
+
+/** POST /styles/:id/colourways — the style code is never sent (minted, or the buyer code for in-house brands) */
+export interface CreateColourwayRequest {
+  colorId: string;
+  buyerStyleRef?: string | null;
+  styleName?: string | null;
+}
+
+export interface ColourwayCreated {
+  id: string;
+  styleCode: string;
+  buyerStyleRef: string | null;
+  styleName: string;
+  colourName: string;
+  copied: { fabrics: number; recolouredFabrics: number; trims: number; sizes: number; cadRows: number };
+}
+
 // Re-export CAD Planning response types from dedicated CAD module (backward compatibility)
 export type {
   CADPlanningGreigeOption,

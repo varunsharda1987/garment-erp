@@ -20,6 +20,8 @@ import {
   updateCADGrouping,
   canDeactivateStyle,
   getNextStyleCode,
+  createStyleColourway,
+  getStyleColourways,
 } from '../controllers/style.controller';
 import {
   createComponent,
@@ -47,6 +49,7 @@ import {
   styleIdAsStyleIdParamSchema,
   componentIdParamSchema,
   createStyleVariantsSchema,
+  createColourwaySchema,
   updateCADGroupingSchema,
   createComponentSchema,
   updateComponentSchema,
@@ -169,6 +172,25 @@ router.get('/:id/can-deactivate', validateParams(styleIdParamSchema), asyncHandl
  * @access  Protected - All authenticated users
  */
 router.get('/:id/fabric-stock', validateParams(styleIdParamSchema), asyncHandler(getStockForStyle));
+
+/**
+ * @route   GET /api/styles/:id/colourways
+ * @desc    The style's colour group — the first style and every colourway copied from it
+ * @access  Protected - All authenticated users
+ */
+router.get('/:id/colourways', validateParams(styleIdParamSchema), asyncHandler(getStyleColourways));
+
+/**
+ * @route   POST /api/styles/:id/colourways
+ * @desc    Create Colourway — copy the style (design, trims, sizes, CAD — not costing) into a new colour
+ * @access  Protected - styles write permission
+ */
+router.post(
+  '/:id/colourways',
+  validateParams(styleIdParamSchema),
+  validateBody(createColourwaySchema),
+  asyncHandler(createStyleColourway)
+);
 
 /**
  * @route   POST /api/styles/:id/image

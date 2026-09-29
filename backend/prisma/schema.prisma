@@ -2795,6 +2795,13 @@ model styles {
   /// sizes live in style_variants / size_options and are never re-derived from the preset.
   customerSizePresetId        String?
   customerSizePreset          customer_size_category_presets? @relation(fields: [customerSizePresetId], references: [id], onDelete: SetNull)
+  /// Colour group (Create Colourway, 2026-09-29): the FIRST style of this style's colourways — the one it,
+  /// or its source, was copied from. Null on that first style and on every style never copied. Siblings =
+  /// that style + every style pointing at it; never chained (a copy of a copy points at the same first
+  /// style). Written only by style-colourway.service.ts.
+  colourwayOfStyleId          String?
+  colourwayOf                 styles?                         @relation("StyleColourway", fields: [colourwayOfStyleId], references: [id], onDelete: SetNull)
+  colourways                  styles[]                        @relation("StyleColourway")
   button_style_associations   button_style_associations[]
   color_options               color_options[]
   delivery_note_items         delivery_note_items[]
@@ -2879,6 +2886,7 @@ model styles {
   @@index([brandCategoryId]) // Style form relations
   @@index([createdById]) // Audit/creator queries
   @@index([customerSizePresetId])
+  @@index([colourwayOfStyleId])
 }
 
 model suppliers {

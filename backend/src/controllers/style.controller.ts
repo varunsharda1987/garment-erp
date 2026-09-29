@@ -4,6 +4,8 @@
  */
 import { Request, Response } from 'express';
 import { styleService } from '../services/style.service';
+import { createColourway, listColourways } from '../services/style-colourway.service';
+import { logCreate } from '../services/audit.service';
 import { logInfo } from '../utils/logger';
 import { ValidationError } from '../errors';
 
@@ -19,6 +21,30 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
     data: style,
     message: 'Style created successfully',
   });
+};
+
+/**
+ * Create Colourway — copy the style into a new colour (style-colourway.service)
+ * POST /api/styles/:id/colourways
+ */
+export const createStyleColourway = async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.userId || 'system';
+  const created = await createColourway(req.params.id, req.body, userId);
+  await logCreate(req, 'STYLE', created.id, { colourwayOf: req.params.id, ...created });
+
+  res.status(201).json({
+    data: created,
+    message: `Colourway ${created.styleCode} created in ${created.colourName}`,
+  });
+};
+
+/**
+ * The style's colour group — the first style and every copy of it
+ * GET /api/styles/:id/colourways
+ */
+export const getStyleColourways = async (req: Request, res: Response): Promise<void> => {
+  const colourways = await listColourways(req.params.id);
+  res.status(200).json({ data: colourways });
 };
 
 /**

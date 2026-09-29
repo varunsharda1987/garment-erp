@@ -59,15 +59,33 @@ export function cadMarkerFields(src: MarkerSource) {
   };
 }
 
-/** The marker's children: the size ratio and the multi-part selection. */
-export async function copyCadChildren(tx: Tx, sourceCadId: string, targetCadId: string): Promise<void> {
+/**
+ * The marker's children: the size ratio and the multi-part selection.
+ *
+ * `sizeIdMap` is for a copy into ANOTHER style (Create Colourway): each size row's `sizeId` points at the
+ * source style's size_options, so it is swapped for the target style's size of the same name (null when that
+ * size was not copied — the row keeps its sizeName). Within one style it is omitted and sizeId is kept.
+ */
+export async function copyCadChildren(
+  tx: Tx,
+  sourceCadId: string,
+  targetCadId: string,
+  sizeIdMap?: ReadonlyMap<string, string>
+): Promise<void> {
   const [sizes, parts] = await Promise.all([
     tx.cad_size_breakdown.findMany({ where: { cadId: sourceCadId } }),
     tx.cad_pattern_parts.findMany({ where: { cadId: sourceCadId } }),
   ]);
+  const sizeIdOf = (sizeId: string | null): string | null =>
+    sizeIdMap ? (sizeId ? (sizeIdMap.get(sizeId) ?? null) : null) : sizeId;
   if (sizes.length > 0) {
     await tx.cad_size_breakdown.createMany({
-      data: sizes.map((s) => ({ cadId: targetCadId, sizeName: s.sizeName, sizeId: s.sizeId, quantity: s.quantity })),
+      data: sizes.map((s) => ({
+        cadId: targetCadId,
+        sizeName: s.sizeName,
+        sizeId: sizeIdOf(s.sizeId),
+        quantity: s.quantity,
+      })),
     });
   }
   if (parts.length > 0) {

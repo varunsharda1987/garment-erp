@@ -420,6 +420,18 @@ export const createStyleVariantsSchema = z.object({
   variants: z.array(skuVariantSchema).min(1, 'At least one variant is required'),
 });
 
+/**
+ * Create Colourway — POST /api/styles/:id/colourways (style-colourway.service). The style code is never
+ * sent: it is minted like a new style's, or — when the source's Style Code IS its Buyer Style Code
+ * (in-house brands) — it is the typed buyer code.
+ */
+export const createColourwaySchema = z.object({
+  // colorId accepts CUID (color_master uses @default(cuid()))
+  colorId: z.string().refine(isValidIdFormat, { message: 'Pick the new colour' }),
+  buyerStyleRef: z.string().trim().max(100, 'Buyer Style Code must be at most 100 characters').optional().nullable(),
+  styleName: z.string().trim().max(200, 'Style name must not exceed 200 characters').optional().nullable(),
+});
+
 // ============================================================================
 // CAD PLANNING SCHEMAS
 // ============================================================================
@@ -691,6 +703,7 @@ export type UpdateStyleInput = z.infer<typeof updateStyleSchema>;
 export type StyleQueryInput = z.infer<typeof styleQuerySchema>;
 export type StyleIdParam = z.infer<typeof styleIdParamSchema>;
 export type CreateStyleVariantsInput = z.infer<typeof createStyleVariantsSchema>;
+export type CreateColourwayInput = z.infer<typeof createColourwaySchema>;
 export type UpdateCADGroupingInput = z.infer<typeof updateCADGroupingSchema>;
 export type ApproveCADPlanInput = z.infer<typeof approveCADPlanSchema>;
 export type CreateStyleCommentInput = z.infer<typeof createStyleCommentSchema>;

@@ -749,12 +749,16 @@ export async function checkMarkerOnApprove(db: Db, cadIds: string[]): Promise<vo
  * A row made from another carries the source's marker image: a record of its own (so each row has exactly
  * one current image) pointing at the SAME file, with the same reading. The file on disk is removed only when
  * no record uses it any more (cad-file.service delete).
+ *
+ * `targetStyleId` is for a row copied into ANOTHER style (Create Colourway): the record then sits in that
+ * style's CAD files, not the source's. Omitted, it stays with the source's style (a copy within one style).
  */
 export async function copyMarkerImage(
   tx: Db,
   sourceCadId: string,
   targetCadId: string,
-  targetPurpose?: string | null
+  targetPurpose?: string | null,
+  targetStyleId?: string
 ): Promise<void> {
   const file = await currentMarkerFile(tx, sourceCadId);
   if (!file) return;
@@ -763,6 +767,7 @@ export async function copyMarkerImage(
   await tx.cad_purpose_files.create({
     data: {
       ...rest,
+      ...(targetStyleId ? { styleId: targetStyleId } : {}),
       purpose: (targetPurpose ?? file.purpose) as cad_purpose_files['purpose'],
       readSizes: readSizes === null ? Prisma.DbNull : (readSizes as Prisma.InputJsonValue),
       cadId: targetCadId,

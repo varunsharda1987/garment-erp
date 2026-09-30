@@ -9,6 +9,7 @@ import { nextSeededSequence } from '../utils/seeded-sequence';
 import { applySearch } from '../utils/search-filter';
 import { toDateInputValue } from '../utils/date';
 import { skuKey } from '../services/helpers/sku-colour.helper';
+import { USER_NAME_SELECT, userName } from '../types/prisma.types';
 
 // ============================================
 // Helper Functions
@@ -82,7 +83,7 @@ const transformStitchingIssue = (issue: any) => ({
         }
       : null,
   })),
-  dailyOutputs: issue.dailyOutputs || [],
+  dailyOutputs: (issue.dailyOutputs || []).map((output: any) => ({ ...output, createdBy: userName(output.createdBy) })),
 });
 
 const generateIssueNumber = async (workOrderNumber: string): Promise<string> => {
@@ -116,11 +117,11 @@ const issueIncludeOptions = {
       },
     },
   },
-  manager: true,
+  manager: USER_NAME_SELECT,
   contractor: {
     select: { id: true, code: true, name: true, contactPerson: true, phone: true },
   },
-  createdBy: true,
+  createdBy: USER_NAME_SELECT,
   skuBreakdown: {
     include: {
       color: true,
@@ -134,7 +135,7 @@ const issueIncludeOptions = {
   },
   dailyOutputs: {
     include: {
-      createdBy: true,
+      createdBy: USER_NAME_SELECT,
       skuOutputs: {
         include: {
           color: true,
@@ -658,7 +659,7 @@ export const recordDailyOutput = async (req: Request, res: Response) => {
       },
     },
     include: {
-      createdBy: true,
+      createdBy: USER_NAME_SELECT,
       skuOutputs: {
         include: {
           color: true,
@@ -699,7 +700,7 @@ export const recordDailyOutput = async (req: Request, res: Response) => {
     logger.error('Failed to update production_tracking for stitching output:', trackingError);
   }
 
-  res.json({ data: dailyOutput });
+  res.json({ data: { ...dailyOutput, createdBy: userName(dailyOutput.createdBy) } });
 };
 
 // Complete stitching issue

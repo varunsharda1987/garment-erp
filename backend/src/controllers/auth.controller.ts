@@ -196,6 +196,7 @@ export const refreshAccessToken = async (req: Request, res: Response): Promise<v
   // Find the refresh token in database
   const storedToken = await prisma.refresh_tokens.findUnique({
     where: { token: refreshToken },
+    // allow-full-user: server-side only — read to re-issue tokens, never sent in a response
     include: { user: true },
   });
 

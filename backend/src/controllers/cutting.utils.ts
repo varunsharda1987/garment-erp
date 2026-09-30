@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { nextSeededSequence } from '../utils/seeded-sequence';
 import { isQtyZero } from '../utils/quantity';
 import { batchIssuedFabric } from '../services/helpers/run-fabric.helper';
+import { USER_NAME_SELECT } from '../types/prisma.types';
 
 // ============================================
 // Shared Helper Functions for Cutting Controllers
@@ -205,8 +206,8 @@ export const batchIncludeOptions = {
       fabricMaster: true,
     },
   },
-  cuttingOperator: true,
-  createdBy: true,
+  cuttingOperator: USER_NAME_SELECT,
+  createdBy: USER_NAME_SELECT,
   skuOutputs: {
     include: {
       color: true,

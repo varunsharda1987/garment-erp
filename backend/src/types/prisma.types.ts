@@ -120,6 +120,22 @@ export const DEFAULT_USER_SELECT: UserSelect = {
 };
 
 /**
+ * The safe include for a `users` relation whose row reaches an API response: the name only.
+ * `createdBy: true` (or any users relation `: true`) loads the whole row — password hash and
+ * tokenVersion included — and a transform that spreads or passes it through sends it to the
+ * browser. Stitching and finishing daily outputs did exactly that (2026-09-30). Enforced by the
+ * *full user record include* smart-check.
+ */
+export const USER_NAME_SELECT = { select: { id: true, firstName: true, lastName: true } } as const;
+
+/** `{ id, name }` for a user loaded with USER_NAME_SELECT — the shape the pages read. */
+export function userName(
+  user: { id: string; firstName: string; lastName: string } | null | undefined
+): { id: string; name: string } | null {
+  return user ? { id: user.id, name: `${user.firstName} ${user.lastName}` } : null;
+}
+
+/**
  * Common include patterns
  */
 export interface CreatedByInclude {

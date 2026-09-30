@@ -536,6 +536,17 @@ function checkRateCardPrintingType(tsFiles) {
   );
 }
 
+/** Check: a full users row in an include/select (password hash sent to the browser) — BLOCKING new + ratchet. */
+function checkFullUserInclude(tsFiles) {
+  console.log(`\n${c.cyan}Checking for full user records in includes...${c.reset}`);
+  return runRatchetedCheck(
+    'full users row(s) loaded in an include/select (password hash + tokenVersion reach the response)',
+    detectors.fullUserInclude(tsFiles),
+    'full-user-include-baseline.json',
+    "Load a user with USER_NAME_SELECT from backend/src/types/prisma.types.ts (or an explicit `{ select: { id, firstName, lastName } }`) and map it with userName(). A load that never reaches a response, or a scalar column sharing a relation's name, carries `// allow-full-user: <why>` on the line or within the 2 lines above. If intentional, add the key to scripts/hooks/full-user-include-baseline.json."
+  );
+}
+
 /** Check (E5): costing code touching the CAD-geometry approval column — BLOCKING new + ratchet. */
 function checkCostingApprovalDrift(tsFiles) {
   console.log(`\n${c.cyan}Checking for CAD/costing approval drift...${c.reset}`);
@@ -1391,6 +1402,7 @@ function runAllModeChecks() {
   if (!checkUnguardedCadDelete(tsFiles)) ok = false;
   if (!checkCadMarkerRuleBypass(tsFiles)) ok = false;
   if (!checkRateCardPrintingType(tsFiles)) ok = false;
+  if (!checkFullUserInclude(tsFiles)) ok = false;
   if (!checkCostingApprovalDrift(tsFiles)) ok = false;
   if (!checkSaleOrderStatusWrite(tsFiles)) ok = false;
   if (!checkCadPurposeSingleWrite(tsFiles)) ok = false;
@@ -1522,6 +1534,7 @@ function main() {
     if (!checkUnguardedCadDelete(categories.typescript)) allPassed = false;
     if (!checkCadMarkerRuleBypass(categories.typescript)) allPassed = false;
     if (!checkRateCardPrintingType(categories.typescript)) allPassed = false;
+    if (!checkFullUserInclude(categories.typescript)) allPassed = false;
     if (!checkCostingApprovalDrift(categories.typescript)) allPassed = false;
     if (!checkSaleOrderStatusWrite(categories.typescript)) allPassed = false;
     if (!checkCadPurposeSingleWrite(categories.typescript)) allPassed = false;

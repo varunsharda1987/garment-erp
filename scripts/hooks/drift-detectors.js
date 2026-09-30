@@ -2199,6 +2199,58 @@ function rateCardPrintingTypeDrift(relFiles) {
   return out;
 }
 
+// A full `users` row in an include/select (2026-09-30). `createdBy: true` — or any relation that
+// points at `users` set to `true` — loads the whole row, password hash and tokenVersion included,
+// and a transform that spreads or passes it through sends it to the browser: the stitching and
+// finishing daily outputs did (`dailyOutputs.createdBy: true`, passed through untouched). The
+// relation names are read from schema.prisma, so a new users relation is covered by itself.
+// Sanctioned shape: USER_NAME_SELECT (backend/src/types/prisma.types.ts) or an explicit select.
+// A server-side-only load, or a scalar column that shares a relation's name, carries
+// `// allow-full-user: <why>` on the line or within the 2 lines above.
+let userRelationNamesCache = null;
+function userRelationNames() {
+  if (userRelationNamesCache) return userRelationNamesCache;
+  const schema = readRel('backend/prisma/schema.prisma') || '';
+  const names = new Set();
+  const re = /^\s+([A-Za-z_][A-Za-z0-9_]*)\s+users(\?|\[\])?[ \t\r]/gm;
+  let m;
+  while ((m = re.exec(schema))) names.add(m[1]);
+  userRelationNamesCache = names;
+  return names;
+}
+
+function fullUserInclude(relFiles) {
+  const out = [];
+  const names = userRelationNames();
+  if (!names.size) return out;
+  const re = new RegExp(`\\b(${[...names].join('|')})\\s*:\\s*true\\b`, 'g');
+  for (const rel of relFiles) {
+    const norm = rel.replace(/\\/g, '/');
+    if (!/^backend\/src\/.*\.ts$/.test(norm)) continue;
+    if (/\.test\.ts$|__tests__/.test(norm)) continue;
+    const content = readCode(rel);
+    if (!content) continue;
+    const rawLines = (readRel(rel) || '').split('\n');
+    const seen = new Map();
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(content))) {
+      const lineNo = lineOf(content, m.index);
+      const context = rawLines.slice(Math.max(0, lineNo - 3), lineNo).join('\n');
+      if (/allow-full-user/.test(context)) continue;
+      const n = (seen.get(m[1]) || 0) + 1;
+      seen.set(m[1], n);
+      out.push({
+        key: `${rel} :: ${m[1]}: true #${n}`,
+        file: rel,
+        line: lineNo,
+        detail: `\`${m[1]}: true\` loads the whole users row (password hash, tokenVersion) — a response that passes it on leaks it`,
+      });
+    }
+  }
+  return out;
+}
+
 // Two-owner approval split (2026-08-22) — costing code must key on costingApprovalStatus.
 // fabric_width_cad.approvalStatus is CAD-GEOMETRY approval only ("how much fabric"); the
 // costing PRICE approval lives in costingApprovalStatus/costingApprovedBy/costingApprovedAt.
@@ -2857,6 +2909,7 @@ module.exports = {
   unguardedCadDelete,
   cadMarkerRuleBypass,
   rateCardPrintingTypeDrift,
+  fullUserInclude,
   costingCadApprovalDrift,
   saleOrderStatusWrite,
   cadPurposeSingleWrite,

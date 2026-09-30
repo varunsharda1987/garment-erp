@@ -263,6 +263,7 @@ export async function validateCADModification(cadId: string, operation: 'update'
       approvalStatus: true, // allow-cad-approval: this IS the CAD-side lock
       costingApprovalStatus: true,
       approvedAt: true,
+      // allow-full-user: fabric_width_cad.approvedBy is a text column here, not a users relation
       approvedBy: true,
       _count: {
         select: {

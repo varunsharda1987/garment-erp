@@ -6958,6 +6958,8 @@ model transfer_slips {
   skuBreakdown         transfer_slip_skus[]
   /// Stitching issues' takings from this (cutting → stitching) slip; it turns RECEIVED only when they cover it
   stitchingAllocations stitching_issue_slip_skus[]
+  /// Finishing issues' takings from this (stitching → finishing) slip; same rule
+  finishingAllocations finishing_issue_slip_skus[]
   component            style_components?           @relation(fields: [componentId], references: [id])
   cuttingBatch         cutting_batches?            @relation(fields: [cuttingBatchId], references: [id])
   issuedTo             suppliers?                  @relation("TransferIssuedTo", fields: [issuedToId], references: [id])
@@ -6968,6 +6970,10 @@ model transfer_slips {
   @@index([workOrderId])
   @@index([fromStage, toStage])
   @@index([status])
+  // A cutting batch may reach stitching on several slips (Issue to Stitching per contractor, then
+  // Generate Transfer Slip for the rest) — capped at its good pieces by helpers/cutting-slip.helper.ts,
+  // no longer one slip per batch (migration 20260930180000 dropped that partial unique index)
+  @@index([cuttingBatchId])
 }
 
 /// Transfer Slip SKU - SKU breakdown per transfer slip
@@ -7173,6 +7179,8 @@ model finishing_issues {
   dailyOutputs           finishing_daily_outputs[]
   components             finishing_issue_components[]
   skuBreakdown           finishing_issue_skus[]
+  /// What this issue took from each stitching slip (stitching-slip-balance.helper.ts)
+  slipAllocations        finishing_issue_slip_skus[]
   contractor             suppliers?                   @relation("FinishingContractor", fields: [contractorId], references: [id])
   createdBy              users                        @relation("FinishingIssueCreator", fields: [createdById], references: [id])
   manager                users?                       @relation("FinishingManager", fields: [managerId], references: [id])
@@ -7186,6 +7194,29 @@ model finishing_issues {
   @@index([status])
   // Performance: composite index for work order queries
   @@index([workOrderId, status])
+}
+
+/// What a finishing issue took from ONE stitching → finishing transfer slip, per colour + size
+/// (2026-09-30). The finishing twin of stitching_issue_slip_skus: until then a finishing issue never
+/// used its slip up, so the same stitched pieces could be issued to finishing again and again. A slip
+/// stays open while any piece is not yet issued and turns RECEIVED only when these rows cover it.
+/// Read and write ONLY through services/helpers/stitching-slip-balance.helper.ts (stage FINISHING).
+model finishing_issue_slip_skus {
+  id               String           @id @default(uuid())
+  finishingIssueId String
+  transferSlipId   String
+  colorId          String?
+  sizeId           String
+  /// Pieces taken (> 0, DB CHECK)
+  quantity         Int
+  createdAt        DateTime         @default(now())
+  finishingIssue   finishing_issues @relation(fields: [finishingIssueId], references: [id], onDelete: Cascade)
+  transferSlip     transfer_slips   @relation(fields: [transferSlipId], references: [id])
+
+  // NULLS NOT DISTINCT (raw SQL, migration 20260930180000) — a blank colour is one value. Prisma
+  // cannot express it: never drop/recreate it.
+  @@unique([finishingIssueId, transferSlipId, colorId, sizeId])
+  @@index([transferSlipId])
 }
 
 /// Finishing Issue Component - Components assigned to manager

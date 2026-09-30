@@ -3453,6 +3453,11 @@ export function buildJwoDataForProcessingPO(seed: ProcessingJwoSeed, jobWorkNumb
  * process PO's identity (greige and/or fabric + processor), so the manual flow can
  * link open requirements instead of double-ordering, and warn when MRP already
  * generated a live PO for the same work.
+ *
+ * `forJob` narrows the requirements offered for LINKING to the job's own style and colour: a job
+ * brings back one fabric, and linking every open requirement of the greige tied other styles' and
+ * colours' orders to it (2026-09-30). The duplicate-work warning (activePOs / activeJwos) stays
+ * greige-wide.
  */
 export interface ProcessingRequirementMatches {
   openRequirements: Array<{
@@ -3481,6 +3486,7 @@ export async function findProcessingRequirementMatches(params: {
   greigeId: string | null;
   fabricId: string | null;
   processorId: string;
+  forJob?: { styleId: string | null; colorName: string | null };
 }): Promise<ProcessingRequirementMatches> {
   const identity: Prisma.material_requirementsWhereInput[] = [];
   if (params.greigeId) identity.push({ materials: { greigeId: params.greigeId } });
@@ -3498,6 +3504,8 @@ export async function findProcessingRequirementMatches(params: {
     },
     include: {
       orders: { select: { orderNumber: true } },
+      order_items: { select: { styleId: true } },
+      orderBomItem: { select: { colorName: true } },
       requirement_po_links: {
         include: {
           purchase_orders: {
@@ -3527,8 +3535,19 @@ export async function findProcessingRequirementMatches(params: {
   const activePOMap = new Map<string, ProcessingRequirementMatches['activePOs'][number]>();
   const activeJwoMap = new Map<string, ProcessingRequirementMatches['activeJwos'][number]>();
 
+  const sameText = (a: string | null | undefined, b: string | null | undefined) =>
+    !!a?.trim() && !!b?.trim() && a.trim().toLowerCase() === b.trim().toLowerCase();
+  const fitsJob = (req: (typeof reqs)[number]) => {
+    const job = params.forJob;
+    if (!job) return true;
+    if (job.styleId && req.order_items?.styleId !== job.styleId) return false;
+    const reqColour = req.colorName ?? req.orderBomItem?.colorName ?? null;
+    return !(job.colorName?.trim() && reqColour?.trim()) || sameText(job.colorName, reqColour);
+  };
+
   for (const req of reqs) {
     if (req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK') {
+      if (!fitsJob(req)) continue;
       openRequirements.push({
         id: req.id,
         requirementNumber: req.requirementNumber,
@@ -4127,16 +4146,22 @@ export async function generatePOFromRequirements(
   // differently used to store a value-weighted average — KMC's White at ₹3 and Burgundy at ₹7 became
   // one DJ-KMC-001 at ₹5.70, and the per-colour rates were stored nowhere (2026-09-24). Split the
   // selection by rate and raise each group through this same path, so every job carries its own rate.
+  // And one per greige: a job issues ONE cloth (issuance takes the job's greige from its requirements), so
+  // two greiges on one job left the second with no cloth to issue and no line to come back on (2026-09-30).
   if (requirements.every((req) => req.requirementType === 'PROCESSING')) {
-    const byRate = new Map<number, string[]>();
+    const greigeOfReq = new Map(
+      requirements.map((r) => [r.id, (r as any).orderBomItem?.greigeId ?? (r as any).materials?.greigeId ?? ''])
+    );
+    const byRateAndGreige = new Map<string, string[]>();
     for (const item of poItems) {
-      const ids = byRate.get(item.unitPrice) ?? [];
+      const key = `${item.unitPrice}|${greigeOfReq.get(item.requirementIds[0]) ?? ''}`;
+      const ids = byRateAndGreige.get(key) ?? [];
       ids.push(...item.requirementIds);
-      byRate.set(item.unitPrice, ids);
+      byRateAndGreige.set(key, ids);
     }
-    if (byRate.size > 1) {
+    if (byRateAndGreige.size > 1) {
       const results = [];
-      for (const ids of byRate.values()) {
+      for (const ids of byRateAndGreige.values()) {
         results.push(await generatePOFromRequirements({ ...data, requirementIds: ids }, userId));
       }
       const jobWorkOrders = results.flatMap((r) => r.jobWorkOrders ?? (r.jobWorkOrder ? [r.jobWorkOrder] : []));

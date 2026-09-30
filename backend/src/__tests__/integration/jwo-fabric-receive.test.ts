@@ -159,6 +159,7 @@ afterAll(async () => {
   await prisma.challans.deleteMany({ where: { id: { in: challanIds } } });
   await prisma.job_work_order_components.deleteMany({ where: { jobWorkOrderId: { in: jwoIds } } });
   await prisma.job_work_orders.deleteMany({ where: { id: { in: jwoIds } } });
+  await prisma.material_requirements.deleteMany({ where: { requirementNumber: { startsWith: RUN } } });
 
   // Everything minted from this run's greige: fabric masters, their lots, ledgers and materials.
   const mintedIds = (
@@ -564,6 +565,75 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     const jwo = await prisma.job_work_orders.findUnique({ where: { id: zeroJwoId } });
     expect(jwo!.jwoStatus).toBe('AT_PROCESSOR');
     expect(await prisma.fabric_stock.count()).toBe(lotsBefore);
+  });
+
+  // ---- A job whose orders come back as different fabrics (DJ-EBEW-002-001, 30-Sep) ------------------
+  // MRP bundled a Red, a Black and a Teal order onto one dyeing job; one receipt books one fabric, so
+  // receiving it would have put all three colours into stock as the Red one and credited every order.
+  const linkRequirement = async (jobId: string, colorName: string) => {
+    const greigeMaterialId = await ensureMaterialRecord(greigeId, 'GREIGE');
+    const requirement = await prisma.material_requirements.create({
+      data: {
+        requirementNumber: `${RUN}-MR-${randomUUID().slice(0, 8)}`,
+        source: 'MANUAL',
+        requirementType: 'PROCESSING',
+        materialId: greigeMaterialId,
+        orderQuantity: 100,
+        quantityPerUnit: 2.5,
+        wastagePercent: 0,
+        totalRequired: 250,
+        shortfall: 250,
+        unit: 'METER',
+        status: 'PO_GENERATED',
+        colorName,
+        requiredDate: new Date(),
+        createdById: userId,
+      },
+    });
+    await prisma.requirement_jwo_links.create({
+      data: { requirementId: requirement.id, jobWorkOrderId: jobId, allocatedQuantity: 250 },
+    });
+  };
+
+  it('refuses to receive a job whose requirements come back as different colours — nothing is written', async () => {
+    const mixedJwoId = await raiseAtProcessorJob();
+    await linkRequirement(mixedJwoId, 'Red');
+    await linkRequirement(mixedJwoId, 'Black');
+    const lotsBefore = await prisma.fabric_stock.count();
+
+    const res = await request(app).post('/api/grn/jwo/receive').set(authHeader).send({
+      receivedWidthInches: MEASURED_WIDTH,
+      jobWorkOrderId: mixedJwoId,
+      invoiceToFollow: true,
+      qtyReceivedMeters: 495,
+      warehouseId,
+    });
+
+    expect(res.status).toBe(422);
+    expect(res.body.message).toMatch(/expects 2 different fabrics back \(.*Red.*Black.*\)/);
+    expect(await prisma.goods_receiving_notes.count({ where: { jobWorkOrderId: mixedJwoId } })).toBe(0);
+    const jwo = await prisma.job_work_orders.findUnique({ where: { id: mixedJwoId } });
+    expect(jwo!.jwoStatus).toBe('AT_PROCESSOR');
+    expect(jwo!.finishedFabricId).toBeNull();
+    expect(await prisma.fabric_stock.count()).toBe(lotsBefore);
+  });
+
+  it('still receives a job whose two orders share one colour — they come back as one fabric', async () => {
+    const sameJwoId = await raiseAtProcessorJob();
+    await linkRequirement(sameJwoId, 'Red');
+    await linkRequirement(sameJwoId, 'red ');
+
+    const res = await request(app).post('/api/grn/jwo/receive').set(authHeader).send({
+      receivedWidthInches: MEASURED_WIDTH,
+      jobWorkOrderId: sameJwoId,
+      invoiceToFollow: true,
+      qtyReceivedMeters: 495,
+      warehouseId,
+    });
+
+    expect(res.status).toBe(201);
+    const jwo = await prisma.job_work_orders.findUnique({ where: { id: sameJwoId } });
+    expect(jwo!.jwoStatus).toBe('STOCK_UPDATED');
   });
 
   it('the create-only door is closed: POST /api/grn/jwo answers 410 and points at the job', async () => {

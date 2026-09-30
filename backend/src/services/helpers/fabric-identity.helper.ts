@@ -468,6 +468,24 @@ export async function stampStyleFabricLink(
 }
 
 /**
+ * Which finished fabric an identity comes back as, as a comparable key — the order getOrCreateFinishedFabricV2
+ * matches in: the style_fabrics slot when there is one, else the {greige, finish, style, colour[, design]} tuple.
+ * Two requirements with different keys are two different fabrics and can never share one receipt.
+ */
+export function finishedFabricOutputKey(identity: FinishedFabricIdentity): string {
+  if (identity.styleFabricId) return `slot:${identity.styleFabricId}`;
+  const text = (v: string | null) => (v ?? '').trim().toLowerCase();
+  return [
+    'tuple',
+    identity.greigeId,
+    identity.finishType,
+    text(identity.styleCode),
+    text(identity.colorName),
+    identity.finishType === 'PRINTED' ? text(identity.printDesign) : '',
+  ].join('|');
+}
+
+/**
  * Get-or-create a finished fabric_master for the resolved identity.
  * Dedup: style_fabrics anchor first, then an advisory per-style tuple
  * {greigeId, finishType, styleReference, colorName[, printDesign]} that only adopts

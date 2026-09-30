@@ -29,12 +29,41 @@ import { determineFinishType } from './processing-fabric.helper';
 import {
   FabricCreationSource,
   FinishedFabricIdentity,
+  finishedFabricOutputKey,
   getOrCreateFinishedFabricV2,
   ResolveIdentityParams,
   resolveFinishedFabricIdentity,
 } from './fabric-identity.helper';
+import { buyerStyleCode } from '../../utils/style-code';
 
 type Tx = Prisma.TransactionClient;
+
+/** The requirement fields a finished fabric's identity is resolved from (colour, greige, CAD part, style-fabric slot). */
+const REQUIREMENT_LINEAGE_SELECT = {
+  id: true,
+  colorName: true,
+  printingType: true,
+  materials: { select: { greigeId: true } },
+  orderBomItem: {
+    select: {
+      id: true,
+      colorName: true,
+      greigeId: true,
+      fabricId: true,
+      selectedCad: {
+        select: {
+          id: true,
+          styleFabricId: true,
+          isCombinedCutting: true,
+          patternPart: { select: { id: true, name: true } },
+          cadPatternParts: {
+            select: { patternPart: { select: { id: true, name: true, sortOrder: true } } },
+          },
+        },
+      },
+    },
+  },
+} satisfies Prisma.material_requirementsSelect;
 
 /**
  * Everything a GRN needs to know about a job work order — identity lineage AND cost basis.
@@ -66,35 +95,7 @@ export const JWO_GRN_INCLUDE = {
   },
   requirementLinks: {
     take: 1,
-    select: {
-      material_requirements: {
-        select: {
-          id: true,
-          colorName: true,
-          printingType: true,
-          materials: { select: { greigeId: true } },
-          orderBomItem: {
-            select: {
-              id: true,
-              colorName: true,
-              greigeId: true,
-              fabricId: true,
-              selectedCad: {
-                select: {
-                  id: true,
-                  styleFabricId: true,
-                  isCombinedCutting: true,
-                  patternPart: { select: { id: true, name: true } },
-                  cadPatternParts: {
-                    select: { patternPart: { select: { id: true, name: true, sortOrder: true } } },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
+    select: { material_requirements: { select: REQUIREMENT_LINEAGE_SELECT } },
   },
 } satisfies Prisma.job_work_ordersInclude;
 
@@ -173,6 +174,50 @@ export function jwoIdentityParams(
     finishType: determineFinishType(null, jwo.processType === 'PRINTING' ? 'PIGMENT' : null),
     tx: opts.tx,
   };
+}
+
+/**
+ * A receipt books ONE finished fabric, so a job whose requirements come back as different fabrics cannot be
+ * received: all of it would go into stock as one fabric and every order would be credited. MRP bundled the Red,
+ * Black and Teal orders of SP27CK130 into DJ-EBEW-002-001 (30-Sep). Refused before anything is written, until a
+ * job can carry one line per fabric. Lace (refused at creation) and fabric-lot reprocessing have one output.
+ */
+export async function assertOneArrivingFabric(jwo: JwoGrnRow, tx?: Tx): Promise<void> {
+  if (jwo.fabricType === 'LACE' || isFabricLotReprocessingJwo(jwo)) return;
+  const links = await (tx ?? prisma).requirement_jwo_links.findMany({
+    where: { jobWorkOrderId: jwo.id },
+    select: {
+      material_requirements: {
+        select: {
+          ...REQUIREMENT_LINEAGE_SELECT,
+          order_items: {
+            select: { styleId: true, styles: { select: { id: true, styleCode: true, buyerStyleRef: true } } },
+          },
+        },
+      },
+    },
+  });
+  if (links.length < 2) return;
+
+  const outputs = new Map<string, string>();
+  for (const { material_requirements: requirement } of links) {
+    const identity = await resolveFinishedFabricIdentity({ ...jwoIdentityParams(jwo, { tx }), requirement });
+    if (!identity) continue;
+    const style = requirement.order_items?.styles;
+    const label = [style ? buyerStyleCode(style) : null, identity.printDesign ?? identity.colorName]
+      .filter(Boolean)
+      .join(' ');
+    outputs.set(finishedFabricOutputKey(identity), label || 'another fabric');
+  }
+  if (outputs.size < 2) return;
+
+  const names = [...outputs.values()];
+  throw new BusinessError(
+    `${jwo.jobWorkNumber} expects ${names.length} different fabrics back (${names.join(', ')}), and a receipt books ` +
+      `only one — all of it would go into stock as a single fabric. Receiving a job colour by colour is being ` +
+      `added; until then this job cannot be received.`,
+    { reason: 'JWO_MIXED_OUTPUTS', outputs: names }
+  );
 }
 
 /**

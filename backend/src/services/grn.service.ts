@@ -61,6 +61,7 @@ import {
 } from './helpers/fabric-identity.helper';
 import {
   JWO_GRN_INCLUDE,
+  assertOneArrivingFabric,
   isFabricLotReprocessingJwo,
   resolveOrMintJwoArrivingMaterial,
   stampJwoFinishedFabric,
@@ -3159,6 +3160,7 @@ class GRNService {
         `${jwo.jobWorkNumber} is piece-based (${jwo.uom}) — receive it from the Job Work Order's Receive action, not a GRN`
       );
     }
+    await assertOneArrivingFabric(jwo, opts?.tx);
 
     // A return cannot be dated before the day the greige went out (the owner's first receipt was
     // dated 27-Aug on a job sent 19-Sep — nothing refused it). Calendar-day compare, UTC.

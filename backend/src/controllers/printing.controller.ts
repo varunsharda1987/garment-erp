@@ -1495,10 +1495,18 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
   // JWC5 (Consolidation Phase 2): check for MRP PROCESSING requirements covering the same
   // greige/fabric + processor. Open requirements get LINKED to this PO (below, in-tx);
   // a live MRP-generated PO for the same work blocks creation unless explicitly acknowledged.
+  const jobColour =
+    labDip?.targetColor?.colorName ??
+    (resolvedFabricId
+      ? (await prisma.fabric_master.findUnique({ where: { id: resolvedFabricId }, select: { colorName: true } }))
+          ?.colorName
+      : null) ??
+    null;
   const mrpMatches = await findProcessingRequirementMatches({
     greigeId: sourceGreigeId,
     fabricId: resolvedFabricId ?? null,
     processorId: resolvedProcessorId,
+    forJob: { styleId: resolvedStyleId, colorName: jobColour },
   });
   if ((mrpMatches.activePOs.length > 0 || mrpMatches.activeJwos.length > 0) && !acknowledgeDuplicate) {
     const docList = [

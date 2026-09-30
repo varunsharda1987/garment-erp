@@ -547,6 +547,17 @@ function checkFullUserInclude(tsFiles) {
   );
 }
 
+/** Check: a job work order created, or its lines / mirrored header written, outside jwo-lines.helper — BLOCKING new + ratchet. */
+function checkJwoLinesWriter(tsFiles) {
+  console.log(`\n${c.cyan}Checking job work order lines are written through jwo-lines.helper...${c.reset}`);
+  return runRatchetedCheck(
+    'job work order(s) / line(s) / mirrored header field(s) written outside jwo-lines.helper',
+    detectors.jwoLinesWriter(tsFiles),
+    'jwo-lines-writer-baseline.json',
+    'Create a job with createJobWorkOrderWithLines / createOneLineJobWorkOrder and change a line (fabric, quantity, width, shrinkage) with the helpers in backend/src/services/helpers/jwo-lines.helper.ts — the header mirrors the lines. A deliberate direct write carries `// allow-jwo-header-write: <why>` on the line or the 2 lines above. If intentional, add the key to scripts/hooks/jwo-lines-writer-baseline.json.'
+  );
+}
+
 /** Check (E5): costing code touching the CAD-geometry approval column — BLOCKING new + ratchet. */
 function checkCostingApprovalDrift(tsFiles) {
   console.log(`\n${c.cyan}Checking for CAD/costing approval drift...${c.reset}`);
@@ -1403,6 +1414,7 @@ function runAllModeChecks() {
   if (!checkCadMarkerRuleBypass(tsFiles)) ok = false;
   if (!checkRateCardPrintingType(tsFiles)) ok = false;
   if (!checkFullUserInclude(tsFiles)) ok = false;
+  if (!checkJwoLinesWriter(tsFiles)) ok = false;
   if (!checkCostingApprovalDrift(tsFiles)) ok = false;
   if (!checkSaleOrderStatusWrite(tsFiles)) ok = false;
   if (!checkCadPurposeSingleWrite(tsFiles)) ok = false;
@@ -1535,6 +1547,7 @@ function main() {
     if (!checkCadMarkerRuleBypass(categories.typescript)) allPassed = false;
     if (!checkRateCardPrintingType(categories.typescript)) allPassed = false;
     if (!checkFullUserInclude(categories.typescript)) allPassed = false;
+    if (!checkJwoLinesWriter(categories.typescript)) allPassed = false;
     if (!checkCostingApprovalDrift(categories.typescript)) allPassed = false;
     if (!checkSaleOrderStatusWrite(categories.typescript)) allPassed = false;
     if (!checkCadPurposeSingleWrite(categories.typescript)) allPassed = false;

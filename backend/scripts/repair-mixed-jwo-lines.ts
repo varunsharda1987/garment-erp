@@ -203,10 +203,15 @@ async function main() {
           qtySent: p.qtySent,
           qtyExpected: p.qtyExpected,
         };
-        const line =
-          index === 0
-            ? await tx.job_work_order_lines.update({ where: { id: job.lines[0].id }, data })
-            : await tx.job_work_order_lines.create({ data: { ...data, jobWorkOrderId: job.id, lineNo: index + 1 } });
+        // A one-off repair re-cutting a job into lines — syncJwoHeaderFromLines follows below
+        let line;
+        if (index === 0) {
+          // allow-jwo-header-write: re-cuts line 1 into this job's first fabric
+          line = await tx.job_work_order_lines.update({ where: { id: job.lines[0].id }, data });
+        } else {
+          // allow-jwo-header-write: adds the job's next fabric as its own line
+          line = await tx.job_work_order_lines.create({ data: { ...data, jobWorkOrderId: job.id, lineNo: index + 1 } });
+        }
         await tx.requirement_jwo_links.updateMany({
           where: { id: { in: p.output.links.map((l) => l.id) } },
           data: { lineId: line.id },

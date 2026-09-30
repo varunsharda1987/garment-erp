@@ -952,6 +952,7 @@ class JobWorkOrderController {
         const receivedQty = Number(jwo.qtyReceivedMeters);
         const priorBillable = jwo.qtyBillable != null ? Number(jwo.qtyBillable) : null;
         if (priorBillable !== receivedQty) {
+          // allow-jwo-header-write: Close settles billing on the metres received; the lines keep the contract
           await prisma.job_work_orders.update({ where: { id }, data: { qtyBillable: receivedQty } });
           try {
             await jobWorkOrderService.computeCommercialTotals(id);

@@ -2251,6 +2251,68 @@ function fullUserInclude(relFiles) {
   return out;
 }
 
+// A job work order's lines (2026-09-30). A job brings back one line per fabric (job_work_order_lines) and its
+// header MIRRORS them — quantities summed, each output field the value every line shares. MRP had named the
+// first order's fabric for all of DJ-EBEW-002-001's Red, Black and Teal. services/helpers/jwo-lines.helper.ts is
+// the only writer of both: a job created elsewhere has no line (receiving refuses it), and a mirrored field
+// written elsewhere drifts from the lines. Flags, in backend code outside the helper: (a) a job_work_orders
+// create/createMany/upsert, (b) any job_work_order_lines write, (c) a job_work_orders update/updateMany whose
+// data sets a mirrored field. Escape: `// allow-jwo-header-write: <why>` on the line or the 2 lines above.
+const JWO_MIRRORED_FIELDS = [
+  'qtySentMeters',
+  'qtyBillable',
+  'styleId',
+  'colorMasterId',
+  'colorName',
+  'finishedFabricId',
+  'finishedLaceId',
+  'sentWidthInches',
+  'expectedShrinkage',
+];
+function jwoLinesWriter(relFiles) {
+  const out = [];
+  for (const rel of relFiles) {
+    const norm = rel.replace(/\\/g, '/');
+    if (!/^backend\/(src|scripts)\/.*\.ts$/.test(norm)) continue;
+    if (/\.test\.ts$|__tests__/.test(norm)) continue;
+    if (norm === 'backend/src/services/helpers/jwo-lines.helper.ts') continue;
+    const content = readCode(rel);
+    if (!content || !/\bjob_work_order(s|_lines)\./.test(content)) continue;
+    const lines = content.split('\n');
+    const rawLines = (readRel(rel) || '').split('\n');
+    const seen = new Map();
+    for (let i = 0; i < lines.length; i++) {
+      let kind = null;
+      let detail = null;
+      if (/\bjob_work_orders\.(create|createMany|upsert)\(/.test(lines[i])) {
+        kind = 'job created outside jwo-lines.helper';
+        detail = 'creates a job work order with no line — use createJobWorkOrderWithLines / createOneLineJobWorkOrder';
+      } else if (/\bjob_work_order_lines\.(create|createMany|update|updateMany|upsert|delete|deleteMany)\(/.test(lines[i])) {
+        kind = 'job line written outside jwo-lines.helper';
+        detail = 'writes a job work order line directly — the header would not follow it (jwo-lines.helper)';
+      } else if (/\bjob_work_orders\.(update|updateMany)\(/.test(lines[i])) {
+        const window = lines.slice(i, Math.min(i + 40, lines.length)).join('\n');
+        const dataM = /\bdata\s*:/.exec(window);
+        if (!dataM) continue;
+        let body = window.slice(dataM.index);
+        const close = body.search(/\}\s*\)\s*;/);
+        if (close !== -1) body = body.slice(0, close);
+        const field = JWO_MIRRORED_FIELDS.find((f) => new RegExp(`\\b${f}\\s*[:,\\r\\n]`).test(body));
+        if (!field) continue;
+        kind = `job header ${field} written directly`;
+        detail = `sets \`${field}\` on the job — it mirrors the job's lines; change the line through jwo-lines.helper`;
+      }
+      if (!kind) continue;
+      const context = rawLines.slice(Math.max(0, i - 2), i + 1).join('\n');
+      if (/allow-jwo-header-write/.test(context)) continue;
+      const n = (seen.get(kind) || 0) + 1;
+      seen.set(kind, n);
+      out.push({ key: `${norm} :: ${kind} #${n}`, file: rel, line: i + 1, detail });
+    }
+  }
+  return out;
+}
+
 // Two-owner approval split (2026-08-22) — costing code must key on costingApprovalStatus.
 // fabric_width_cad.approvalStatus is CAD-GEOMETRY approval only ("how much fabric"); the
 // costing PRICE approval lives in costingApprovalStatus/costingApprovedBy/costingApprovedAt.
@@ -2910,6 +2972,7 @@ module.exports = {
   cadMarkerRuleBypass,
   rateCardPrintingTypeDrift,
   fullUserInclude,
+  jwoLinesWriter,
   costingCadApprovalDrift,
   saleOrderStatusWrite,
   cadPurposeSingleWrite,

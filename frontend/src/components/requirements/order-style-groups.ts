@@ -104,6 +104,53 @@ export function groupRequirementsByOrderStyle(requirements: readonly MaterialReq
     );
 }
 
+/**
+ * The garment part a requirement is for, from its componentName: "Kurta - GRG-0038 - …" → "Kurta"; a combined-cutting
+ * marker "Kurta - Combined: Kurta, Pallazo" → "Kurta + Pallazo"; two BOM lines in one requirement → both, comma-joined.
+ */
+export function requirementPart(componentName: string | null | undefined): string | null {
+  if (!componentName) return null;
+  // Split between BOM lines only — the comma inside "Combined: Kurta, Pallazo" is not followed by "<part> - "
+  const parts = componentName.split(/,\s*(?=[^,]* - )/).map((entry) => {
+    const combined = entry.match(/Combined:\s*(.+)$/i);
+    if (combined)
+      return combined[1]
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .join(' + ');
+    return entry.split(' - ')[0].trim();
+  });
+  const unique = distinct(parts.filter(Boolean));
+  return unique.length > 0 ? unique.join(', ') : null;
+}
+
+/**
+ * What tells a merged row's requirements apart, by requirement id: the part where parts differ, the colour where
+ * colours differ, the requirement number where nothing does. Empty for a row of one requirement.
+ */
+export function requirementTags(reqs: readonly MaterialRequirement[]): Map<string, string> {
+  const tags = new Map<string, string>();
+  if (reqs.length < 2) return tags;
+  const colourOf = (r: MaterialRequirement) => r.colorName?.trim() || null;
+  const byPart = distinct(reqs.map((r) => requirementPart(r.componentName))).length > 1;
+  const byColour = distinct(reqs.map(colourOf)).length > 1;
+  for (const r of reqs) {
+    const bits = [byPart ? requirementPart(r.componentName) : null, byColour ? (colourOf(r) ?? 'No colour') : null];
+    tags.set(r.id, bits.filter(Boolean).join(' · ') || r.requirementNumber);
+  }
+  return tags;
+}
+
+/** The note under a merged row's requirement numbers: its colours when they differ, else how many requirements */
+export function mergedRowNote(reqs: readonly MaterialRequirement[]): string | null {
+  if (reqs.length < 2) return null;
+  const colours = distinct(reqs.map((r) => r.colorName?.trim() || null)).length;
+  return colours > 1 ? `${colours} colours` : `${reqs.length} requirements`;
+}
+
+const distinct = <T>(values: T[]) => [...new Set(values)];
+
 /** Σ Required, leaving out a balance row whose parent is in the same row (its quantity is already the parent's) */
 function requiredOf(reqs: readonly MaterialRequirement[]): number {
   const ids = new Set(reqs.map((r) => r.id));

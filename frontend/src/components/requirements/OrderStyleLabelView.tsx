@@ -26,6 +26,7 @@ import {
   MaterialRequirementStatusLabels,
   type MaterialRequirement,
 } from '@/types/mrp.types';
+import { mergedRowNote, requirementTags } from './order-style-groups';
 import type { MergedRequirementRow, OrderStyleGroup } from './order-style-groups';
 import { RequirementDecisionActions, RequirementQtyNote } from './RequirementDecision';
 import { LinkedPOList, LinkPOButton, OpenPOSupplyNote } from './OpenPOSupplyNote';
@@ -157,13 +158,14 @@ export function OrderStyleLabelView({
   };
 
   const renderActions = (reqs: MaterialRequirement[]) => {
-    const many = reqs.length > 1;
+    const tags = requirementTags(reqs);
     return (
       <div className="flex flex-wrap gap-1 justify-end">
         {/* An open PO has room for it: link instead of buying again (the row's colours together) */}
         {onLinkPO && <LinkPOButton reqs={reqs} onLink={onLinkPO} />}
         {reqs.map((req) => {
-          const suffix = many ? ` ${req.requirementNumber}` : '';
+          const tag = tags.get(req.id);
+          const suffix = tag ? ` · ${tag} (${formatQuantity(req.totalRequired, req.unit)})` : '';
           const canUseStock =
             !isQtyZero(req.currentStock) &&
             !isQtyZero(req.shortfall) &&
@@ -225,7 +227,7 @@ export function OrderStyleLabelView({
         </TableCell>
         <TableCell className="text-xs text-muted-foreground">
           {reqs.map((r) => r.requirementNumber).join(', ')}
-          {reqs.length > 1 && <div>{reqs.length} colours</div>}
+          {mergedRowNote(reqs) && <div>{mergedRowNote(reqs)}</div>}
         </TableCell>
         <TableCell className="text-right text-sm">
           {formatQuantity(row.totalRequired, row.unit)}

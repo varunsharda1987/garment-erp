@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { groupRequirementsByOrderStyle } from '../order-style-groups';
+import { groupRequirementsByOrderStyle, mergedRowNote, requirementPart, requirementTags } from '../order-style-groups';
 import type { MaterialRequirement } from '@/types/mrp.types';
 
 const MAIN = { id: 'lbl-main', code: 'LBL-0004', name: 'Main Cum Size Label', type: 'MAIN', category: null };
@@ -129,6 +129,49 @@ describe('groupRequirementsByOrderStyle', () => {
     const shownMain = shown.lines[0];
     if (shownMain.kind !== 'label') throw new Error('expected a label group');
     expect(shownMain.rows[0].line.totalRequired).toBe(40);
+  });
+
+  it('names each merged requirement by what differs: the part for fabric, the colour for label sizes (SP27CK130)', () => {
+    const kurta = req({ materialId: 'grg-0038', qty: 1300 });
+    const combined = req({ materialId: 'grg-0038', qty: 6952.174 });
+    Object.assign(kurta, {
+      colorName: 'Teal',
+      componentName: 'Kurta - GRG-0038 - Viscose Slub 30×30 / 68×64 / 63" (Super Dyeing)',
+    });
+    Object.assign(combined, { colorName: 'Teal', componentName: 'Kurta - Combined: Kurta, Pallazo' });
+    const tags = requirementTags([kurta, combined]);
+    expect(tags.get(kurta.id)).toBe('Kurta');
+    expect(tags.get(combined.id)).toBe('Kurta + Pallazo');
+    // one colour, so the note must not say "2 colours"
+    expect(mergedRowNote([kurta, combined])).toBe('2 requirements');
+
+    const black = req({ materialId: 'wash-M', label: WASH, size: 'M' });
+    const white = req({ materialId: 'wash-M', label: WASH, size: 'M' });
+    Object.assign(black, { colorName: 'Black', componentName: 'Washcare Label Black (M)' });
+    Object.assign(white, { colorName: 'White', componentName: 'Washcare Label Black (M)' });
+    const labelTags = requirementTags([black, white]);
+    expect(labelTags.get(black.id)).toBe('Black');
+    expect(labelTags.get(white.id)).toBe('White');
+    expect(mergedRowNote([black, white])).toBe('2 colours');
+
+    // nothing tells them apart → the requirement number; a single requirement needs no name at all
+    const a = req({ materialId: 'x' });
+    const b = req({ materialId: 'x' });
+    expect(requirementTags([a, b]).get(a.id)).toBe(a.requirementNumber);
+    expect(requirementTags([a]).size).toBe(0);
+    expect(mergedRowNote([a])).toBeNull();
+  });
+
+  it('reads the part from every componentName shape MRP stores', () => {
+    expect(requirementPart('Shirt - Viscose Staple')).toBe('Shirt');
+    expect(requirementPart('Kurta - Combined: Kurta, Pallazo')).toBe('Kurta + Pallazo');
+    expect(
+      requirementPart(
+        'Kurta - GRG-0038 - Viscose Slub 30×30 / 68×64 / 63" (Super Dyeing), Kurta - Combined: Kurta, Pallazo'
+      )
+    ).toBe('Kurta, Kurta + Pallazo');
+    expect(requirementPart('Price Tag (XS)')).toBe('Price Tag (XS)');
+    expect(requirementPart(null)).toBeNull();
   });
 
   it('rounds merged quantities to 3 decimals', () => {

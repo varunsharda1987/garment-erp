@@ -11,6 +11,15 @@ import workOrderService from '../services/workOrder.service';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 import { applySearch } from '../utils/search-filter';
 import { USER_NAME_SELECT, userName } from '../types/prisma.types';
+import {
+  OPEN_SLIP_STATUSES,
+  SLIP_TAKINGS_INCLUDE,
+  issueSlipTakings,
+  returnToSlips,
+  slipSkuBalances,
+  slipsInto,
+  takeFromSlips,
+} from '../services/helpers/stitching-slip-balance.helper';
 
 // ============================================
 // Helper Functions
@@ -309,8 +318,17 @@ export const createFinishingIssue = async (req: Request, res: Response) => {
   if (!userId) {
     throw new UnauthorizedError('User not authenticated');
   }
-  const { workOrderId, issueDate, managerId, contractorId, expectedCompletionDate, remarks, components, skuBreakdown } =
-    req.body;
+  const {
+    workOrderId,
+    issueDate,
+    managerId,
+    contractorId,
+    expectedCompletionDate,
+    remarks,
+    components,
+    skuBreakdown,
+    transferSlipIds,
+  } = req.body;
 
   // Get work order to generate issue number
   const workOrder = await prisma.work_orders.findUnique({
@@ -324,48 +342,66 @@ export const createFinishingIssue = async (req: Request, res: Response) => {
 
   const issueNumber = await generateIssueNumber(workOrder.workOrderNumber);
 
-  const issue = await prisma.finishing_issues.create({
-    data: {
-      issueNumber,
-      workOrderId,
-      issueDate: new Date(issueDate),
-      managerId: managerId || null,
-      contractorId: contractorId || null,
-      expectedCompletionDate: expectedCompletionDate ? new Date(expectedCompletionDate) : null,
-      status: 'PENDING_RECEIPT',
-      remarks,
-      createdById: userId,
-      components:
-        components?.length > 0
-          ? {
-              create: components.map((componentId: string) => ({
-                componentId,
-              })),
-            }
-          : undefined,
-      skuBreakdown: {
-        // Deduped by (colorId, sizeId) — NULL-color duplicates double-count totals (bug-hunt production-18)
-        create: dedupeSkuRows(
-          // as any[]: bare `any` receiver collapses the generic to its constraint (loses qty fields)
-          ((skuBreakdown || []) as any[]).map((sku: any) => {
-            const availableQty = sku.availableQty ?? sku.issuedQty;
-            if (availableQty === undefined || availableQty === null) {
-              throw new ValidationError(
-                `Available quantity is required for SKU (color: ${sku.colorId}, size: ${sku.sizeId}). Must come from stitching output.`
-              );
-            }
-            return {
-              colorId: sku.colorId ?? null,
-              sizeId: sku.sizeId,
-              availableQty: Number(availableQty),
-              issuedQty: Number(sku.issuedQty ?? availableQty),
-            };
-          }),
-          ['availableQty', 'issuedQty']
-        ),
+  // Deduped by (colorId, sizeId) — NULL-color duplicates double-count totals (bug-hunt production-18)
+  const skuRows = dedupeSkuRows(
+    // as any[]: bare `any` receiver collapses the generic to its constraint (loses qty fields)
+    ((skuBreakdown || []) as any[]).map((sku: any) => {
+      const availableQty = sku.availableQty ?? sku.issuedQty;
+      if (availableQty === undefined || availableQty === null) {
+        throw new ValidationError(
+          `Available quantity is required for SKU (color: ${sku.colorId}, size: ${sku.sizeId}). Must come from stitching output.`
+        );
+      }
+      return {
+        colorId: sku.colorId ?? null,
+        sizeId: sku.sizeId,
+        availableQty: Number(availableQty),
+        issuedQty: Number(sku.issuedQty ?? availableQty),
+      };
+    }),
+    ['availableQty', 'issuedQty']
+  );
+
+  // The issue and its taking from the stitching slip(s) are ONE transaction (stitching-slip-balance.helper,
+  // stage FINISHING). A finishing issue never used its slip up before, so the same stitched pieces could
+  // be issued to finishing again and again; now a slip keeps what is left and closes when it is all taken.
+  const issue = await prisma.$transaction(async (tx) => {
+    const created = await tx.finishing_issues.create({
+      data: {
+        issueNumber,
+        workOrderId,
+        issueDate: new Date(issueDate),
+        managerId: managerId || null,
+        contractorId: contractorId || null,
+        expectedCompletionDate: expectedCompletionDate ? new Date(expectedCompletionDate) : null,
+        status: 'PENDING_RECEIPT',
+        remarks,
+        createdById: userId,
+        components:
+          components?.length > 0
+            ? {
+                create: components.map((componentId: string) => ({
+                  componentId,
+                })),
+              }
+            : undefined,
+        skuBreakdown: {
+          create: skuRows,
+        },
       },
-    },
-    include: issueIncludeOptions,
+      include: issueIncludeOptions,
+    });
+
+    if (transferSlipIds?.length) {
+      await takeFromSlips(tx, {
+        stage: 'FINISHING',
+        issueId: created.id,
+        workOrderId,
+        slipIds: transferSlipIds,
+        skuRows,
+      });
+    }
+    return created;
   });
 
   // P6.2.2: Auto-create production_tracking: IN_FINISHING with 0 (stage started, not yet produced)
@@ -448,8 +484,11 @@ export const deleteFinishingIssue = async (req: Request, res: Response) => {
     throw new ValidationError('Can only delete pending issues');
   }
 
-  await prisma.finishing_issues.delete({
-    where: { id },
+  // Its pieces go back to the stitching slips they came from
+  await prisma.$transaction(async (tx) => {
+    await returnToSlips(tx, id, 'FINISHING');
+    const removed = await tx.finishing_issues.deleteMany({ where: { id, status: 'PENDING_RECEIPT' } });
+    if (removed.count !== 1) throw new ValidationError('Can only delete pending issues');
   });
 
   res.json({ message: 'Finishing issue deleted successfully' });
@@ -463,8 +502,15 @@ export const deleteFinishingIssue = async (req: Request, res: Response) => {
 // Receive from stitching
 export const receiveFromStitching = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { transferSlipId, receivedQty, remarks } = req.body;
+  const { transferSlipId, receivedQty, remarks } = req.body as {
+    transferSlipId?: string;
+    receivedQty?: number;
+    remarks?: string;
+  };
   const userId = req.user?.userId;
+  if (!userId) {
+    throw new UnauthorizedError('User not authenticated');
+  }
 
   const existing = await prisma.finishing_issues.findUnique({
     where: { id },
@@ -479,40 +525,64 @@ export const receiveFromStitching = async (req: Request, res: Response) => {
     throw new ValidationError('Can only receive for pending issues');
   }
 
-  const issue = await prisma.finishing_issues.update({
-    where: { id },
-    data: { status: 'RECEIVED' },
-    include: issueIncludeOptions,
-  });
-
-  // Update transfer slip status and persist the received quantity as a stage receipt — the
-  // schema-required receivedQty used to be silently discarded, making short receipts
-  // indistinguishable from full ones (bug-hunt production-14).
-  if (transferSlipId) {
-    const slip = await prisma.transfer_slips.update({
-      where: { id: transferSlipId },
-      data: { status: 'RECEIVED', receivedDate: new Date(), receivedById: userId ?? undefined },
+  // The receipt is recorded against the stitching slips this issue took its pieces from, expecting
+  // what it took (stitching-slip-balance.helper). It never touches a slip's status (that says whether
+  // the slip still has pieces to issue); it used to mark the named slip RECEIVED and compare the count
+  // with the WHOLE slip. receivedQty omitted = received exactly what was issued (the list's quick Receive).
+  await prisma.$transaction(async (tx) => {
+    const flipped = await tx.finishing_issues.updateMany({
+      where: { id, status: 'PENDING_RECEIPT' },
+      data: { status: 'RECEIVED' },
     });
+    if (flipped.count !== 1) throw new ValidationError('Can only receive for pending issues');
 
-    if (receivedQty != null && userId) {
-      const hasDeviation = receivedQty !== slip.totalGoodPieces;
-      await prisma.stage_receipts.create({
+    const takings = await issueSlipTakings(tx, id, 'FINISHING');
+    // (an issue made without a slip — an API caller before 2026-09-30 — has no takings to check against)
+    if (transferSlipId && takings.length > 0 && !takings.some((t) => t.transferSlipId === transferSlipId)) {
+      throw new ValidationError('That transfer slip is not one this finishing issue was made from');
+    }
+    const expectedTotal = takings.reduce((sum, t) => sum + t.skus.reduce((s2, k) => s2 + k.quantity, 0), 0);
+    const inFull = receivedQty == null || receivedQty === expectedTotal;
+
+    // A count (one total) is spread over the slips oldest first; per size is known only when in full
+    let countLeft = receivedQty ?? expectedTotal;
+    for (let i = 0; i < takings.length; i++) {
+      const taking = takings[i];
+      const expected = taking.skus.reduce((sum, k) => sum + k.quantity, 0);
+      const received = i === takings.length - 1 ? countLeft : Math.min(countLeft, expected);
+      countLeft -= received;
+      const hasDeviation = received !== expected;
+      await tx.stage_receipts.create({
         data: {
           workOrderId: existing.workOrderId,
           stage: 'FINISHING',
-          transferSlipId,
+          transferSlipId: taking.transferSlipId,
           receivedDate: new Date(),
           receivedById: userId,
           hasDeviation,
           deviationReason: hasDeviation
-            ? `Received ${receivedQty} of ${slip.totalGoodPieces} pieces on slip ${slip.slipNumber}`
+            ? `Received ${received} of the ${expected} pieces this issue took from slip ${taking.slipNumber}`
             : null,
           remarks,
+          ...(inFull
+            ? {
+                skuReceipts: {
+                  create: taking.skus.map((k) => ({
+                    colorId: k.colorId,
+                    sizeId: k.sizeId,
+                    expectedQty: k.quantity,
+                    receivedQty: k.quantity,
+                    deviation: 0,
+                  })),
+                },
+              }
+            : {}),
         },
       });
     }
-  }
+  });
 
+  const issue = await prisma.finishing_issues.findUniqueOrThrow({ where: { id }, include: issueIncludeOptions });
   res.json({ data: transformFinishingIssue(issue) });
   // end receiveFromStitching
 };
@@ -737,8 +807,15 @@ export const completeFinishingIssue = async (req: Request, res: Response) => {
             id: randomUUID(),
             workOrderId,
             productionStage: 'READY_TO_SHIP',
+            // The pieces FINISHED (good), not the pieces issued — the issued count overstated the run
+            // whenever some pieces were never finished, and fed the work order's completion rollup
             quantityCompleted:
-              issue.skuBreakdown?.reduce((sum: number, sku: any) => sum + (Number(sku.issuedQty) || 0), 0) || 0,
+              issue.dailyOutputs?.reduce(
+                (sum: number, output: any) =>
+                  sum +
+                  (output.skuOutputs ?? []).reduce((s2: number, sku: any) => s2 + (Number(sku.finishedQty) || 0), 0),
+                0
+              ) || 0,
             updatedById: userId,
             updateDate: new Date(),
           },
@@ -1046,14 +1123,11 @@ export const getSummaryByWorkOrder = async (req: Request, res: Response) => {
   // end getSummaryByWorkOrder
 };
 
-// Get available transfer slips from stitching (pending receipt)
+// Stitching slips with pieces still to issue to finishing — each showing what is LEFT on it
+// (`quantity`, `totalGoodPieces`) next to what stitching sent (`sentQty`, `sentPieces`)
 export const getAvailableTransferSlips = async (req: Request, res: Response) => {
   const slips = await prisma.transfer_slips.findMany({
-    where: {
-      fromStage: 'STITCHING',
-      toStage: 'FINISHING',
-      status: { in: ['CREATED', 'PRINTED', 'CONFIRMED'] },
-    },
+    where: { ...slipsInto('FINISHING'), status: { in: OPEN_SLIP_STATUSES } },
     include: {
       workOrder: {
         include: {
@@ -1067,34 +1141,44 @@ export const getAvailableTransferSlips = async (req: Request, res: Response) => 
           size: { select: { id: true, sizeName: true, sortOrder: true } },
         },
       },
+      ...SLIP_TAKINGS_INCLUDE,
     },
     orderBy: { transferDate: 'desc' },
   });
 
-  res.json({
-    data: slips.map((slip) => ({
-      id: slip.id,
-      slipNumber: slip.slipNumber,
-      workOrderId: slip.workOrderId,
-      workOrderNumber: slip.workOrder?.workOrderNumber || '',
-      styleCode: (slip.workOrder as any)?.styles?.styleCode || '',
-      buyerStyleRef: (slip.workOrder as any)?.styles?.buyerStyleRef ?? null,
-      styleName: (slip.workOrder as any)?.styles?.styleName || '',
-      totalGoodPieces: slip.totalGoodPieces,
-      transferDate: slip.transferDate,
-      issuedTo: slip.issuedTo?.name || null,
-      skuBreakdown: slip.skuBreakdown
-        .map((sku: any) => ({
+  const data = slips
+    .map((slip) => {
+      const balances = new Map(slipSkuBalances(slip).map((b) => [skuKey(b.colorId, b.sizeId), b]));
+      const skuBreakdown = slip.skuBreakdown
+        .map((sku) => ({
           colorId: sku.colorId,
           colorName: sku.color?.colorName || 'N/A',
           sizeId: sku.sizeId,
           sizeName: sku.size?.sizeName || '',
           sortOrder: sku.size?.sortOrder || 0,
-          quantity: sku.quantity,
+          quantity: balances.get(skuKey(sku.colorId, sku.sizeId))?.remaining ?? sku.quantity,
+          sentQty: sku.quantity,
         }))
-        .sort((a: any, b: any) => a.sortOrder - b.sortOrder),
-    })),
-  });
+        .filter((sku) => sku.quantity > 0)
+        .sort((a, b) => a.sortOrder - b.sortOrder);
+      return {
+        id: slip.id,
+        slipNumber: slip.slipNumber,
+        workOrderId: slip.workOrderId,
+        workOrderNumber: slip.workOrder?.workOrderNumber || '',
+        styleCode: slip.workOrder?.styles?.styleCode || '',
+        buyerStyleRef: slip.workOrder?.styles?.buyerStyleRef ?? null,
+        styleName: slip.workOrder?.styles?.styleName || '',
+        totalGoodPieces: skuBreakdown.reduce((sum, sku) => sum + sku.quantity, 0),
+        sentPieces: slip.skuBreakdown.reduce((sum, sku) => sum + sku.quantity, 0),
+        transferDate: slip.transferDate,
+        issuedTo: slip.issuedTo?.name || null,
+        skuBreakdown,
+      };
+    })
+    .filter((slip) => slip.totalGoodPieces > 0);
+
+  res.json({ data });
   // end getAvailableTransferSlips
 };
 

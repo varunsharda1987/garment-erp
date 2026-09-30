@@ -160,6 +160,8 @@ export interface FinishingIssue {
 
 export interface CreateFinishingIssueRequest {
   workOrderId: string;
+  /** The stitching slip(s) the pieces come from — the issue takes them, and a slip keeps what is left */
+  transferSlipIds?: string[];
   issueDate: string;
   managerId?: string;
   contractorId?: string;
@@ -330,15 +332,22 @@ export interface FinishingIncomingTransferSlip {
   styleCode: string;
   styleName: string;
   buyerStyleRef?: string | null;
+  /** Pieces LEFT to issue (what stitching sent, less what finishing issues took) */
   totalGoodPieces: number;
+  /** What stitching sent */
+  sentPieces: number;
   transferDate: string;
   issuedTo: string | null;
+  /** Sizes with pieces left, in size order */
   skuBreakdown: Array<{
     colorId: string | null;
     colorName: string;
     sizeId: string;
     sizeName: string;
     sortOrder: number;
+    /** Left to issue */
     quantity: number;
+    /** What stitching sent */
+    sentQty: number;
   }>;
 }

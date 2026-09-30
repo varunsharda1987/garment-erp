@@ -112,6 +112,14 @@ export const orderQuerySchema = z.object({
   sortOrder: z.enum(['asc', 'desc']).optional(),
 });
 
+/**
+ * Orders of a style still waiting for their production run
+ * GET /api/orders/waiting-for-run?styleId=
+ */
+export const ordersWaitingForRunQuerySchema = z.object({
+  styleId: z.string().uuid('Invalid style ID'),
+});
+
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 export type UpdateOrderInput = z.infer<typeof updateOrderSchema>;
 export type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>;

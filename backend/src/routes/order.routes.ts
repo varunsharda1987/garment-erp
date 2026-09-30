@@ -12,6 +12,7 @@ import {
   getOrderLaceAllocations,
   createWorkOrdersForOrder,
   setOrderItemSizeBreakup,
+  getOrdersWaitingForRun,
 } from '../controllers/order.controller';
 import { authenticateToken, requirePermissionForWrites, requireAdmin } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
@@ -25,6 +26,7 @@ import {
   createWorkOrdersForOrderSchema,
   setOrderItemSizeBreakupSchema,
   orderItemSizeBreakupParamSchema,
+  ordersWaitingForRunQuerySchema,
 } from '../schemas/order.schema';
 import { idParamSchema } from '../schemas/common.schema';
 
@@ -36,6 +38,7 @@ router.use(requirePermissionForWrites('orders'));
 
 // Statistics routes (must be before /:id to avoid conflict)
 router.get('/statistics/by-customer', asyncHandler(getOrderStatisticsByCustomer));
+router.get('/waiting-for-run', validateQuery(ordersWaitingForRunQuerySchema), asyncHandler(getOrdersWaitingForRun));
 
 // Order CRUD routes - with Zod validation
 router.post('/', validateBody(createOrderSchema), asyncHandler(createOrder));

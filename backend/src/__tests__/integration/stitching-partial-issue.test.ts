@@ -123,6 +123,7 @@ afterAll(async () => {
     // cascades stitching_issue_slip_skus
     ['stitching_issues', () => prisma.stitching_issues.deleteMany({ where: wo })],
     ['transfer_slips', () => prisma.transfer_slips.deleteMany({ where: wo })],
+    ['cutting_batches', () => prisma.cutting_batches.deleteMany({ where: wo })], // cascades its sizes
     ['production_tracking', () => prisma.production_tracking.deleteMany({ where: wo })],
     ['work_orders', () => prisma.work_orders.deleteMany({ where: { id: { in: ids } } })],
     ['size_options', () => prisma.size_options.deleteMany({ where: { styleId: only(styleId) } })],
@@ -463,5 +464,224 @@ describe('an open issue can be corrected, and an all-defect issue can be finishe
       (r) => r.workOrderId === workOrderId
     );
     expect(run?.daysPendingPush ?? null).toBeNull();
+  });
+});
+
+describe('a cutting batch reaches stitching on several slips, never more than it cut', () => {
+  let batchId: string;
+  const contractorIds: string[] = [];
+
+  beforeAll(async () => {
+    const lot = await prisma.fabric_stock.findFirstOrThrow({ select: { id: true } });
+    batchId = (
+      await prisma.cutting_batches.create({
+        data: {
+          batchNumber: `${RUN}-CB`,
+          workOrderId,
+          cuttingDate: new Date(),
+          fabricStockId: lot.id,
+          actualFabricWidth: 52,
+          cadAverageUsed: 1,
+          cadWidthUsed: 52,
+          layersPerLay: 1,
+          numberOfLays: 1,
+          fabricConsumed: 1,
+          status: 'IN_PROGRESS',
+          createdById: userId,
+          skuOutputs: {
+            create: [
+              { colorId: null, sizeId: sizeIds.S, orderQty: 10, maxCuttable: 10, toCut: 10, cutQty: 10, goodPcs: 10 },
+              { colorId: null, sizeId: sizeIds.M, orderQty: 6, maxCuttable: 6, toCut: 6, cutQty: 6, goodPcs: 6 },
+            ],
+          },
+        },
+      })
+    ).id;
+    for (const n of [1, 2]) {
+      contractorIds.push(
+        (
+          await prisma.suppliers.create({
+            data: {
+              code: `${RUN}-CT${n}`,
+              name: `${RUN} Tailor ${n}`,
+              supplierCategories: ['STITCHING_CONTRACTOR'],
+              createdById: userId,
+            },
+          })
+        ).id
+      );
+    }
+  });
+
+  afterAll(async () => {
+    await prisma.transfer_slips.updateMany({ where: { cuttingBatchId: batchId }, data: { issuedToId: null } });
+    await prisma.suppliers.deleteMany({ where: { id: { in: onlyAll(contractorIds) } } });
+  });
+
+  const issue = (issuedToId: string, rows: Array<[string, number]>) =>
+    request(app)
+      .post(`/api/cutting/batches/${batchId}/issue-to-stitching`)
+      .set(authHeader)
+      .send({
+        issuedToId,
+        // a blank colour sent as undefined (omitted) is the same colour as null
+        skuOutputs: rows.map(([size, quantity]) => ({ sizeId: sizeIds[size], quantity })),
+      });
+
+  it('two contractors each get part of the batch while it is cut', async () => {
+    const first = await issue(contractorIds[0], [['S', 4]]);
+    expect({ status: first.status, body: first.body }).toMatchObject({ status: 201 });
+    const second = await issue(contractorIds[1], [
+      ['S', 3],
+      ['M', 2],
+    ]);
+    expect({ status: second.status, body: second.body }).toMatchObject({ status: 201 });
+
+    const over = await issue(contractorIds[1], [['S', 4]]);
+    expect(over.status).toBe(400);
+    expect(over.body.message).toMatch(/S: 4 asked, only 3 left/);
+  });
+
+  it('Generate Transfer Slip sends the rest once the batch is completed, then nothing is left', async () => {
+    await prisma.cutting_batches.update({ where: { id: batchId }, data: { status: 'COMPLETED' } });
+    const listed = await request(app).get('/api/cutting/batches').query({ workOrderId }).set(authHeader).expect(200);
+    expect(
+      (listed.body.data as Array<{ id: string; piecesLeftToStitching: number }>).find((b) => b.id === batchId)
+    ).toMatchObject({ piecesLeftToStitching: 7 });
+
+    const rest = await request(app)
+      .post(`/api/cutting/batches/${batchId}/generate-transfer-slip`)
+      .set(authHeader)
+      .send({})
+      .expect(200);
+    const slip = await prisma.transfer_slips.findUniqueOrThrow({
+      where: { id: rest.body.data.transferSlipId },
+      include: { skuBreakdown: true },
+    });
+    expect(slip.totalGoodPieces).toBe(7);
+    expect(slip.skuBreakdown.map((s) => [s.sizeId, s.quantity]).sort()).toEqual(
+      [
+        [sizeIds.S, 3],
+        [sizeIds.M, 4],
+      ].sort()
+    );
+
+    const again = await request(app)
+      .post(`/api/cutting/batches/${batchId}/generate-transfer-slip`)
+      .set(authHeader)
+      .send({});
+    expect(again.status).toBe(400);
+    expect(again.body.message).toMatch(/already on a slip to stitching/);
+
+    const total = await prisma.transfer_slip_skus.aggregate({
+      where: { transferSlip: { cuttingBatchId: batchId } },
+      _sum: { quantity: true },
+    });
+    expect(total._sum.quantity).toBe(16); // exactly the batch's good pieces
+  });
+});
+
+describe('a finishing issue uses up its stitching slip', () => {
+  let slipId: string;
+  let firstId: string;
+
+  const pending = async () => {
+    const res = await request(app).get('/api/finishing/available-transfer-slips').set(authHeader).expect(200);
+    return (res.body.data as Array<{ id: string; totalGoodPieces: number; sentPieces: number }>).find(
+      (s) => s.id === slipId
+    );
+  };
+  const create = (rows: Array<[string, number]>) =>
+    request(app)
+      .post('/api/finishing/issues')
+      .set(authHeader)
+      .send({
+        workOrderId,
+        issueDate: '2026-09-30',
+        transferSlipIds: [slipId],
+        skuBreakdown: rows.map(([size, qty]) => ({ colorId: null, sizeId: sizeIds[size], issuedQty: qty })),
+      });
+
+  it('issuing part of it leaves the rest pending; the same pieces cannot be issued twice', async () => {
+    slipId = (
+      await prisma.transfer_slips.create({
+        data: {
+          slipNumber: `${RUN}-TOFIN`,
+          workOrderId,
+          fromStage: 'STITCHING',
+          toStage: 'FINISHING',
+          fromDepartment: 'Stitching',
+          toDepartment: 'Finishing',
+          totalGoodPieces: 8,
+          preparedById: userId,
+          skuBreakdown: {
+            create: [
+              { colorId: null, sizeId: sizeIds.S, quantity: 5 },
+              { colorId: null, sizeId: sizeIds.M, quantity: 3 },
+            ],
+          },
+        },
+      })
+    ).id;
+
+    const first = await create([['S', 5]]);
+    expect({ status: first.status, body: first.body }).toMatchObject({ status: 201 });
+    firstId = first.body.data.id;
+    expect(await pending()).toMatchObject({ totalGoodPieces: 3, sentPieces: 8 });
+
+    const twice = await create([['S', 1]]);
+    expect(twice.status).toBe(400);
+    expect(twice.body.message).toMatch(/S: asked 1, only 0 left/);
+
+    const rest = await create([['M', 3]]);
+    expect({ status: rest.status, body: rest.body }).toMatchObject({ status: 201 });
+    expect((await prisma.transfer_slips.findUniqueOrThrow({ where: { id: slipId } })).status).toBe('RECEIVED');
+    expect(await pending()).toBeUndefined();
+
+    // Deleting a pending issue gives its pieces back
+    await request(app).delete(`/api/finishing/issues/${rest.body.data.id}`).set(authHeader).expect(200);
+    expect(await pending()).toMatchObject({ totalGoodPieces: 3 });
+  });
+
+  it('Receive records what the issue took from the slip, and leaves the slip open', async () => {
+    await request(app).post(`/api/finishing/issues/${firstId}/receive`).set(authHeader).send({}).expect(200);
+    const receipt = await prisma.stage_receipts.findFirstOrThrow({
+      where: { transferSlipId: slipId, stage: 'FINISHING' },
+      include: { skuReceipts: true },
+    });
+    expect(receipt.hasDeviation).toBe(false);
+    expect(receipt.skuReceipts).toEqual([
+      expect.objectContaining({ sizeId: sizeIds.S, expectedQty: 5, receivedQty: 5 }),
+    ]);
+    expect((await prisma.transfer_slips.findUniqueOrThrow({ where: { id: slipId } })).status).toBe('CREATED');
+  });
+});
+
+describe('Create Work Order points to an order still waiting for its run', () => {
+  let orderId: string;
+
+  afterAll(async () => {
+    await prisma.orders.deleteMany({ where: { id: only(orderId) } });
+  });
+
+  it('lists the style’s open orders with no production run', async () => {
+    const customer = await prisma.customers.findFirstOrThrow({ select: { id: true } });
+    orderId = randomUUID();
+    await prisma.orders.create({
+      data: {
+        id: orderId,
+        orderNumber: `${RUN}ORD`,
+        customerId: customer.id,
+        expectedDeliveryDate: new Date(Date.now() + 30 * 86400000),
+        totalQuantity: 12,
+        totalAmount: 120,
+        createdById: userId,
+        order_items: {
+          create: { id: randomUUID(), styleId, totalQuantity: 12, unitPrice: 10, totalPrice: 120 },
+        },
+      },
+    });
+    const res = await request(app).get('/api/orders/waiting-for-run').query({ styleId }).set(authHeader).expect(200);
+    expect(res.body.data).toEqual([expect.objectContaining({ orderId, orderNumber: `${RUN}ORD`, quantity: 12 })]);
   });
 });

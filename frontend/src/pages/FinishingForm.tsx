@@ -185,6 +185,8 @@ export default function FinishingForm() {
         contractorId,
         expectedCompletionDate: expectedCompletionDate || undefined,
         remarks: remarks || undefined,
+        // The issue takes its pieces from this slip; whatever is not issued stays on it for later
+        transferSlipIds: selectedTransferSlip ? [selectedTransferSlip.id] : undefined,
         skuBreakdown: skuBreakdown
           .filter((sku) => sku.issuedQty > 0)
           .map((sku) => ({
@@ -274,7 +276,9 @@ export default function FinishingForm() {
                       visibleTransferSlips.map((slip) => (
                         <SelectItem key={slip.id} value={slip.id}>
                           {slip.slipNumber} - {slip.workOrderNumber} - {styleCodeLabel(slip, null, slip.styleName)} -{' '}
-                          {slip.totalGoodPieces} pcs
+                          {slip.totalGoodPieces < slip.sentPieces
+                            ? `${slip.totalGoodPieces} of ${slip.sentPieces} pcs left`
+                            : `${slip.totalGoodPieces} pcs`}
                         </SelectItem>
                       ))
                     )}
@@ -405,7 +409,7 @@ export default function FinishingForm() {
                       <TableRow>
                         <TableHead>Color</TableHead>
                         <TableHead>Size</TableHead>
-                        <TableHead className="text-right">Available</TableHead>
+                        <TableHead className="text-right">Left to Issue</TableHead>
                         <TableHead className="text-right w-[150px]">Issue Qty</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -442,8 +446,9 @@ export default function FinishingForm() {
 
                 {getTotalIssued() < getTotalAvailable() && (
                   <p className="text-sm text-warning mt-2">
-                    Note: You are issuing {getTotalIssued()} of {getTotalAvailable()} available pieces. Remaining pieces
-                    can be issued later.
+                    Note: You are issuing {getTotalIssued()} of {getTotalAvailable()} pieces left. The other{' '}
+                    {getTotalAvailable() - getTotalIssued()} stay on the slip under Incoming from Stitching, to issue
+                    later.
                   </p>
                 )}
               </CardContent>

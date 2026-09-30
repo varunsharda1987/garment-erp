@@ -1269,6 +1269,45 @@ export const getOrderStatisticsByCustomer = async (req: Request, res: Response):
  *
  * Idempotent: skips order items that already have a work order for their style.
  */
+/**
+ * Open orders of a style that have no production run for it yet.
+ * GET /api/orders/waiting-for-run?styleId=
+ *
+ * The standalone Create Work Order page warns with these: a run made there has no order link, so the
+ * order keeps reading "no production run" and its BOM, requirements and dispatch never meet the
+ * cutting — KMC got two such runs for ORD2026090034 (2026-09-30).
+ */
+export const getOrdersWaitingForRun = async (req: Request, res: Response): Promise<void> => {
+  const { styleId } = (req.validatedQuery || req.query) as unknown as { styleId: string };
+
+  const items = await prisma.order_items.findMany({
+    where: { styleId, orders: { status: { in: ['PENDING', 'IN_PRODUCTION'] } } },
+    select: {
+      orderId: true,
+      totalQuantity: true,
+      orders: { select: { orderNumber: true, customers: { select: { name: true } } } },
+    },
+  });
+  const runs = items.length
+    ? await prisma.work_orders.findMany({
+        where: { styleId, orderId: { in: items.map((i) => i.orderId) } },
+        select: { orderId: true },
+      })
+    : [];
+  const hasRun = new Set(runs.map((r) => r.orderId));
+
+  res.json({
+    data: items
+      .filter((i) => !hasRun.has(i.orderId))
+      .map((i) => ({
+        orderId: i.orderId,
+        orderNumber: i.orders.orderNumber,
+        customerName: i.orders.customers?.name ?? null,
+        quantity: i.totalQuantity,
+      })),
+  });
+};
+
 export const createWorkOrdersForOrder = async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.userId;
   if (!userId) {

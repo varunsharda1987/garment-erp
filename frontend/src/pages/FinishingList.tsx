@@ -541,7 +541,11 @@ export default function FinishingList() {
                         <span className="text-sm text-muted-foreground">{slip.styleName}</span>
                       </div>
                       <div className="text-sm text-muted-foreground mt-1">
-                        {slip.workOrderNumber} | {slip.totalGoodPieces} pcs | {formatDate(new Date(slip.transferDate))}
+                        {slip.workOrderNumber} |{' '}
+                        {slip.totalGoodPieces < slip.sentPieces
+                          ? `${slip.totalGoodPieces} of ${slip.sentPieces} pcs left`
+                          : `${slip.totalGoodPieces} pcs`}{' '}
+                        | {formatDate(new Date(slip.transferDate))}
                         {slip.issuedTo && ` | From: ${slip.issuedTo}`}
                       </div>
                     </div>
@@ -561,7 +565,7 @@ export default function FinishingList() {
                         <TableRow>
                           <TableHead>Color</TableHead>
                           <TableHead>Size</TableHead>
-                          <TableHead className="text-right">Quantity</TableHead>
+                          <TableHead className="text-right">Left to Issue</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>

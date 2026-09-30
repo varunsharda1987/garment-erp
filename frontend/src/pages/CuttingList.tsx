@@ -394,11 +394,12 @@ export default function CuttingList() {
                                 </Button>
                               </>
                             )}
-                            {batch.status === 'COMPLETED' && (
+                            {/* Sends what the batch has not yet sent to stitching; nothing left = no button */}
+                            {batch.status === 'COMPLETED' && (batch.piecesLeftToStitching ?? 0) > 0 && (
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                title="Generate Transfer Slip"
+                                title={`Generate Transfer Slip (${batch.piecesLeftToStitching} pcs left to send)`}
                                 onClick={async () => {
                                   try {
                                     const result = await cuttingBatchService.generateTransferSlip(batch.id);

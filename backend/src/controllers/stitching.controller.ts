@@ -363,7 +363,8 @@ export const createStitchingIssue = async (req: Request, res: Response) => {
 
     if (transferSlipIds?.length) {
       await takeFromSlips(tx, {
-        stitchingIssueId: created.id,
+        stage: 'STITCHING',
+        issueId: created.id,
         workOrderId,
         slipIds: transferSlipIds,
         skuRows,

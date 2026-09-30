@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { NotFoundError, ValidationError } from '../errors';
 import prisma from '../config/database';
+import { loadBatchSlipBalance, piecesLeftByBatch } from '../services/helpers/cutting-slip.helper';
 import { lockOrder, syncOrderStatus } from '../services/helpers/order-status.helper';
 import { Prisma, Unit } from '@prisma/client';
 import { randomUUID } from 'crypto';
@@ -129,8 +130,18 @@ export const getAllCuttingBatches = async (req: Request, res: Response) => {
     prisma.cutting_batches.count({ where }),
   ]);
 
+  // Pieces each batch has not yet sent to stitching — the list offers Generate Transfer Slip only
+  // while there are some (it offered it on every completed batch, and the click then failed)
+  const piecesLeft = await piecesLeftByBatch(
+    prisma,
+    batches.map((b) => b.id)
+  );
+
   res.json({
-    data: batches.map(transformCuttingBatch),
+    data: batches.map((batch) => ({
+      ...transformCuttingBatch(batch),
+      piecesLeftToStitching: piecesLeft.get(batch.id) ?? 0,
+    })),
     pagination: {
       page: Number(page),
       limit: Number(limit),
@@ -1224,55 +1235,48 @@ export const generateTransferSlip = async (req: Request, res: Response) => {
     throw new ValidationError('Can only generate transfer slip for completed batches');
   }
 
+  // The slip carries what of the batch is not yet on a slip to stitching (cutting-slip.helper): a
+  // batch partly sent with Issue to Stitching sends the rest here. It used to refuse whenever any slip
+  // existed, so pieces a partial issue left behind could never reach stitching. Nothing left = refused,
+  // checked before a slip number is taken.
+  const nothingLeft = (slipNumbers: string[]) =>
+    new ValidationError(
+      `Every good piece of this batch is already on a slip to stitching (${slipNumbers.join(', ') || 'none cut'})`
+    );
+  const preview = await loadBatchSlipBalance(prisma, id);
+  if (!preview || preview.balances.every((b) => b.left <= 0)) {
+    throw nothingLeft(preview?.batch.transferSlips.map((s) => s.slipNumber) ?? []);
+  }
+
   // Generate slip number — race-safe seeded sequence (bug-hunt production-17)
   const today = new Date();
   const slipNumber = await generateTransferSlipNumber();
 
-  // Calculate total quantity
-  const totalGoodPieces = batch.skuOutputs.reduce((sum: number, sku) => sum + sku.goodPcs, 0);
+  const transferSlip = await prisma.$transaction(async (tx) => {
+    const loaded = await loadBatchSlipBalance(tx, id, { lock: true });
+    const rest = (loaded?.balances ?? []).filter((b) => b.left > 0);
+    if (rest.length === 0) throw nothingLeft(loaded?.batch.transferSlips.map((s) => s.slipNumber) ?? []);
 
-  // ONE slip per cutting batch (bug-hunt production-8): duplicates double-counted the same pieces
-  // downstream. The partial unique index on cuttingBatchId is the DB backstop.
-  const existingSlipForBatch = await prisma.transfer_slips.findFirst({
-    where: { cuttingBatchId: id },
-    select: { slipNumber: true },
-  });
-  if (existingSlipForBatch) {
-    throw new ValidationError(
-      `A transfer slip (${existingSlipForBatch.slipNumber}) already exists for this cutting batch`
-    );
-  }
-
-  // Create transfer slip
-  const transferSlip = await prisma.transfer_slips.create({
-    data: {
-      slipNumber,
-      transferDate: today,
-      workOrderId: batch.workOrderId,
-      componentId: batch.componentId,
-      fromStage: 'CUTTING',
-      toStage: 'STITCHING',
-      fromDepartment: 'Cutting',
-      toDepartment: 'Stitching',
-      totalGoodPieces,
-      status: 'CREATED',
-      cuttingBatchId: id,
-      preparedById: userId,
-      skuBreakdown: {
-        // Deduped: legacy duplicate NULL-color batch SKUs would otherwise violate/duplicate
-        // transfer_slip_skus rows (bug-hunt production-18)
-        create: dedupeSkuRows(
-          batch.skuOutputs
-            .filter((sku) => sku.goodPcs > 0)
-            .map((sku) => ({
-              colorId: sku.colorId,
-              sizeId: sku.sizeId,
-              quantity: sku.goodPcs,
-            })),
-          ['quantity']
-        ),
+    return tx.transfer_slips.create({
+      data: {
+        slipNumber,
+        transferDate: today,
+        workOrderId: batch.workOrderId,
+        componentId: batch.componentId,
+        fromStage: 'CUTTING',
+        toStage: 'STITCHING',
+        fromDepartment: 'Cutting',
+        toDepartment: 'Stitching',
+        totalGoodPieces: rest.reduce((sum, b) => sum + b.left, 0),
+        status: 'CREATED',
+        cuttingBatchId: id,
+        preparedById: userId,
+        skuBreakdown: {
+          // One row per colour + size (the helper adds up legacy duplicate blank-colour rows, production-18)
+          create: rest.map((b) => ({ colorId: b.colorId, sizeId: b.sizeId, quantity: b.left })),
+        },
       },
-    },
+    });
   });
 
   res.json({
@@ -2445,17 +2449,19 @@ export const getStyleSizeSummary = async (req: Request, res: Response) => {
     }
   }
 
-  // Fetch transfer slips for pending push calculation
-  const workOrderIds = Array.from(woMap.keys());
-  const transferSlips = await prisma.transfer_slips.findMany({
-    where: {
-      workOrderId: { in: workOrderIds },
-      isActive: true,
-      fromStage: 'CUTTING',
-      toStage: 'STITCHING',
-    },
-    select: { workOrderId: true, status: true },
-  });
+  // Pieces each run has not yet sent to stitching, from its batches (cutting-slip.helper) — "pushed"
+  // used to mean "any slip exists for the run", so one partial slip hid the rest
+  const leftByBatch = await piecesLeftByBatch(
+    prisma,
+    batches.map((b) => b.id)
+  );
+  const leftByWorkOrder = new Map<string, number>();
+  for (const batch of batches) {
+    leftByWorkOrder.set(
+      batch.workOrderId,
+      (leftByWorkOrder.get(batch.workOrderId) || 0) + (leftByBatch.get(batch.id) || 0)
+    );
+  }
 
   const DAY_MS = 86400000;
   const now = Date.now();
@@ -2477,8 +2483,7 @@ export const getStyleSizeSummary = async (req: Request, res: Response) => {
     // Days pending push (completed but not transferred to stitching)
     let daysPendingPush: number | null = null;
     if (allCompleted) {
-      const hasStitchingSlip = transferSlips.some((s) => s.workOrderId === wo.workOrderId);
-      if (!hasStitchingSlip) {
+      if ((leftByWorkOrder.get(wo.workOrderId) || 0) > 0) {
         const lastEnd = Math.max(...wo.updatedAts.map((d) => d.getTime()));
         daysPendingPush = Math.max(0, Math.ceil((now - lastEnd) / DAY_MS));
       }

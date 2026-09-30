@@ -3,7 +3,9 @@ import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
-import { LAY_COVERAGE_SELECT, layCoverage, toLayBatchFabric } from './cutting.utils';
+import { LAY_COVERAGE_SELECT, dedupeSkuRows, layCoverage, toLayBatchFabric } from './cutting.utils';
+import { loadBatchSlipBalance } from '../services/helpers/cutting-slip.helper';
+import { skuKey } from '../services/helpers/sku-colour.helper';
 
 // ============================================
 // Atomic slip numbering (TS-YYYYMMDD-NNNN preserved)
@@ -95,12 +97,6 @@ export const issueToStitching = async (req: Request, res: Response) => {
   const batch = await prisma.cutting_batches.findUnique({
     where: { id },
     include: {
-      workOrder: true,
-      skuOutputs: true,
-      transferSlips: {
-        where: { isActive: true },
-        include: { skuBreakdown: true },
-      },
       additionalFabrics: {
         include: {
           fabricStock: {
@@ -132,80 +128,100 @@ export const issueToStitching = async (req: Request, res: Response) => {
     }
   }
 
-  // Calculate already issued per SKU
-  const issuedMap = new Map<string, number>();
-  for (const slip of batch.transferSlips) {
-    for (const sku of slip.skuBreakdown) {
-      const key = `${sku.colorId}|${sku.sizeId}`;
-      issuedMap.set(key, (issuedMap.get(key) || 0) + sku.quantity);
-    }
+  if (batch.status !== 'IN_PROGRESS' && batch.status !== 'COMPLETED') {
+    throw new ValidationError('Pieces go to stitching from a batch that is in progress or completed');
   }
 
-  // Validate quantities
-  for (const output of skuOutputs) {
-    const key = `${output.colorId}|${output.sizeId}`;
-    const batchSku = batch.skuOutputs.find((s) => s.colorId === output.colorId && s.sizeId === output.sizeId);
-    if (!batchSku) {
-      throw new ValidationError('Invalid color/size combination');
-    }
-    const alreadyIssued = issuedMap.get(key) || 0;
-    const available = batchSku.goodPcs - alreadyIssued;
-    if (output.quantity > available) {
-      throw new ValidationError(
-        `Cannot issue ${output.quantity} for size ${output.sizeId}. Only ${available} available.`
-      );
-    }
+  // One row per colour + size; a blank colour is one value (sku-colour.helper) — the rows used to be
+  // matched with ===, so a blank colour sent as undefined read as "Invalid color/size combination"
+  const rows = dedupeSkuRows(
+    (skuOutputs as Array<{ colorId?: string | null; sizeId: string; quantity: number }>).map((s) => ({
+      colorId: s.colorId ?? null,
+      sizeId: s.sizeId,
+      quantity: Number(s.quantity) || 0,
+    })),
+    ['quantity']
+  ).filter((r) => r.quantity > 0);
+  if (rows.length === 0) {
+    throw new ValidationError('Enter a quantity for at least one size');
   }
 
   const today = new Date();
-  const totalPieces = skuOutputs.reduce((sum: number, s: any) => sum + s.quantity, 0);
+  const totalPieces = rows.reduce((sum, r) => sum + r.quantity, 0);
 
-  // slipNumber is UNIQUE — if a pre-atomic row in today's scope still collides with the freshly
-  // seeded sequence, retry with the next atomic number.
-  const createSlipWithFreshNumber = async () => {
-    for (let attempt = 1; ; attempt++) {
-      const slipNumber = await generateTransferSlipNumber(today);
-      try {
-        return await prisma.transfer_slips.create({
-          data: {
-            slipNumber,
-            transferDate: issueDate ? new Date(issueDate) : today,
-            workOrderId: batch.workOrderId,
-            fromStage: 'CUTTING',
-            toStage: 'STITCHING',
-            fromDepartment: 'Cutting',
-            toDepartment: 'Stitching',
-            totalGoodPieces: totalPieces,
-            status: 'CREATED',
-            cuttingBatchId: id,
-            issuedToId,
-            preparedById: userId,
-            remarks,
-            skuBreakdown: {
-              create: skuOutputs.map((s: any) => ({
-                colorId: s.colorId || null,
-                sizeId: s.sizeId,
-                quantity: s.quantity,
-              })),
-            },
-          },
-          include: {
-            issuedTo: { select: { id: true, name: true } },
-            skuBreakdown: {
-              include: {
-                color: { select: { id: true, colorName: true } },
-                size: { select: { id: true, sizeName: true } },
-              },
-            },
-          },
-        });
-      } catch (err) {
-        if (isUniqueViolationOn(err, 'slipNumber') && attempt < 3) continue;
-        throw err;
+  // Check what the batch has left and create the slip under one batch lock (cutting-slip.helper): a
+  // batch may go to stitching on several slips, never more than its good pieces. slipNumber is UNIQUE —
+  // if a pre-atomic row in today's scope still collides with the freshly seeded sequence, retry.
+  const createSlip = (slipNumber: string) =>
+    prisma.$transaction(async (tx) => {
+      const loaded = await loadBatchSlipBalance(tx, id, { lock: true });
+      const left = new Map((loaded?.balances ?? []).map((b) => [skuKey(b.colorId, b.sizeId), b]));
+      const problems: Array<{ sizeId: string; asked: number; available: number | null }> = [];
+      for (const row of rows) {
+        const balance = left.get(skuKey(row.colorId, row.sizeId));
+        if (!balance) problems.push({ sizeId: row.sizeId, asked: row.quantity, available: null });
+        else if (row.quantity > balance.left) {
+          problems.push({ sizeId: row.sizeId, asked: row.quantity, available: balance.left });
+        }
       }
+      if (problems.length > 0) {
+        const sizes = await tx.size_options.findMany({
+          where: { id: { in: problems.map((p) => p.sizeId) } },
+          select: { id: true, sizeName: true },
+        });
+        const sizeName = new Map(sizes.map((z) => [z.id, z.sizeName]));
+        throw new ValidationError(
+          `Cannot issue to stitching — ${problems
+            .map((p) =>
+              p.available === null
+                ? `${sizeName.get(p.sizeId) ?? p.sizeId} was not cut in this batch`
+                : `${sizeName.get(p.sizeId) ?? p.sizeId}: ${p.asked} asked, only ${p.available} left`
+            )
+            .join('; ')}`
+        );
+      }
+
+      return tx.transfer_slips.create({
+        data: {
+          slipNumber,
+          transferDate: issueDate ? new Date(issueDate) : today,
+          workOrderId: batch.workOrderId,
+          componentId: batch.componentId,
+          fromStage: 'CUTTING',
+          toStage: 'STITCHING',
+          fromDepartment: 'Cutting',
+          toDepartment: 'Stitching',
+          totalGoodPieces: totalPieces,
+          status: 'CREATED',
+          cuttingBatchId: id,
+          issuedToId,
+          preparedById: userId,
+          remarks,
+          skuBreakdown: {
+            create: rows.map((r) => ({ colorId: r.colorId, sizeId: r.sizeId, quantity: r.quantity })),
+          },
+        },
+        include: {
+          issuedTo: { select: { id: true, name: true } },
+          skuBreakdown: {
+            include: {
+              color: { select: { id: true, colorName: true } },
+              size: { select: { id: true, sizeName: true } },
+            },
+          },
+        },
+      });
+    });
+
+  let transferSlip: Awaited<ReturnType<typeof createSlip>> | undefined;
+  for (let attempt = 1; !transferSlip; attempt++) {
+    try {
+      transferSlip = await createSlip(await generateTransferSlipNumber(today));
+    } catch (err) {
+      if (isUniqueViolationOn(err, 'slipNumber') && attempt < 3) continue;
+      throw err;
     }
-  };
-  const transferSlip = await createSlipWithFreshNumber();
+  }
 
   const issuedToContractor = transferSlip.issuedTo
     ? { id: transferSlip.issuedTo.id, name: transferSlip.issuedTo.name }
@@ -259,11 +275,12 @@ export const getStitchingIssues = async (req: Request, res: Response) => {
     throw new NotFoundError('CuttingBatch', id);
   }
 
-  // Calculate issued per SKU
+  // Calculate issued per SKU (only slips to stitching; a blank colour is one value)
   const issuedMap = new Map<string, number>();
   for (const slip of batch.transferSlips) {
+    if (slip.toStage !== 'STITCHING') continue;
     for (const sku of slip.skuBreakdown) {
-      const key = `${sku.colorId}|${sku.sizeId}`;
+      const key = skuKey(sku.colorId, sku.sizeId);
       issuedMap.set(key, (issuedMap.get(key) || 0) + sku.quantity);
     }
   }
@@ -271,7 +288,7 @@ export const getStitchingIssues = async (req: Request, res: Response) => {
   // Build per-SKU summary
   const perSku = batch.skuOutputs
     .map((sku) => {
-      const key = `${sku.colorId}|${sku.sizeId}`;
+      const key = skuKey(sku.colorId, sku.sizeId);
       const issuedQty = issuedMap.get(key) || 0;
       return {
         colorId: sku.colorId,
@@ -281,7 +298,7 @@ export const getStitchingIssues = async (req: Request, res: Response) => {
         sortOrder: sku.size?.sortOrder || 0,
         goodPcs: sku.goodPcs,
         issuedQty,
-        availableQty: sku.goodPcs - issuedQty,
+        availableQty: Math.max(0, sku.goodPcs - issuedQty),
       };
     })
     .sort((a, b) => a.sortOrder - b.sortOrder);
@@ -291,7 +308,8 @@ export const getStitchingIssues = async (req: Request, res: Response) => {
     id: slip.id,
     slipNumber: slip.slipNumber,
     issueDate: slip.transferDate,
-    issuedTo: slip.issuedTo ? { id: slip.issuedTo.id, name: slip.issuedTo.name } : { id: '', name: 'Unknown' },
+    // Generate Transfer Slip sends the batch without naming a contractor (stitching picks one)
+    issuedTo: slip.issuedTo ? { id: slip.issuedTo.id, name: slip.issuedTo.name } : { id: '', name: 'Not assigned' },
     preparedBy: slip.preparedBy
       ? { id: slip.preparedBy.id, name: `${slip.preparedBy.firstName} ${slip.preparedBy.lastName}` }
       : null,

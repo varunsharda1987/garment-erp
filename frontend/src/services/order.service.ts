@@ -134,6 +134,14 @@ export const getOrderStatisticsByCustomer = async (): Promise<OrderStatisticsRes
  * that needs a colour/size breakup — which dyeing and printing never require. Idempotent: order
  * items that already have a work order for their style are skipped.
  */
+/** Open orders of a style that have no production run for it yet */
+export const getOrdersWaitingForRun = async (
+  styleId: string
+): Promise<Array<{ orderId: string; orderNumber: string; customerName: string | null; quantity: number }>> => {
+  const { data } = await api.get('/orders/waiting-for-run', { params: { styleId } });
+  return data.data;
+};
+
 export const createWorkOrdersForOrder = async (
   orderId: string
 ): Promise<{ created: string[]; skipped: string[]; failed: { styleId: string; reason: string }[] }> => {

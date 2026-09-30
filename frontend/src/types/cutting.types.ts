@@ -65,6 +65,8 @@ export interface CuttingBatch {
   batchNumber: string;
   workOrderId: string;
   componentId?: string;
+  /** Good pieces not yet on a slip to stitching (list endpoint only) */
+  piecesLeftToStitching?: number;
 
   // Cutting Details
   cuttingDate: string;

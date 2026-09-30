@@ -380,6 +380,9 @@ export const disposeDefectsSchema = z.object({
  */
 export const createFinishingIssueSchema = z.object({
   workOrderId: z.string().uuid('Invalid work order ID'),
+  // The stitching slip(s) the pieces come from — the issue takes them (stitching-slip-balance.helper);
+  // the form never sent its slip, so a finishing issue never used a slip up
+  transferSlipIds: z.array(z.string().uuid('Invalid transfer slip ID')).optional(),
   managerId: z.string().uuid('Invalid manager ID').optional(),
   contractorId: z.string().uuid('Invalid contractor ID').optional(), // Added - contractor assignment
   issueDate: z.string().or(z.date()).optional(), // Renamed from startDate

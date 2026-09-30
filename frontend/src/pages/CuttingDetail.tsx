@@ -1004,7 +1004,14 @@ export default function CuttingDetail() {
               {!showIssueForm && (
                 <div className="flex items-center gap-2">
                   {!allFabricsCut && <span className="text-xs text-destructive">{uncutFabricNames} not yet cut</span>}
-                  <Button size="sm" onClick={handleOpenIssueForm} disabled={!allFabricsCut}>
+                  {allFabricsCut && (stitchingData?.perSku ?? []).every((sku) => sku.availableQty <= 0) && (
+                    <span className="text-xs text-muted-foreground">Every good piece is already issued</span>
+                  )}
+                  <Button
+                    size="sm"
+                    onClick={handleOpenIssueForm}
+                    disabled={!allFabricsCut || (stitchingData?.perSku ?? []).every((sku) => sku.availableQty <= 0)}
+                  >
                     <Package className="h-4 w-4 mr-2" />
                     New Issue
                   </Button>

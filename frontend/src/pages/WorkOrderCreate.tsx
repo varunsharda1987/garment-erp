@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Plus, Trash2 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { ArrowLeft, Save, Plus, Trash2, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,6 +14,7 @@ import { StyleCombobox } from '@/components/StyleCombobox';
 import { toast } from 'sonner';
 import api from '@/lib/api';
 import workOrderService from '@/services/workOrder.service';
+import { getOrdersWaitingForRun } from '@/services/order.service';
 import type { Priority } from '@/types/production.types';
 import type { Style } from '@/types/style.types';
 import { toDateInputValue } from '@/lib/date';
@@ -48,6 +50,9 @@ export default function WorkOrderCreate() {
 
   // Form state
   const [styleId, setStyleId] = useState('');
+  // One click, one run: isSaving only disables the button after the next render, so a quick second
+  // click (or Enter + click) sent a second create — KMC got WO2609-0308 and 0309 at the same instant
+  const submittingRef = useRef(false);
   const [selectedStyle, setSelectedStyle] = useState<Style | undefined>(undefined);
   const [plannedStartDate, setPlannedStartDate] = useState(toDateInputValue(new Date()));
   const [plannedEndDate, setPlannedEndDate] = useState(
@@ -122,6 +127,14 @@ export default function WorkOrderCreate() {
 
   const totalQuantity = breakup.reduce((sum, row) => sum + (row.quantity || 0), 0);
 
+  // A run made here has no order link. When the style's order is still waiting for its run, that run
+  // belongs on the order (its Create Production Run), or the order never meets its cutting.
+  const { data: ordersWaitingForRun = [] } = useQuery({
+    queryKey: ['orders', 'waiting-for-run', styleId],
+    queryFn: () => getOrdersWaitingForRun(styleId),
+    enabled: !!styleId,
+  });
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -157,6 +170,8 @@ export default function WorkOrderCreate() {
       seen.add(key);
     }
 
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     try {
       setIsSaving(true);
 
@@ -180,6 +195,7 @@ export default function WorkOrderCreate() {
       setError(message);
       toast.error(message);
     } finally {
+      submittingRef.current = false;
       setIsSaving(false);
     }
   };
@@ -238,6 +254,36 @@ export default function WorkOrderCreate() {
                       </div>
                     </div>
                   </div>
+                )}
+
+                {ordersWaitingForRun.length > 0 && (
+                  <Alert>
+                    <AlertDescription>
+                      <div className="space-y-2">
+                        <p>
+                          This style has {ordersWaitingForRun.length === 1 ? 'an order' : 'orders'} waiting for a
+                          production run. A run made here is <strong>not linked</strong> to{' '}
+                          {ordersWaitingForRun.length === 1 ? 'it' : 'them'} — create it on the order instead (Create
+                          Production Run). Carry on here only for a run no order asked for, such as stock.
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {ordersWaitingForRun.map((o) => (
+                            <Button
+                              key={o.orderId}
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => navigate(`/orders/${o.orderId}`)}
+                            >
+                              {o.orderNumber}
+                              {o.customerName ? ` · ${o.customerName}` : ''} · {o.quantity} pcs
+                              <ArrowRight className="ml-1 h-3 w-3" />
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
                 )}
               </div>
             </CardContent>

@@ -274,12 +274,12 @@
       "frontend/src/components/FabricIssuanceSection.tsx": "d751537c055c",
       "frontend/src/components/job-work/ThanPicker.tsx": "20dda4f2ee97",
       "frontend/src/components/ui/combobox.tsx": "d1b66a9f97a1",
-      "backend/src/schemas/production.schema.ts": "ab9ffff81b5a",
+      "backend/src/schemas/production.schema.ts": "1c8f380d26c2",
       "backend/src/routes/cutting.routes.ts": "c8017d275eeb",
       "backend/src/services/productionBlockingValidation.service.ts": "886865d6829d"
     },
     "contentHash": "a88cc36de1b1",
-    "generatedAt": "2026-09-29T08:02:04.016Z"
+    "generatedAt": "2026-09-30T10:59:36.058Z"
   },
   "debit-note-create": {
     "sources": {
@@ -524,11 +524,11 @@
       "frontend/src/components/StyleColourCombobox.tsx": "3a6997d09936",
       "frontend/src/components/filters/FilterBar.tsx": "4863a4852b38",
       "backend/src/controllers/fg-stock.controller.ts": "3383f393359e",
-      "backend/src/controllers/finishing.controller.ts": "30d2186dcd96",
+      "backend/src/controllers/finishing.controller.ts": "41769ca36078",
       "backend/src/services/helpers/finished-goods.helper.ts": "7d188602f8db"
     },
     "contentHash": "f87beb74cd6f",
-    "generatedAt": "2026-09-29T08:02:04.110Z"
+    "generatedAt": "2026-09-30T10:59:36.221Z"
   },
   "finishing-entry": {
     "sources": {
@@ -538,12 +538,12 @@
       "frontend/src/pages/FinishingList.tsx": "01fdb22af9e7",
       "frontend/src/pages/FinishingForm.tsx": "35c96ca44c11",
       "frontend/src/pages/FinishingDetail.tsx": "e60b6999abf0",
-      "backend/src/schemas/production.schema.ts": "ab9ffff81b5a",
+      "backend/src/schemas/production.schema.ts": "1c8f380d26c2",
       "backend/src/routes/finishing.routes.ts": "30dc17e777c7",
-      "backend/src/controllers/finishing.controller.ts": "30d2186dcd96"
+      "backend/src/controllers/finishing.controller.ts": "41769ca36078"
     },
     "contentHash": "c429af4d771a",
-    "generatedAt": "2026-09-29T08:02:04.116Z"
+    "generatedAt": "2026-09-30T10:59:36.233Z"
   },
   "fpt-create": {
     "sources": {
@@ -1441,15 +1441,17 @@
       "frontend/src/config/navigation.ts": "ca630f08ce15",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
-      "frontend/src/pages/StitchingList.tsx": "26eafe24cb61",
-      "frontend/src/pages/StitchingForm.tsx": "4d5ec79ab898",
-      "frontend/src/pages/StitchingDetail.tsx": "a94594fa04b7",
-      "backend/src/schemas/production.schema.ts": "ab9ffff81b5a",
-      "backend/src/routes/stitching.routes.ts": "cb8165d6fa31",
-      "backend/src/controllers/stitching.controller.ts": "d18e6c6073d1"
+      "frontend/src/pages/StitchingList.tsx": "a75e923b70fb",
+      "frontend/src/pages/StitchingForm.tsx": "414fe45dec42",
+      "frontend/src/pages/StitchingDetail.tsx": "a75bb1493afc",
+      "backend/src/schemas/production.schema.ts": "1c8f380d26c2",
+      "backend/src/routes/stitching.routes.ts": "338837a7c2a8",
+      "backend/src/controllers/stitching.controller.ts": "52910aeaf2b4",
+      "backend/src/services/helpers/stitching-slip-balance.helper.ts": "690b49bf43ae",
+      "frontend/src/components/production/CompleteStitchingDialog.tsx": "6481a85ac377"
     },
-    "contentHash": "689ae5570794",
-    "generatedAt": "2026-09-29T08:02:04.447Z"
+    "contentHash": "35eced803e2a",
+    "generatedAt": "2026-09-30T10:59:36.252Z"
   },
   "stock-adjustment-create": {
     "sources": {

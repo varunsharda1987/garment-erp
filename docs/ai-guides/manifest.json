@@ -1047,7 +1047,7 @@
       "frontend/src/components/ExportButton.tsx": "5f87db47b205",
       "frontend/src/pages/ProductionStatus.tsx": "0ce27477c1b4",
       "frontend/src/pages/UnifiedRequirementsPage.tsx": "5d8e335bdf2c",
-      "frontend/src/components/requirements/OrderStyleLabelView.tsx": "a3bd85e89231",
+      "frontend/src/components/requirements/OrderStyleLabelView.tsx": "e0e83359e749",
       "frontend/src/components/requirements/requirement-list-options.ts": "236d15f8b108",
       "frontend/src/types/order.types.ts": "66cbef123513",
       "frontend/src/types/mrp.types.ts": "8b43fd331074",
@@ -1058,7 +1058,7 @@
       "backend/src/services/helpers/sku-colour.helper.ts": "4265621210fa"
     },
     "contentHash": "ea7f099b6348",
-    "generatedAt": "2026-09-29T08:02:04.297Z"
+    "generatedAt": "2026-09-30T08:41:27.790Z"
   },
   "other-material-create": {
     "sources": {
@@ -1865,8 +1865,8 @@
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/UnifiedRequirementsPage.tsx": "5d8e335bdf2c",
-      "frontend/src/components/requirements/OrderStyleLabelView.tsx": "a3bd85e89231",
-      "frontend/src/components/requirements/order-style-groups.ts": "8ee82b6fc23f",
+      "frontend/src/components/requirements/OrderStyleLabelView.tsx": "e0e83359e749",
+      "frontend/src/components/requirements/order-style-groups.ts": "1a6f96b68a9f",
       "frontend/src/components/requirements/requirement-list-options.ts": "236d15f8b108",
       "frontend/src/components/BulkPOGenerationDialog.tsx": "03900f650a76",
       "frontend/src/components/purchase-orders/LabelSetDialog.tsx": "c1d47a3f3e1d",
@@ -1881,7 +1881,7 @@
       "frontend/src/components/SupplierCombobox.tsx": "dac12cef821f"
     },
     "contentHash": "29a85d3d2cfe",
-    "generatedAt": "2026-09-29T08:02:04.397Z"
+    "generatedAt": "2026-09-30T08:41:27.838Z"
   },
   "cad-correct": {
     "sources": {
@@ -1909,7 +1909,7 @@
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/UnifiedRequirementsPage.tsx": "5d8e335bdf2c",
       "frontend/src/components/requirements/RequirementDecision.tsx": "71a110d23b21",
-      "frontend/src/components/requirements/OrderStyleLabelView.tsx": "a3bd85e89231",
+      "frontend/src/components/requirements/OrderStyleLabelView.tsx": "e0e83359e749",
       "frontend/src/components/requirements/requirement-list-options.ts": "236d15f8b108",
       "frontend/src/types/mrp.types.ts": "8b43fd331074",
       "frontend/src/pages/OrderDetail.tsx": "86686aea2901",
@@ -1918,21 +1918,21 @@
       "backend/src/schemas/mrp.schema.ts": "09d02f5913fa"
     },
     "contentHash": "523214f7c168",
-    "generatedAt": "2026-09-29T08:02:04.378Z"
+    "generatedAt": "2026-09-30T08:41:27.815Z"
   },
   "requirements-use-stock": {
     "sources": {
       "frontend/src/config/navigation.ts": "ca630f08ce15",
       "frontend/src/pages/UnifiedRequirementsPage.tsx": "5d8e335bdf2c",
-      "frontend/src/components/requirements/OrderStyleLabelView.tsx": "a3bd85e89231",
+      "frontend/src/components/requirements/OrderStyleLabelView.tsx": "e0e83359e749",
       "frontend/src/components/requirements/requirement-list-options.ts": "236d15f8b108",
       "frontend/src/types/mrp.types.ts": "8b43fd331074",
       "backend/src/services/mrp.service.ts": "7152ab7af8f3",
       "backend/src/services/helpers/stock-reservation.helper.ts": "2453d4aae1a0",
       "frontend/src/components/requirements/OpenPOSupplyNote.tsx": "1d70754030b3"
     },
-    "contentHash": "1c79ec921496",
-    "generatedAt": "2026-09-29T08:02:04.407Z"
+    "contentHash": "633fc698f74e",
+    "generatedAt": "2026-09-30T08:41:27.848Z"
   },
   "requirements-find-filter": {
     "sources": {
@@ -1940,7 +1940,7 @@
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/UnifiedRequirementsPage.tsx": "5d8e335bdf2c",
-      "frontend/src/components/requirements/OrderStyleLabelView.tsx": "a3bd85e89231",
+      "frontend/src/components/requirements/OrderStyleLabelView.tsx": "e0e83359e749",
       "frontend/src/components/requirements/requirement-list-options.ts": "236d15f8b108",
       "frontend/src/types/mrp.types.ts": "8b43fd331074",
       "frontend/src/types/material.types.ts": "d7d587dd305d",
@@ -1952,7 +1952,7 @@
       "frontend/src/components/SupplierCombobox.tsx": "dac12cef821f"
     },
     "contentHash": "da615e9ddba2",
-    "generatedAt": "2026-09-29T08:02:04.386Z"
+    "generatedAt": "2026-09-30T08:41:27.823Z"
   },
   "greige-pieces-record": {
     "sources": {
@@ -2003,7 +2003,7 @@
       "frontend/src/pages/UnifiedRequirementsPage.tsx": "5d8e335bdf2c",
       "frontend/src/components/requirements/OpenPOSupplyNote.tsx": "1d70754030b3",
       "frontend/src/components/requirements/open-po-supply.ts": "f0e11c559ba9",
-      "frontend/src/components/requirements/OrderStyleLabelView.tsx": "a3bd85e89231",
+      "frontend/src/components/requirements/OrderStyleLabelView.tsx": "e0e83359e749",
       "frontend/src/components/BulkPOGenerationDialog.tsx": "03900f650a76",
       "frontend/src/hooks/useHeldStockConfirm.tsx": "af814e9283db",
       "frontend/src/lib/held-stock-confirm.ts": "1fffe3fae934",
@@ -2018,7 +2018,7 @@
       "backend/src/services/mrp.service.ts": "7152ab7af8f3"
     },
     "contentHash": "7203bda0f4e0",
-    "generatedAt": "2026-09-29T12:18:23.352Z"
+    "generatedAt": "2026-09-30T08:41:27.601Z"
   },
   "goods-in-transit-challan": {
     "sources": {

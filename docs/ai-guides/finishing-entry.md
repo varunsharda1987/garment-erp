@@ -2,6 +2,11 @@
 slug: finishing-entry
 title: Record Finishing (Issue, Output, Packing)
 keywords:
+  - left to issue
+  - remaining pieces
+  - baaki pieces
+  - बाकी पीस
+  - partial finishing issue
   - finishing
   - finishing issue
   - packing
@@ -40,6 +45,7 @@ keywords:
   - buyer ka style code
   - बायर स्टाइल कोड
 sources:
+  - backend/src/services/helpers/stitching-slip-balance.helper.ts
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
   - frontend/src/App.tsx
@@ -56,13 +62,14 @@ Finishing starts from a stitching transfer slip, then moves through output, pack
 
 ## Before you start
 - A stitching issue must be **Completed** and its transfer slip generated. Those slips show in the **Incoming from Stitching** tab.
+- A slip shows only the pieces **left to issue**. A slip that was partly issued reads **N of M pcs left** and lists only the sizes still waiting, under **Left to Issue**.
 
 ## Create the finishing issue
 1. Open **Manufacturing → Finishing** in the sidebar (under the **Production Stages** heading).
 2. Click **New Issue**. You can also use **Receive & Create Issue** on a slip in the **Incoming from Stitching** tab.
-3. On the **New Finishing Issue** page, pick **Transfer Slip from Stitching** (required). Each slip reads slip number - work order - style, the style named by its Buyer Style Code first with our Style Code in brackets when different (e.g. SP27DR27 (EBWW-021)). Only one slip per issue is allowed here.
+3. On the **New Finishing Issue** page, pick **Transfer Slip from Stitching** (required). Each slip reads slip number - work order - style, the style named by its Buyer Style Code first with our Style Code in brackets when different (e.g. SP27DR27 (EBWW-021)), then its pieces (**N of M pcs left** when partly issued). Only one slip per issue is allowed here.
 4. Fill **Issue Date** (required) and pick the **Finishing Contractor** (required). **Expected Completion** defaults to 5 days ahead.
-5. In **SKU Breakdown**, set **Issue Qty** per colour and size. It is pre-filled with the full **Available** quantity.
+5. In **SKU Breakdown**, set **Issue Qty** per colour and size. It is pre-filled with everything in **Left to Issue**. To give only part of the slip to this contractor, lower **Issue Qty** or set it to 0 — the note under the table says how many pieces stay on the slip under **Incoming from Stitching** for the next issue.
 6. Click **Create Finishing Issue**.
 
 ## Find an existing issue
@@ -82,5 +89,6 @@ Finishing starts from a stitching transfer slip, then moves through output, pack
 - **Packed** quantity in Polybag Entry and **Quantity** in Carton Packing must be more than zero on at least one row.
 - If the slip has no size breakdown, the form shows a single "All Colors / All Sizes" row — check it before saving.
 - A colour is not needed. For a style with no colour, **Record Output**, **Polybag Entry**, **Carton Packing** and **Generate Transfer Slip** all work with no colour on the rows — the **Color** column reads **Unknown** in the output, polybag and carton dialogs and **-** in **SKU Breakdown**. Enter the quantities and save as usual; the finished goods go into FG Stock with no colour. You do not have to set a colour on the style first.
+- **Issue Qty** cannot exceed what is **Left to Issue** on the slip, or the save is rejected with the size named. The same pieces cannot be issued to finishing twice: a slip whose pieces have all been issued leaves **Incoming from Stitching**.
 - A transfer slip can be generated only once per finishing issue.
 - Use the **Size-wise Status** tab to see pending, running and done pieces per size, plus idle-day warnings.

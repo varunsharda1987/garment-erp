@@ -2,6 +2,13 @@
 slug: stitching-entry
 title: Record Stitching (Create Issue and Daily Output)
 keywords:
+  - change contractor
+  - contractor badalna
+  - ठेकेदार बदलें
+  - delete stitching issue
+  - issue delete karna
+  - edit stitching issue
+  - all defect
   - stitching
   - stitching issue
   - stiching
@@ -53,6 +60,8 @@ keywords:
   - size wise status
   - साइज़ वाइज़
 sources:
+  - frontend/src/components/SupplierCombobox.tsx
+  - frontend/src/components/production/EditStitchingIssueDialog.tsx
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
   - frontend/src/App.tsx
@@ -78,7 +87,7 @@ Stitching has two parts: first create a **stitching issue** from a cutting trans
 1. Open **Manufacturing → Stitching** in the sidebar (under the **Production Stages** heading). The **Stitching Department** page opens.
 2. Click **New Issue**. You can also open the **Incoming from Cutting** tab and click **Receive & Create Issue** on a slip, which pre-ticks it.
 3. On the **New Stitching Issue** page, in **Source Selection**, tick one or more transfer slips. Each slip shows its number, the style by buyer style code first (our Style Code in brackets when it differs), the style name and its pieces (**N of M pcs left** when partly issued). Use the work-order checkbox to tick all slips of that run at once.
-4. In **Issue Details** fill **Issue Date** (required) and pick the **Stitching Contractor** (required). **Expected Completion** defaults to 7 days ahead and can be changed.
+4. In **Issue Details** fill **Issue Date** (required) and pick the **Stitching Contractor** (required) — click the box and type part of the contractor's name or code; only stitching contractors are listed. **Expected Completion** defaults to 7 days ahead and can be changed.
 5. In **SKU Breakdown**, set **Issue Qty** for each colour and size. It is pre-filled with everything in **Left to Issue** (a size already partly issued also shows **of N sent**).
 6. To give only some sizes (or part of a size) to this contractor, lower **Issue Qty** or set it to 0. The note under the table says how many pieces stay on the slip; they stay under **Incoming from Cutting** for the next issue.
 7. Click **Create Stitching Issue**. The issue page opens.
@@ -100,7 +109,9 @@ Open the **Size-wise Status** tab. Each production run shows, per size: **Waitin
 - **Issue Qty** cannot exceed what is **Left to Issue** on the selected slips, or the save is rejected with the size named.
 - A slip whose pieces have all been issued leaves the **Incoming from Cutting** tab and cannot be picked again.
 - **Good Qty** and **Defect Qty** together cannot go above the **Remaining** figure on that row. A defect counts as a recorded piece.
-- **Complete** only appears after at least one good piece is recorded. If some pieces were never recorded, the box asks for a **Reason for completing short** and the button reads **Complete Short**. Those pieces do not go to finishing, and the reason is kept in the issue's **Remarks**. Record the missing output first if you can.
+- **Complete** only appears after some output is recorded (good or defect). If every piece came out defective the issue can still be completed; the page then says **No good pieces to send** — there is nothing to transfer to finishing. If some pieces were never recorded, the box asks for a **Reason for completing short** and the button reads **Complete Short**. Those pieces do not go to finishing, and the reason is kept in the issue's **Remarks**. Record the missing output first if you can.
 - A colour is not needed. A style with no colour is received, stitched, recorded and transferred with no colour on its rows — the **Color** column reads **Unknown** in the **Record Daily Output** dialog and **-** in **SKU Breakdown**. Just enter the quantities and click **Save Output**; you do not have to set a colour on the style first.
 - Completed too early? **Reopen** (shown on a Completed issue until its transfer slip is generated) puts it back to In Progress so you can record more output.
+- Wrong contractor or date? Click **Edit** at the top of the issue page (any issue not yet Completed) to change **Issue Date**, **Stitching Contractor**, **Expected Completion** (clear it to leave it blank) or **Remarks**, then **Save**.
+- Made the issue by mistake? While it is still **Pending Receipt**, click **Delete** at the top of the issue page and confirm. Its pieces go back to their cutting slips under **Incoming from Cutting**, to issue again.
 - On the list, the row icons do the same steps quickly: Receive, Start, Complete (after output is recorded) and Issue to Finishing. Once an issue's transfer slip exists, the row shows the slip number instead of the Issue to Finishing icon.

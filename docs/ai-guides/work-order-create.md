@@ -2,6 +2,11 @@
 slug: work-order-create
 title: Create a Work Order (Production Run)
 keywords:
+  - run not linked to order
+  - order se link
+  - ऑर्डर से लिंक
+  - duplicate production run
+  - do run ban gaye
   - work order
   - WO
   - production run
@@ -37,6 +42,7 @@ keywords:
   - buyer ka style code
   - बायर स्टाइल कोड
 sources:
+  - frontend/src/services/order.service.ts
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
   - frontend/src/App.tsx
@@ -71,6 +77,7 @@ The style must already exist, be published (draft styles are not listed), and ha
 1. Open **Manufacturing → Production Runs** in the sidebar.
 2. Click **Create Work Order** at the top right.
 3. Under **Style Selection**, click the **Style** box (**Select a style...**) and type part of the Buyer Style Code, our Style Code, the style name or the customer. Each style is listed as Buyer Style Code, our Style Code in brackets when it is different, then name and customer — for example `SP27DR27 (EBWW-021) - GEMINI (Easybuy)` — in Buyer Style Code order. Every published style can be found this way — when the box says "Showing N of M", keep typing to narrow it. Pick one. This field is required. The grey box under it then shows the style's **Buyer Style Code**, **Style Code** and **Name**.
+   If the style has an order still waiting for its production run, a note says so with a button per order (order number, customer, pieces). A run made on this page is **not linked** to that order — the order keeps saying "no production run" and its BOM, requirements and dispatch never meet this run. Click the order's button and use **Create Production Run** there instead. Carry on here only for a run no order asked for, such as stock.
 4. Under **Planning Details**, set **Planned Start Date** and **Planned End Date**. Both are required, and the end date cannot be before the start date. Today's date and a date one week later are filled in for you.
 5. Choose **Priority**: **Low**, **Medium**, **High** or **Urgent**. Medium is the default.
 6. Type notes in **Remarks** if needed. This is optional, maximum 1000 characters.
@@ -85,7 +92,7 @@ The style must already exist, be published (draft styles are not listed), and ha
 There is no location field on this page. Every new production run, including one started from a sale order, gets the company's own unit (**Kashaya Fabs**) as its **Production Location** automatically. You can see it in the **Production Location** card on the run page and the **Location** column of the list. If a run is made somewhere else, change it with **Edit** (see below).
 
 ## Traps to avoid
-- The **Create Work Order** button stays greyed out until a style is picked and the total is more than zero.
+- The **Create Work Order** button stays greyed out until a style is picked and the total is more than zero. One click makes one run — clicking again while it saves does nothing.
 - Rows with no size, or with quantity zero, are dropped silently. Add at least one complete row.
 - Each colour and size combination may appear on only one row. If the same colour and size are on two rows, the page says it is entered twice — put its whole quantity on one row.
 - Quantities must be whole numbers. Decimals are rejected.

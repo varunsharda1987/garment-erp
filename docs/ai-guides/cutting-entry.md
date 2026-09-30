@@ -2,6 +2,13 @@
 slug: cutting-entry
 title: Record a Cutting Entry (Batch and Lay)
 keywords:
+  - style not in cutting
+  - style nahi dikh raha
+  - स्टाइल नहीं दिख रहा
+  - create production run
+  - two contractors
+  - do contractor
+  - दो ठेकेदार
   - cutting
   - cutting entry
   - cutting batch
@@ -40,6 +47,8 @@ keywords:
   - buyer ka style code
   - बायर स्टाइल कोड
 sources:
+  - backend/src/controllers/cutting-issue.controller.ts
+  - backend/src/services/helpers/cutting-slip.helper.ts
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
   - frontend/src/App.tsx
@@ -68,7 +77,7 @@ A cutting entry has two parts: first create a **batch** from the Cutting Chart, 
 ## Create the batch
 1. Open **Manufacturing → Cutting** in the sidebar.
 2. Click **New Batch**. The **Cutting Chart** page opens.
-3. Click **Production Run** ("Select a production run") and type part of the run number, buyer style code, style code or style name, then pick it. Each run reads e.g. `WO2609-0087 - SP27DR27 (EBWW-021) (120 pcs pending)` — the Buyer Style Code first, our Style Code in brackets when it differs. Only runs still waiting to be cut are listed; if none are, it says "No production runs waiting to be cut." If the style has more than one colour, also pick **Color** from its dropdown or leave **All Colors**.
+3. Click **Production Run** ("Select a production run") and type part of the run number, buyer style code, style code or style name, then pick it. Each run reads e.g. `WO2609-0087 - SP27DR27 (EBWW-021) (120 pcs pending)` — the Buyer Style Code first, our Style Code in brackets when it differs. Only production runs still waiting to be cut are listed — a style is not listed until its order has a production run. Style not there? Open its order and click **Create Production Run** (the page says so under the box; if nothing matches it says "No production run matches. A style is listed only once its order has a production run."). If the style has more than one colour, also pick **Color** from its dropdown or leave **All Colors**.
 4. Check **Cutting Date** in the Order Details card. The card shows the **Buyer Style Code** and our **Style Code** side by side.
 5. In **Size Breakup**, set **Extra %**. The **Cut Qty** row fills automatically. You can type over any size's Cut Qty.
 6. If stock is short, click **Fill to Max** to spread the cuttable quantity across sizes by ratio.
@@ -82,7 +91,7 @@ A cutting entry has two parts: first create a **batch** from the Cutting Chart, 
 10. In the **Add New Lay** card, fill **Lay Date**, **Number of Layers (plies)** and **Layer Length (meters)**. With more than one fabric you instead fill **Per-Fabric Layer Lengths** — every fabric needs a length.
 11. In the size table, tick each size and enter **Pcs/Layer**. **Total Cut** is calculated for you.
 12. Add **Remarks (optional)** and click **Save Lay**. Repeat for each new lay.
-12a. Cut pieces can go to stitching while the batch is still in progress: in the **Issue to Stitching** card click **New Issue**. It opens once every fabric of the batch has at least one lay. Two lots of the same fabric count as one fabric, so one lay covers both. Until then the card says which fabric is "not yet cut".
+12a. Cut pieces can go to stitching while the batch is still in progress: in the **Issue to Stitching** card click **New Issue**. It opens once every fabric of the batch has at least one lay. Two lots of the same fabric count as one fabric, so one lay covers both. Until then the card says which fabric is "not yet cut". Pick **Issue To** (the stitching contractor), check **Issue Date**, enter **Issue Qty** per size (at most **Available**) and click **Issue to Stitching**. Each issue makes its own transfer slip, so one batch can go to several contractors; **Issue History** lists them. When every good piece has gone, **New Issue** is greyed out with "Every good piece is already issued".
 13. When cutting is finished, click **Complete**, check **Return to Store (m)** for the leftover fabric, and confirm. Each lot is pre-filled with what was issued less what the lays used. When a fabric came from two lots, the lay metres are shared between them by what each lot sent, so change the figures to what really comes back from each lot.
 13a. Rolls or thans that came back **whole** (rare) can be ticked under a lot in **Whole rolls / thans back (optional)** — open it only if needed. The rest of the metres typed comes back as **one end piece** (the line says "… comes back as one end piece"); the Fabric Stock page lists it as "End · <batch>". Ticking rolls worth more than the metres returned is refused.
 
@@ -100,4 +109,4 @@ If a batch is **deleted** before any lay is recorded (or cancelled with no lays)
 - If a fabric has more than one CAD option, a note appears at the top of the chart saying which average was used. Fix it in CAD Planning if that is not the one you want — the chart cannot know which alternative you intend.
 - **Creating a batch does not issue fabric.** Nothing leaves the fabric store until someone issues a challan for it, so stock and the cutting plan stay in step. If no fabric was issued, **Complete** refuses with "No fabric issue recorded" — issue the challan, then complete.
 - A batch can only be deleted while it has no lays.
-- Use **Hold** to pause and **Resume** to continue. After completion, use the transfer slip icon on the list.
+- Use **Hold** to pause and **Resume** to continue. After completion, the transfer slip icon on the list (**Generate Transfer Slip**) sends the pieces not yet issued to stitching — only those, if part of the batch already went with **Issue to Stitching**. The icon shows only while pieces are left; a slip made without a contractor reads **Not assigned** in Issue History (the stitching team picks the contractor).

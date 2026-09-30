@@ -17,6 +17,13 @@ keywords:
   - size preset resets to none
   - buyer style code
   - find style by buyer code
+  - add second fabric
+  - two prints same fabric
+  - same greige two designs
+  - fabric disappears after save
+  - fabric not saving
+  - fabric twice
+  - duplicate fabric
   # Hinglish
   - style edit karna
   - style change karna
@@ -26,6 +33,10 @@ keywords:
   - size preset save nahi hota
   - size preset none ho jata hai
   - buyer ka style code
+  - fabric gayab ho gaya
+  - fabric save nahi ho raha
+  - do print ek fabric
+  - fabric do baar
   # Devanagari
   - स्टाइल एडिट
   - स्टाइल बदलना
@@ -35,6 +46,10 @@ keywords:
   - साइज़ प्रीसेट
   - साइज प्रीसेट
   - बायर स्टाइल कोड
+  - फैब्रिक गायब
+  - फैब्रिक सेव नहीं हो रहा
+  - दो प्रिंट
+  - फैब्रिक दो बार
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/StyleFormRedesigned.tsx
@@ -85,6 +100,7 @@ route: /styles
    - **Color** (for Solid/Dyed) or **Design Name** (for Printed / Yarn Dyed)
 4. Tick **Has Embroidery** and click **Select Design** to attach an embroidery design
 5. Click the trash icon to remove a fabric
+6. Two prints or colours of the same greige in one component are two fabrics. Click **Add Fabric** again and give the second one its own **Design Name** (Printed / Yarn Dyed) or **Color** (Solid/Dyed) — for example a Nightgown in **Poplin**, **Printed**, Design Name **Butta**, and **Poplin**, **Printed**, Design Name **Border**
 
 ### Editing Trims & Materials (Tab 3)
 
@@ -127,6 +143,7 @@ route: /styles
 - **Draft styles** need to be "Published" before they appear in order dropdowns
 - **Published styles with orders** cannot be archived - check for active dependencies first
 - **CAD approval is separate** - CAD Planning approval (geometry) is different from Fabric Costing approval (price)
+- **The same fabric twice in one component is refused** - two fabrics in one component with the same greige (or the same ready fabric), finish, **Design Name**, colour and embroidery stop the save with a message such as **Nightgown has Poplin (Printed, Butta) twice. Remove one, or give it a different design name.** (Solid/Dyed: **…Remove one, or give it a different colour.**). Design names are compared ignoring capitals and extra spaces. Nothing is saved; remove the extra fabric or change its Design Name / Color and save again. The message shows when you click **Update Style** or **Save as Draft**. Until 30-Sep-2026 the second fabric was dropped without any message and disappeared after saving — add it again
 - **Changing a fabric's greige or finish drops its received fabric** - Once dyed or printed fabric has been received, the fabric row is linked to it, and saving the style keeps that link. Changing that row's **Generic Greige Name** or **Fabric Finish Type**, or switching **Ready Fabric** back to **Greige / Process**, removes the link — CAD Planning then cannot match the received lots to the style until it is linked again
 - **Buyer Style Code for in-house brands** - for Kasya/Nihsamah, the buyer code IS the style code (fixed at the first save; editing it later changes only the Buyer Style Code, never the Style Code)
 

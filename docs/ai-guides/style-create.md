@@ -62,6 +62,21 @@ keywords:
   - size category preset
   - size preset save nahi hota
   - साइज़ प्रीसेट
+  - add second fabric
+  - two prints same fabric
+  - same greige two designs
+  - fabric disappears after save
+  - fabric not saving
+  - fabric twice
+  - duplicate fabric
+  - fabric gayab ho gaya
+  - fabric save nahi ho raha
+  - do print ek fabric
+  - fabric do baar
+  - फैब्रिक गायब
+  - फैब्रिक सेव नहीं हो रहा
+  - दो प्रिंट
+  - फैब्रिक दो बार
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -103,10 +118,11 @@ The customer must already exist in the Customers master, and the customer needs 
 14. For each fabric, pick **Source:** — **Greige / Process** (then fill **Generic Greige Name**) or **Ready Fabric** (then type part of the fabric's code or name in **Search fabric master...** under **Ready Fabric** and pick it from the list — the **×** clears the box; **Create New Fabric** opens the fabric form in a new tab). Picking a ready fabric copies its finish type, design and colour into the row.
 15. Choose **Fabric Finish Type**: **Solid/Dyed**, **Printed**, **Yarn Dyed** or **Raw/Unfinished**. **Printed** and **Yarn Dyed** show **Design Name** (required) and **Color (Optional)**; **Solid/Dyed** shows **Color** (required).
 16. Tick **Has Embroidery** and click **Select Design** if the fabric is embroidered.
-17. Click **Next: Trims & Materials**. Under **Trims & Materials**, select the trims. Use **Add New** to create a missing master without leaving the page. If you do not pick a thread, the system links the shared **Default Thread** (code THR-DEFAULT) into the BOM automatically when the style is saved — you will see it appear in the cost sheet. Each trim is counted in its master's own unit — metres for lace, elastic, interlining (fusing) and drawstring; pieces for buttons and zippers — and the style's BOM takes that unit automatically.
-18. Click **Next: Accessories**. If the customer has presets, **Customer Accessory Preset** shows the default preset already applied; switch it or click **Re-apply Preset**. Under **Garment Accessories**, select labels, polybags, hangtags and cartons.
-19. Click **Create Style**.
-20. The style is saved as a draft. To make it usable for orders, click **Publish Style** (top right, shown once the style has been saved) and confirm **Publish** — or open the **Drafts** tab on the Style Master page and click **Publish** on the row.
+17. Two prints or colours of the same greige in one component are two fabrics. Click **Add Fabric** again and give the second one its own **Design Name** (Printed / Yarn Dyed) or **Color** (Solid/Dyed) — for example a Nightgown in **Poplin**, **Printed**, Design Name **Butta**, and **Poplin**, **Printed**, Design Name **Border**.
+18. Click **Next: Trims & Materials**. Under **Trims & Materials**, select the trims. Use **Add New** to create a missing master without leaving the page. If you do not pick a thread, the system links the shared **Default Thread** (code THR-DEFAULT) into the BOM automatically when the style is saved — you will see it appear in the cost sheet. Each trim is counted in its master's own unit — metres for lace, elastic, interlining (fusing) and drawstring; pieces for buttons and zippers — and the style's BOM takes that unit automatically.
+19. Click **Next: Accessories**. If the customer has presets, **Customer Accessory Preset** shows the default preset already applied; switch it or click **Re-apply Preset**. Under **Garment Accessories**, select labels, polybags, hangtags and cartons.
+20. Click **Create Style**.
+21. The style is saved as a draft. To make it usable for orders, click **Publish Style** (top right, shown once the style has been saved) and confirm **Publish** — or open the **Drafts** tab on the Style Master page and click **Publish** on the row.
 
 ## Traps
 
@@ -118,6 +134,7 @@ The customer must already exist in the Customers master, and the customer needs 
 - In-house brands: the Style Code is fixed by the **first** save — **Create Style**, **Save as Draft**, or the first **Next: ...** auto-save all count. Editing Buyer Style Code after that only changes the Buyer Style Code; the Style Code stays as it was. Get the code right before the first save.
 - **Buyer Style Code** must be unique across active styles. A duplicate is rejected with "Buyer Style Code ... already exists on style ...".
 - Every non-draft save needs at least one fabric that has either a greige name or a ready fabric selected. **Printed** and **Yarn Dyed** fabrics must have a **Design Name**. **Solid/Dyed** fabrics must have a **Color**.
+- The same fabric twice in one component is refused. Two fabrics in one component with the same greige (or the same ready fabric), finish, **Design Name**, colour and embroidery stop the save with a message such as **Nightgown has Poplin (Printed, Butta) twice. Remove one, or give it a different design name.** (Solid/Dyed: **…Remove one, or give it a different colour.**). Design names are compared ignoring capitals and extra spaces. Nothing is saved; remove the extra fabric or change its Design Name / Color and save again. The message shows when you click **Create Style**, **Update Style** or **Save as Draft** — the background save of a **Next: ...** button does not show it. Until 30-Sep-2026 the second fabric was dropped without any message and disappeared after saving.
 - Not ready yet? Click **Save as Draft**. A draft only needs the Style Code on screen, so it saves with no fabrics, trims or accessories. The Style Code fills only after Brand Category and Product Category are picked (or, for in-house brands, once the Buyer Style Code is typed — and it must still be 2 to 50 characters).
 - Clicking a **Next: ...** button auto-saves in the background once a Style Code exists. On a new style this first background save already creates the draft record — the page address changes to the edit page and **Publish Style** appears. Clicking the tab headers directly does not auto-save.
 - The **Size Category Preset** you pick is saved with the style and shows again when you reopen it. Switching presets replaces the size list, but a size that stays keeps its SKU code and barcode. Changing the **Customer/Buyer** clears the preset choice (a preset belongs to one buyer); the sizes already on screen stay.

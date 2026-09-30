@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
@@ -31,14 +31,6 @@ interface SKUEntry {
   /** What cutting sent on the selected slips */
   sentQty: number;
   issuedQty: number;
-}
-
-interface Contractor {
-  id: string;
-  code: string;
-  name: string;
-  contactPerson: string | null;
-  phone: string | null;
 }
 
 // Merge what is left on several transfer slips, in size order. A slip's `quantity` is what is LEFT
@@ -94,7 +86,6 @@ export default function StitchingForm() {
 
   // Reference data
   const [pendingTransferSlips, setPendingTransferSlips] = useState<IncomingTransferSlip[]>([]);
-  const [contractors, setContractors] = useState<Contractor[]>([]);
 
   // When arriving from a work-order drill-down link, restrict the selectable slips to that WO
   const visibleTransferSlips = useMemo(
@@ -136,13 +127,7 @@ export default function StitchingForm() {
       setLoading(true);
       setError(null);
 
-      const [slipsData, contractorsData] = await Promise.all([
-        stitchingSummaryService.getPendingTransferSlips(),
-        stitchingSummaryService.getAvailableManagers(),
-      ]);
-
-      setPendingTransferSlips(slipsData);
-      setContractors(contractorsData);
+      setPendingTransferSlips(await stitchingSummaryService.getPendingTransferSlips());
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
       setError(error.response?.data?.message || 'Failed to load data');
@@ -444,21 +429,12 @@ export default function StitchingForm() {
 
                 <div>
                   <Label htmlFor="contractor">Stitching Contractor *</Label>
-                  <Select value={contractorId || 'NONE'} onValueChange={(v) => setContractorId(v === 'NONE' ? '' : v)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select contractor..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="NONE" disabled>
-                        Select contractor...
-                      </SelectItem>
-                      {contractors.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name} ({c.code})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SupplierCombobox
+                    value={contractorId}
+                    onValueChange={setContractorId}
+                    categoryFilter="STITCHING_CONTRACTOR"
+                    placeholder="Select contractor..."
+                  />
                 </div>
 
                 <div>

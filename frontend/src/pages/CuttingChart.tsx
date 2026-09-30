@@ -365,8 +365,13 @@ export default function CuttingChart() {
                 }}
                 placeholder="Select a production run"
                 searchPlaceholder="Search by run number, buyer style code, style..."
-                emptyText="No production runs waiting to be cut."
+                emptyText="No production run matches. A style is listed only once its order has a production run."
               />
+              {/* A style whose order has no run yet is simply absent here (KMC, 30-Sep) — say why */}
+              <p className="text-xs text-muted-foreground">
+                Lists production runs waiting to be cut. Style not here? Open its order and click{' '}
+                <span className="font-medium">Create Production Run</span>.
+              </p>
             </div>
             {chartData && chartData.availableColors.length > 1 && (
               <div className="w-64 space-y-2">

@@ -296,6 +296,8 @@ export const createStitchingIssueSchema = z.object({
  */
 export const updateStitchingIssueSchema = z.object({
   managerId: z.string().uuid().optional().nullable(),
+  // The issue page's Edit can change the contractor while the issue is open
+  contractorId: z.string().uuid('Invalid contractor ID').optional().nullable(),
   remarks: z.string().max(1000).optional(),
   // Same as the finishing equivalent: real columns the controller converts and writes, previously
   // stripped so the dates could never be edited.

@@ -17,6 +17,8 @@ import {
   ArrowRight,
   Check,
   Truck,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -36,11 +38,22 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { stitchingIssueService } from '@/services/stitching.service';
 import type { StitchingIssue, StitchingIssueStatus, RecordDailyOutputRequest } from '@/types/stitching.types';
 import { StitchingIssueStatusLabels, StitchingIssueStatusColors } from '@/types/stitching.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { CompleteStitchingDialog } from '@/components/production/CompleteStitchingDialog';
+import { EditStitchingIssueDialog } from '@/components/production/EditStitchingIssueDialog';
 
 import { formatDate, toDateInputValue } from '@/lib/date';
 import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, buyerStyleCode, ourStyleCode } from '@/lib/style-code';
@@ -69,6 +82,8 @@ export default function StitchingDetail() {
   // Record Output Modal
   const [showOutputModal, setShowOutputModal] = useState(false);
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [outputDate, setOutputDate] = useState(toDateInputValue(new Date()));
   const [outputRemarks, setOutputRemarks] = useState('');
   const [outputEntries, setOutputEntries] = useState<OutputEntry[]>([]);
@@ -207,6 +222,20 @@ export default function StitchingDetail() {
     }
   };
 
+  // Only a not-yet-received issue can be deleted; its pieces go back to the cutting slips
+  const handleDelete = async () => {
+    if (!issue) return;
+    try {
+      setActionLoading(true);
+      await stitchingIssueService.delete(issue.id);
+      handleApiSuccess('Deleted', `${issue.issueNumber} deleted — its pieces are back under Incoming from Cutting`);
+      navigate('/manufacturing/stitching');
+    } catch (err: unknown) {
+      handleApiError(err, 'Failed to delete the stitching issue');
+      setActionLoading(false);
+    }
+  };
+
   const handleReopen = async () => {
     if (!issue) return;
     try {
@@ -292,17 +321,37 @@ export default function StitchingDetail() {
   return (
     <>
       <PageHeader title={`Stitching Issue: ${issue.issueNumber}`}>
-        <Button variant="outline" onClick={() => navigate('/manufacturing/stitching')}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to List
-        </Button>
+        <div className="flex gap-2">
+          {issue.status !== 'COMPLETED' && (
+            <Button variant="outline" onClick={() => setShowEditDialog(true)} disabled={actionLoading}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit
+            </Button>
+          )}
+          {issue.status === 'PENDING_RECEIPT' && (
+            <Button
+              variant="outline"
+              className="text-destructive"
+              onClick={() => setShowDeleteDialog(true)}
+              disabled={actionLoading}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => navigate('/manufacturing/stitching')}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to List
+          </Button>
+        </div>
       </PageHeader>
 
       <div className="grid gap-6">
         {/* Workflow Stepper */}
         {(() => {
-          const hasOutput = getTotalCompleted() > 0;
-          const hasTransferSlip = !!issue.transferSlip;
+          const hasOutput = getTotalRecorded() > 0;
+          // A completed issue with no good piece has nothing to send to finishing
+          const hasTransferSlip = !!issue.transferSlip || (issue.status === 'COMPLETED' && getTotalCompleted() === 0);
 
           const steps = [
             { label: 'Receive', desc: 'From Cutting' },
@@ -360,7 +409,7 @@ export default function StitchingDetail() {
 
         {/* Next Step Action Card */}
         {(() => {
-          const hasOutput = getTotalCompleted() > 0;
+          const hasOutput = getTotalRecorded() > 0;
           const hasTransferSlip = !!issue.transferSlip;
           const transferSlip = issue.transferSlip;
 
@@ -438,6 +487,30 @@ export default function StitchingDetail() {
                         </Button>
                       )}
                     </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          }
+
+          if (issue.status === 'COMPLETED' && !hasTransferSlip && getTotalCompleted() === 0) {
+            return (
+              <Card className="border-warning/20 bg-warning-muted">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Truck className="h-6 w-6 text-warning" />
+                      <div>
+                        <div className="font-semibold text-warning">No good pieces to send</div>
+                        <div className="text-sm text-warning">
+                          Every piece recorded on this issue is a defect, so there is nothing to transfer to finishing.
+                        </div>
+                      </div>
+                    </div>
+                    <Button variant="outline" onClick={handleReopen} disabled={actionLoading}>
+                      <RotateCcw className="mr-2 h-4 w-4" />
+                      Reopen
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -868,6 +941,30 @@ export default function StitchingDetail() {
         onOpenChange={setShowCompleteDialog}
         onCompleted={loadIssue}
       />
+
+      <EditStitchingIssueDialog
+        issue={showEditDialog ? issue : null}
+        onOpenChange={setShowEditDialog}
+        onSaved={loadIssue}
+      />
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {issue.issueNumber}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The issue has not been received yet. Its {getTotalIssued()} pieces go back to their cutting slips under
+              Incoming from Cutting, to issue again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={actionLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={actionLoading}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

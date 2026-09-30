@@ -180,10 +180,15 @@ export interface CreateStitchingIssueRequest {
   }[];
 }
 
-export interface UpdateStitchingIssueRequest extends Partial<CreateStitchingIssueRequest> {
-  status?: StitchingIssueStatus;
-  startDate?: string;
-  endDate?: string;
+// Exactly what PUT /stitching/issues/:id takes (updateStitchingIssueSchema); status and dates of
+// the workflow change only through its actions
+export interface UpdateStitchingIssueRequest {
+  managerId?: string | null;
+  contractorId?: string | null;
+  remarks?: string;
+  issueDate?: string;
+  /** null clears it */
+  expectedCompletionDate?: string | null;
 }
 
 export interface RecordDailyOutputRequest {

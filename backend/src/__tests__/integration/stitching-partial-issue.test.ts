@@ -376,3 +376,92 @@ describe('a cutting slip keeps what an issue did not take', () => {
     ]);
   });
 });
+
+describe('an open issue can be corrected, and an all-defect issue can be finished', () => {
+  let issueId: string;
+  let contractorId: string;
+  let otherSupplierId: string;
+
+  beforeAll(async () => {
+    contractorId = (
+      await prisma.suppliers.create({
+        data: {
+          code: `${RUN}-STC`,
+          name: `${RUN} Stitcher`,
+          supplierCategories: ['STITCHING_CONTRACTOR'],
+          createdById: userId,
+        },
+      })
+    ).id;
+    otherSupplierId = (
+      await prisma.suppliers.create({
+        data: {
+          code: `${RUN}-FAB`,
+          name: `${RUN} Fabric Mill`,
+          supplierCategories: ['FABRIC_SUPPLIER'],
+          createdById: userId,
+        },
+      })
+    ).id;
+  });
+
+  afterAll(async () => {
+    await prisma.stitching_issues.updateMany({ where: { id: issueId }, data: { contractorId: null } });
+    await prisma.suppliers.deleteMany({ where: { id: { in: onlyAll([contractorId, otherSupplierId]) } } });
+  });
+
+  it('Edit changes the contractor (stitching contractors only) and can clear the expected date', async () => {
+    const slip = await cuttingSlip('DEFECT', { S: 2 });
+    const created = await request(app)
+      .post('/api/stitching/issues')
+      .set(authHeader)
+      .send({
+        workOrderId,
+        issueDate: '2026-09-30',
+        expectedCompletionDate: '2026-10-07',
+        transferSlipIds: [slip.id],
+        skuBreakdown: [{ colorId: null, sizeId: sizeIds.S, issuedQty: 2 }],
+      });
+    expect({ status: created.status, body: created.body }).toMatchObject({ status: 201 });
+    issueId = created.body.data.id;
+
+    const wrong = await request(app)
+      .put(`/api/stitching/issues/${issueId}`)
+      .set(authHeader)
+      .send({ contractorId: otherSupplierId });
+    expect(wrong.status).toBe(400);
+
+    const edited = await request(app)
+      .put(`/api/stitching/issues/${issueId}`)
+      .set(authHeader)
+      .send({ contractorId, expectedCompletionDate: null, issueDate: '2026-09-29' })
+      .expect(200);
+    expect(edited.body.data.contractor).toMatchObject({ id: contractorId });
+    expect(edited.body.data.expectedCompletionDate).toBeNull();
+  });
+
+  it('an issue whose pieces all came out defective completes, and sends nothing to finishing', async () => {
+    await request(app).post(`/api/stitching/issues/${issueId}/receive`).set(authHeader).send({}).expect(200);
+    await request(app).post(`/api/stitching/issues/${issueId}/start`).set(authHeader).send({}).expect(200);
+    await request(app)
+      .post(`/api/stitching/issues/${issueId}/daily-output`)
+      .set(authHeader)
+      .send({ outputDate: '2026-09-30', skuOutputs: [{ colorId: null, sizeId: sizeIds.S, goodQty: 0, defectQty: 2 }] })
+      .expect(200);
+    await request(app).post(`/api/stitching/issues/${issueId}/complete`).set(authHeader).send({}).expect(200);
+
+    const slip = await request(app)
+      .post(`/api/stitching/issues/${issueId}/generate-transfer-slip`)
+      .set(authHeader)
+      .send({});
+    expect(slip.status).toBe(400);
+    expect(slip.body.message).toMatch(/no good pieces/);
+
+    // Size-wise does not keep it "idle" waiting for a slip that can never exist
+    const summary = await request(app).get('/api/stitching/style-size-summary').set(authHeader).expect(200);
+    const run = (summary.body.data as Array<{ workOrderId: string; daysPendingPush: number | null }>).find(
+      (r) => r.workOrderId === workOrderId
+    );
+    expect(run?.daysPendingPush ?? null).toBeNull();
+  });
+});

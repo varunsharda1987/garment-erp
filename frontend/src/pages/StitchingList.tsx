@@ -459,27 +459,31 @@ export default function StitchingList() {
                                 <Play className="h-4 w-4 text-info" />
                               </Button>
                             )}
-                            {/* Complete needs recorded good output (the server's rule) — open the issue to record it */}
-                            {issue.status === 'IN_PROGRESS' && stitchingOutputTotals(issue).good > 0 && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setCompleting(issue)}
-                                title="Complete Stitching"
-                              >
-                                <CheckCircle className="h-4 w-4 text-success" />
-                              </Button>
-                            )}
-                            {issue.status === 'COMPLETED' && !issue.transferSlip && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleGenerateTransferSlip(issue.id)}
-                                title="Issue to Finishing"
-                              >
-                                <Truck className="h-4 w-4 text-accent" />
-                              </Button>
-                            )}
+                            {/* Complete needs recorded output (the server's rule) — open the issue to record it */}
+                            {issue.status === 'IN_PROGRESS' &&
+                              stitchingOutputTotals(issue).good + stitchingOutputTotals(issue).defect > 0 && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => setCompleting(issue)}
+                                  title="Complete Stitching"
+                                >
+                                  <CheckCircle className="h-4 w-4 text-success" />
+                                </Button>
+                              )}
+                            {/* An issue whose pieces all came out defective has nothing to send */}
+                            {issue.status === 'COMPLETED' &&
+                              !issue.transferSlip &&
+                              stitchingOutputTotals(issue).good > 0 && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleGenerateTransferSlip(issue.id)}
+                                  title="Issue to Finishing"
+                                >
+                                  <Truck className="h-4 w-4 text-accent" />
+                                </Button>
+                              )}
                             {issue.transferSlip && (
                               <Badge variant="outline" className="text-xs" title="Sent to finishing on this slip">
                                 {issue.transferSlip.slipNumber}

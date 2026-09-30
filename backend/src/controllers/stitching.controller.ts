@@ -401,7 +401,13 @@ export const createStitchingIssue = async (req: Request, res: Response) => {
 
 export const updateStitchingIssue = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const updateData = req.body;
+  const { managerId, contractorId, remarks, issueDate, expectedCompletionDate } = req.body as {
+    managerId?: string | null;
+    contractorId?: string | null;
+    remarks?: string;
+    issueDate?: Date;
+    expectedCompletionDate?: Date | null;
+  };
 
   const existing = await prisma.stitching_issues.findUnique({
     where: { id },
@@ -416,14 +422,26 @@ export const updateStitchingIssue = async (req: Request, res: Response) => {
     throw new ValidationError('Cannot update completed issue');
   }
 
+  // The issue's contractor can be corrected while it is open (the page had no way to change it)
+  if (contractorId) {
+    const contractor = await prisma.suppliers.findFirst({
+      where: { id: contractorId, isActive: true, supplierCategories: { has: 'STITCHING_CONTRACTOR' } },
+      select: { id: true },
+    });
+    if (!contractor) {
+      throw new ValidationError('Pick an active stitching contractor');
+    }
+  }
+
   const issue = await prisma.stitching_issues.update({
     where: { id },
     data: {
-      ...updateData,
-      issueDate: updateData.issueDate ? new Date(updateData.issueDate) : undefined,
-      expectedCompletionDate: updateData.expectedCompletionDate
-        ? new Date(updateData.expectedCompletionDate)
-        : undefined,
+      managerId,
+      contractorId,
+      remarks,
+      issueDate,
+      // null clears the date (it used to be turned into "no change")
+      expectedCompletionDate,
     },
     include: issueIncludeOptions,
   });
@@ -761,7 +779,9 @@ export const completeStitchingIssue = async (req: Request, res: Response) => {
   });
   const good = outputTotals._sum.goodQty ?? 0;
   const defect = outputTotals._sum.defectQty ?? 0;
-  if (good <= 0) {
+  // Any recorded piece counts: an issue whose pieces all came out defective could never be
+  // completed while this asked for a good one (it still sends nothing to finishing)
+  if (good + defect <= 0) {
     throw new ValidationError('Cannot complete: no output recorded. Record daily output first.');
   }
 
@@ -883,6 +903,9 @@ export const generateTransferSlip = async (req: Request, res: Response) => {
 
   const skuBreakdownForSlip = Array.from(skuGoodQtyMap.values()).filter((sku) => sku.goodQty > 0);
   const totalGoodPieces = skuBreakdownForSlip.reduce((sum, sku) => sum + sku.goodQty, 0);
+  if (totalGoodPieces <= 0) {
+    throw new ValidationError('This issue has no good pieces — there is nothing to send to finishing');
+  }
 
   // ONE slip per stitching issue (bug-hunt production-8): duplicates double-counted the same pieces
   // downstream. The partial unique index on stitchingIssueId is the DB backstop.
@@ -1127,6 +1150,11 @@ export const getStyleSizeSummary = async (req: Request, res: Response) => {
     }),
   ]);
   const pushed = new Set(finishingSlips.map((s) => s.stitchingIssueId));
+  // A completed issue with no good piece has nothing to send to finishing — it counts as sent
+  for (const issue of issues) {
+    const good = issue.dailyOutputs.reduce((sum, o) => sum + o.skuOutputs.reduce((s, sku) => s + sku.goodQty, 0), 0);
+    if (issue.status === 'COMPLETED' && good <= 0) pushed.add(issue.id);
+  }
 
   type SizeRow = {
     sizeId: string;

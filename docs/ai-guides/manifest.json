@@ -738,14 +738,15 @@
       "frontend/src/pages/JobWorkDashboard.tsx": "ad52b5890a7c",
       "frontend/src/pages/JobWorkOrderList.tsx": "8a59d6c8e477",
       "frontend/src/components/ProcessorCombobox.tsx": "bae6eade4599",
-      "frontend/src/pages/JobWorkOrderDetail.tsx": "ae327be5177c",
+      "frontend/src/pages/JobWorkOrderDetail.tsx": "faa5ab382502",
+      "frontend/src/components/job-work/JobWorkLinesTable.tsx": "1d736faa38ac",
       "frontend/src/pages/StockMovementDashboard.tsx": "329090e734c3",
       "frontend/src/lib/section143.ts": "1a9c5178d0ce",
       "backend/src/services/job-work-statutory.service.ts": "8d5d7aebd686",
       "backend/templates/kf/report-job-work-ageing.hbs": "bedf9dc646b4"
     },
-    "contentHash": "2d8638f55dec",
-    "generatedAt": "2026-09-29T11:06:15.300Z"
+    "contentHash": "fe46db80042c",
+    "generatedAt": "2026-09-30T13:39:35.679Z"
   },
   "job-work-order-create": {
     "sources": {
@@ -754,7 +755,8 @@
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/JobWorkOrderList.tsx": "8a59d6c8e477",
       "frontend/src/components/JobWorkOrderCreateDialog.tsx": "a94aa1149be2",
-      "frontend/src/pages/JobWorkOrderDetail.tsx": "ae327be5177c",
+      "frontend/src/pages/JobWorkOrderDetail.tsx": "faa5ab382502",
+      "frontend/src/components/job-work/JobWorkLinesTable.tsx": "1d736faa38ac",
       "frontend/src/components/job-work/GreigeLotRows.tsx": "f311a73150e6",
       "frontend/src/components/job-work/ThanPicker.tsx": "20dda4f2ee97",
       "frontend/src/components/job-work/lot-rows.ts": "1abce27f96fb",
@@ -769,16 +771,18 @@
       "frontend/src/components/SupplierCombobox.tsx": "dac12cef821f",
       "frontend/src/services/processorRateCardV2.service.ts": "96a5d03483c6",
       "backend/src/schemas/jobWorkOrder.schema.ts": "553ddf091968",
-      "backend/src/controllers/job-work-order.controller.ts": "4c3ac7fd2ad2",
+      "backend/src/controllers/job-work-order.controller.ts": "9eb9f24ae61e",
       "backend/src/services/helpers/jwo-rate.helper.ts": "ca4dd5c79195",
-      "backend/src/services/job-work-issuance.service.ts": "64a307c55b73",
+      "backend/src/services/job-work-issuance.service.ts": "c3e395c6ff7c",
       "frontend/src/hooks/useHeldStockConfirm.tsx": "af814e9283db",
       "frontend/src/lib/held-stock-confirm.ts": "1fffe3fae934",
-      "backend/src/controllers/dyeing.controller.ts": "0fe4d4b7c636",
-      "backend/src/controllers/printing.controller.ts": "21dbe949652e"
+      "backend/src/controllers/dyeing.controller.ts": "e709016ffdc9",
+      "backend/src/controllers/printing.controller.ts": "ad8fdb646f93",
+      "backend/src/services/helpers/jwo-lines.helper.ts": "dcc85f0cdb41",
+      "backend/src/services/document-data/job-work-order.doc-data.ts": "f46db4e2c101"
     },
-    "contentHash": "22219152d8f6",
-    "generatedAt": "2026-09-29T08:02:04.212Z"
+    "contentHash": "6365cd783789",
+    "generatedAt": "2026-09-30T13:39:35.867Z"
   },
   "job-work-receive": {
     "sources": {
@@ -788,7 +792,7 @@
       "frontend/src/pages/ProcessingList.tsx": "ed78f8ed5b28",
       "frontend/src/pages/DyeingList.tsx": "6d3a898df677",
       "frontend/src/pages/PrintingList.tsx": "fbb50a33fb36",
-      "frontend/src/pages/JobWorkOrderDetail.tsx": "ae327be5177c",
+      "frontend/src/pages/JobWorkOrderDetail.tsx": "faa5ab382502",
       "frontend/src/pages/JobWorkOrderList.tsx": "8a59d6c8e477",
       "frontend/src/components/job-work/ReceiveFromProcessorDialog.tsx": "a1c776f61438",
       "frontend/src/components/job-work/ReturnFromProcessorDialog.tsx": "562ae8e9f4cf",
@@ -801,16 +805,16 @@
       "backend/src/schemas/jobWorkOrder.schema.ts": "553ddf091968",
       "backend/src/schemas/grn.schema.ts": "fad34c050e36",
       "backend/src/routes/grn.routes.ts": "05cd1c008651",
-      "backend/src/controllers/job-work-order.controller.ts": "4c3ac7fd2ad2",
-      "backend/src/services/grn.service.ts": "b32f70130c41",
-      "backend/src/services/helpers/jwo-arriving-material.helper.ts": "05fac2c64d62",
+      "backend/src/controllers/job-work-order.controller.ts": "9eb9f24ae61e",
+      "backend/src/services/grn.service.ts": "013a7c9e15bf",
+      "backend/src/services/helpers/jwo-arriving-material.helper.ts": "e5e2b4d9d503",
       "backend/src/services/helpers/jwo-status.helper.ts": "fa58d498a64c",
       "backend/src/services/helpers/held-stock-doors.helper.ts": "ab2af05bc990",
       "backend/src/controllers/grn.controller.ts": "32eb70abefff",
       "backend/src/services/helpers/receipt-invoice.helper.ts": "6cc8412f24f2"
     },
     "contentHash": "74e57fd07b69",
-    "generatedAt": "2026-09-30T10:07:37.787Z"
+    "generatedAt": "2026-09-30T13:39:35.886Z"
   },
   "lab-dip-approve": {
     "sources": {

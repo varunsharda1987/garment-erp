@@ -35,6 +35,14 @@ keywords:
   - on a PO cannot use stock
   - dusre order ke liye rakha
   - दूसरे ऑर्डर के लिए रखा
+  - two use stock buttons
+  - which use stock button
+  - two requirement numbers on one row
+  - 2 requirements
+  - do use stock button
+  - kaunsa use stock dabana
+  - दो यूज़ स्टॉक बटन
+  - कौन सा यूज़ स्टॉक
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/UnifiedRequirementsPage.tsx
@@ -60,6 +68,7 @@ Goods that arrived on a PO linked to another order are **held for that order** t
 1. Open **Procurement > Requirements** in the sidebar.
 2. On the **Material Requirements** tab, find the requirement. The page opens on **Show: Order & Style** — open the order + style card (for a sized label, click the label's heading to see its sizes). To find one material quickly, pick the order in **All orders** or type the material in the search box. The **Current Stock** column shows the free stock. In the **Material**, **Vendor** and **List** views a green **Can Fulfill** badge means the stock covers the whole shortfall.
 3. Click **Use Stock** on the row. The button shows only when there is free stock and the row is **PO Required** or **Partially from Stock**. (If an amber note says an open PO has room for it — "PO… · N free · not linked" — a **Link** button beside it links the row to that PO instead; see the guide on allocating a PO to orders.)
+   - **A row with two requirements has two buttons.** In **Order & Style**, one material of one order + style is one row even when it has several requirements — the **Requirement #** column lists every number, with "2 colours" (two colours of a label size) or "2 requirements" (for example one greige cut for two parts) under them. Each requirement keeps its own **Use Stock** and **Cancel**, named by what tells them apart and its quantity: the part — **Use Stock · Kurta (1,300 m)** and **Use Stock · Kurta + Pallazo (6,952.17 m)**, where "Kurta + Pallazo" is a marker that cuts both parts together — or the colour, for example **Use Stock · Black (…)**. Click the one for the part or colour you are covering.
 4. The **Allocate from Stock** window shows the Material, Required, Current Shortfall and Available in Stock.
 5. Check **Quantity to Allocate**. It is filled in with the most you can take (the shortfall or the free stock, whichever is less; the **Max** is shown under the box).
 6. Click **Allocate Stock**.

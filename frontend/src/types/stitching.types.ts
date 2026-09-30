@@ -15,10 +15,11 @@ export const StitchingIssueStatusLabels: Record<StitchingIssueStatus, string> = 
   COMPLETED: 'Completed',
 };
 
+// Same colours as the page's summary cards (Received amber, In Progress blue)
 export const StitchingIssueStatusColors: Record<StitchingIssueStatus, string> = {
   PENDING_RECEIPT: 'bg-muted text-foreground',
-  RECEIVED: 'bg-info-muted text-info',
-  IN_PROGRESS: 'bg-yellow-100 text-yellow-800',
+  RECEIVED: 'bg-warning-muted text-warning',
+  IN_PROGRESS: 'bg-info-muted text-info',
   COMPLETED: 'bg-success-muted text-success',
 };
 
@@ -150,6 +151,12 @@ export interface StitchingIssue {
   skuBreakdown?: StitchingIssueSKU[];
   dailyOutputs?: StitchingDailyOutput[];
   components?: StitchingIssueComponent[];
+  /** The slip that sent this issue's pieces on to finishing — null until one is generated */
+  transferSlip?: {
+    id: string;
+    slipNumber: string;
+    status: string;
+  } | null;
 }
 
 // ============================================
@@ -189,6 +196,11 @@ export interface RecordDailyOutputRequest {
     defectQty?: number;
   }[];
   remarks?: string;
+}
+
+export interface CompleteStitchingIssueRequest {
+  /** Required when fewer pieces are recorded than were issued; kept on the issue's remarks */
+  shortReason?: string;
 }
 
 export interface ReceiveFromCuttingRequest {
@@ -248,10 +260,16 @@ export interface StyleSizeSummarySize {
   sizeId: string;
   sizeName: string;
   sortOrder: number;
-  pending: number;
-  inProgress: number;
-  completed: number;
-  total: number;
+  /** Cut, on open cutting slips, not yet issued to a contractor */
+  waiting: number;
+  /** Issued to contractors */
+  issued: number;
+  /** Issued and not yet recorded, on issues not yet completed */
+  withContractor: number;
+  /** Good pieces recorded */
+  stitched: number;
+  /** Defect pieces recorded */
+  defects: number;
 }
 
 export interface StyleSizeSummaryItem {
@@ -266,9 +284,11 @@ export interface StyleSizeSummaryItem {
   daysInStitching: number;
   daysPendingPush: number | null;
   sizes: StyleSizeSummarySize[];
-  totalPending: number;
-  totalInProgress: number;
-  totalCompleted: number;
+  totalWaiting: number;
+  totalIssued: number;
+  totalWithContractor: number;
+  totalStitched: number;
+  totalDefects: number;
 }
 
 // ============================================
@@ -283,16 +303,23 @@ export interface IncomingTransferSlip {
   styleCode: string;
   styleName: string;
   buyerStyleRef?: string | null;
+  /** Pieces LEFT to issue (what cutting sent, less what stitching issues took) */
   totalGoodPieces: number;
+  /** What cutting sent */
+  sentPieces: number;
   transferDate: string;
   issuedTo: string | null;
+  /** Sizes with pieces left, in size order */
   skuBreakdown: Array<{
     colorId: string | null;
     colorName: string;
     sizeId: string;
     sizeName: string;
     sortOrder: number;
+    /** Left to issue */
     quantity: number;
+    /** What cutting sent */
+    sentQty: number;
   }>;
 }
 

@@ -7,6 +7,7 @@ import {
   updateStitchingIssueSchema,
   receiveFromCuttingSchema,
   recordStitchingOutputSchema,
+  completeStitchingIssueSchema,
   disposeDefectsSchema,
   stitchingIssueQuerySchema,
 } from '../schemas/production.schema';
@@ -85,7 +86,12 @@ router.post(
   validateBody(recordStitchingOutputSchema),
   asyncHandler(recordDailyOutput)
 );
-router.post('/issues/:id/complete', validateParams(idParamSchema), asyncHandler(completeStitchingIssue));
+router.post(
+  '/issues/:id/complete',
+  validateParams(idParamSchema),
+  validateBody(completeStitchingIssueSchema),
+  asyncHandler(completeStitchingIssue)
+);
 router.post('/issues/:id/reopen', validateParams(idParamSchema), asyncHandler(reopenStitchingIssue));
 router.post('/issues/:id/generate-transfer-slip', validateParams(idParamSchema), asyncHandler(generateTransferSlip));
 router.post(

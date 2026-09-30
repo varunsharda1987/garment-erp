@@ -40,6 +40,7 @@ import { stitchingIssueService } from '@/services/stitching.service';
 import type { StitchingIssue, StitchingIssueStatus, RecordDailyOutputRequest } from '@/types/stitching.types';
 import { StitchingIssueStatusLabels, StitchingIssueStatusColors } from '@/types/stitching.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { CompleteStitchingDialog } from '@/components/production/CompleteStitchingDialog';
 
 import { formatDate, toDateInputValue } from '@/lib/date';
 import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, buyerStyleCode, ourStyleCode } from '@/lib/style-code';
@@ -50,7 +51,8 @@ interface OutputEntry {
   sizeId: string;
   sizeName: string;
   issuedQty: number;
-  completedQty: number;
+  /** Already recorded for this size, good + defect — the server caps each size at issued − this */
+  recordedQty: number;
   goodQty: number;
   defectQty: number;
 }
@@ -66,6 +68,7 @@ export default function StitchingDetail() {
 
   // Record Output Modal
   const [showOutputModal, setShowOutputModal] = useState(false);
+  const [showCompleteDialog, setShowCompleteDialog] = useState(false);
   const [outputDate, setOutputDate] = useState(toDateInputValue(new Date()));
   const [outputRemarks, setOutputRemarks] = useState('');
   const [outputEntries, setOutputEntries] = useState<OutputEntry[]>([]);
@@ -89,16 +92,16 @@ export default function StitchingDetail() {
         const existingOutputs = data.dailyOutputs?.flatMap((o) => o.skuOutputs || []) || [];
         setOutputEntries(
           data.skuBreakdown.map((sku) => {
-            const completed = existingOutputs
+            const recorded = existingOutputs
               .filter((o) => o.colorId === sku.colorId && o.sizeId === sku.sizeId)
-              .reduce((sum, o) => sum + o.goodQty, 0);
+              .reduce((sum, o) => sum + o.goodQty + o.defectQty, 0);
             return {
               colorId: sku.colorId,
               colorName: sku.color?.colorName || 'Unknown',
               sizeId: sku.sizeId,
               sizeName: sku.size?.sizeName || 'Unknown',
               issuedQty: sku.issuedQty,
-              completedQty: completed,
+              recordedQty: recorded,
               goodQty: 0,
               defectQty: 0,
             };
@@ -117,13 +120,14 @@ export default function StitchingDetail() {
     if (!issue) return;
     try {
       setActionLoading(true);
-      // Omit transferSlipId (no slip selected in this UI flow) — the backend guards on `if (transferSlipId)`.
+      // Received in full: what was ISSUED to this contractor (not what was available on the slips).
+      // The server records it against the slips this issue drew from.
       await stitchingIssueService.receiveFromCutting(issue.id, {
         skuReceived:
           issue.skuBreakdown?.map((sku) => ({
             colorId: sku.colorId,
             sizeId: sku.sizeId,
-            receivedQty: sku.availableQty,
+            receivedQty: sku.issuedQty,
           })) || [],
       });
       handleApiSuccess('Success', 'Items received from cutting');
@@ -165,6 +169,10 @@ export default function StitchingDetail() {
       handleApiError(new Error('Please enter at least one output quantity'));
       return;
     }
+    if (!outputDate) {
+      handleApiError(new Error('Please enter the output date'));
+      return;
+    }
 
     try {
       setActionLoading(true);
@@ -180,20 +188,6 @@ export default function StitchingDetail() {
       loadIssue();
     } catch (err: unknown) {
       handleApiError(err, 'Failed to record output');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleComplete = async () => {
-    if (!issue) return;
-    try {
-      setActionLoading(true);
-      await stitchingIssueService.complete(issue.id);
-      handleApiSuccess('Success', 'Stitching completed successfully');
-      loadIssue();
-    } catch (err: unknown) {
-      handleApiError(err, 'Failed to complete stitching');
     } finally {
       setActionLoading(false);
     }
@@ -247,19 +241,25 @@ export default function StitchingDetail() {
     return allOutputs.reduce((sum, o) => sum + o.defectQty, 0);
   };
 
+  // Good + defect recorded — a defect is a piece accounted for too
+  const getTotalRecorded = () => getTotalCompleted() + getTotalDefects();
+
   const getProgress = () => {
     const total = getTotalIssued();
     if (total === 0) return 0;
-    return Math.round((getTotalCompleted() / total) * 100);
+    return Math.round((getTotalRecorded() / total) * 100);
   };
 
+  // Good and Defect share one limit per size: what was issued less what is already recorded
   const updateOutputEntry = (index: number, field: 'goodQty' | 'defectQty', value: number) => {
     setOutputEntries((prev) => {
       const updated = [...prev];
-      const remaining = updated[index].issuedQty - updated[index].completedQty;
+      const entry = updated[index];
+      const remaining = Math.max(0, entry.issuedQty - entry.recordedQty);
+      const other = field === 'goodQty' ? entry.defectQty : entry.goodQty;
       updated[index] = {
-        ...updated[index],
-        [field]: Math.min(Math.max(0, value), remaining),
+        ...entry,
+        [field]: Math.min(Math.max(0, value), Math.max(0, remaining - other)),
       };
       return updated;
     });
@@ -302,7 +302,7 @@ export default function StitchingDetail() {
         {/* Workflow Stepper */}
         {(() => {
           const hasOutput = getTotalCompleted() > 0;
-          const hasTransferSlip = !!(issue as unknown as Record<string, unknown>).transferSlip;
+          const hasTransferSlip = !!issue.transferSlip;
 
           const steps = [
             { label: 'Receive', desc: 'From Cutting' },
@@ -361,9 +361,8 @@ export default function StitchingDetail() {
         {/* Next Step Action Card */}
         {(() => {
           const hasOutput = getTotalCompleted() > 0;
-          const issueRecord = issue as unknown as Record<string, unknown>;
-          const hasTransferSlip = !!issueRecord.transferSlip;
-          const transferSlip = issueRecord.transferSlip as { id?: string; slipNumber?: string } | undefined;
+          const hasTransferSlip = !!issue.transferSlip;
+          const transferSlip = issue.transferSlip;
 
           if (issue.status === 'PENDING_RECEIPT') {
             return (
@@ -422,7 +421,7 @@ export default function StitchingDetail() {
                         </div>
                         <div className={hasOutput ? 'text-sm text-success' : 'text-sm text-warning'}>
                           {hasOutput
-                            ? `${getTotalCompleted()} of ${getTotalIssued()} pieces recorded. Record more output or mark complete.`
+                            ? `${getTotalRecorded()} of ${getTotalIssued()} pieces recorded (${getTotalCompleted()} good, ${getTotalDefects()} defect). Record more output or mark complete.`
                             : 'Record the daily stitching output before completing this issue'}
                         </div>
                       </div>
@@ -433,7 +432,7 @@ export default function StitchingDetail() {
                         Record Output
                       </Button>
                       {hasOutput && (
-                        <Button onClick={handleComplete} disabled={actionLoading}>
+                        <Button onClick={() => setShowCompleteDialog(true)} disabled={actionLoading}>
                           <CheckCircle className="mr-2 h-4 w-4" />
                           Complete
                         </Button>
@@ -662,10 +661,9 @@ export default function StitchingDetail() {
                   <TableBody>
                     {issue.skuBreakdown.map((sku) => {
                       const outputs = issue.dailyOutputs?.flatMap((o) => o.skuOutputs || []) || [];
-                      const completed = outputs
-                        .filter((o) => o.colorId === sku.colorId && o.sizeId === sku.sizeId)
-                        .reduce((sum, o) => sum + o.goodQty, 0);
-                      const remaining = sku.issuedQty - completed;
+                      const own = outputs.filter((o) => o.colorId === sku.colorId && o.sizeId === sku.sizeId);
+                      const completed = own.reduce((sum, o) => sum + o.goodQty, 0);
+                      const remaining = sku.issuedQty - completed - own.reduce((sum, o) => sum + o.defectQty, 0);
 
                       return (
                         <TableRow key={sku.id}>
@@ -690,7 +688,7 @@ export default function StitchingDetail() {
                       <td className="px-4 py-3 text-sm text-right font-bold">{getTotalIssued()}</td>
                       <td className="px-4 py-3 text-sm text-right font-bold text-success">{getTotalCompleted()}</td>
                       <td className="px-4 py-3 text-sm text-right font-bold text-warning">
-                        {getTotalIssued() - getTotalCompleted()}
+                        {getTotalIssued() - getTotalRecorded()}
                       </td>
                     </tr>
                   </tfoot>
@@ -732,7 +730,7 @@ export default function StitchingDetail() {
                         <div className="text-sm text-muted-foreground">
                           {output.skuOutputs.map((sku, idx) => (
                             <span key={idx} className="mr-4">
-                              {sku.color?.colorName}/{sku.size?.sizeName}: {sku.goodQty}
+                              {[sku.color?.colorName, sku.size?.sizeName].filter(Boolean).join('/')}: {sku.goodQty}
                               {sku.defectQty > 0 && <span className="text-destructive"> (-{sku.defectQty})</span>}
                             </span>
                           ))}
@@ -771,8 +769,14 @@ export default function StitchingDetail() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Output Date *</Label>
-                <Input type="date" value={outputDate} onChange={(e) => setOutputDate(e.target.value)} />
+                <Label htmlFor="outputDate">Output Date *</Label>
+                <Input
+                  id="outputDate"
+                  type="date"
+                  required
+                  value={outputDate}
+                  onChange={(e) => setOutputDate(e.target.value)}
+                />
               </div>
             </div>
 
@@ -789,7 +793,7 @@ export default function StitchingDetail() {
                 </TableHeader>
                 <TableBody>
                   {outputEntries.map((entry, index) => {
-                    const remaining = entry.issuedQty - entry.completedQty;
+                    const remaining = Math.max(0, entry.issuedQty - entry.recordedQty);
                     return (
                       <TableRow key={`${entry.colorId}-${entry.sizeId}`}>
                         <TableCell>{entry.colorName}</TableCell>
@@ -799,7 +803,7 @@ export default function StitchingDetail() {
                           <Input
                             type="number"
                             min={0}
-                            max={remaining}
+                            max={remaining - entry.defectQty}
                             value={entry.goodQty}
                             onChange={(e) => updateOutputEntry(index, 'goodQty', parseInt(e.target.value) || 0)}
                             className="w-20 text-right ml-auto"
@@ -810,7 +814,7 @@ export default function StitchingDetail() {
                           <Input
                             type="number"
                             min={0}
-                            max={remaining}
+                            max={remaining - entry.goodQty}
                             value={entry.defectQty}
                             onChange={(e) => updateOutputEntry(index, 'defectQty', parseInt(e.target.value) || 0)}
                             className="w-20 text-right ml-auto"
@@ -852,12 +856,18 @@ export default function StitchingDetail() {
             <Button variant="outline" onClick={() => setShowOutputModal(false)}>
               Cancel
             </Button>
-            <Button onClick={handleRecordOutput} disabled={actionLoading}>
+            <Button onClick={handleRecordOutput} disabled={actionLoading || !outputDate}>
               {actionLoading ? 'Saving...' : 'Save Output'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CompleteStitchingDialog
+        issue={showCompleteDialog ? issue : null}
+        onOpenChange={setShowCompleteDialog}
+        onCompleted={loadIssue}
+      />
     </>
   );
 }

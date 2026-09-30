@@ -8,6 +8,7 @@ import type {
   UpdateStitchingIssueRequest,
   RecordDailyOutputRequest,
   ReceiveFromCuttingRequest,
+  CompleteStitchingIssueRequest,
   StitchingIssueQueryParams,
   StitchingDailyOutput,
   StyleSizeSummaryItem,
@@ -72,9 +73,9 @@ export const stitchingIssueService = {
     return response.data.data;
   },
 
-  // Complete stitching issue (IN_PROGRESS -> COMPLETED)
-  complete: async (id: string): Promise<StitchingIssue> => {
-    const response = await api.post<StitchingIssueResponse>(`${BASE_URL}/issues/${id}/complete`);
+  // Complete stitching issue (IN_PROGRESS -> COMPLETED); a short completion needs shortReason
+  complete: async (id: string, data: CompleteStitchingIssueRequest = {}): Promise<StitchingIssue> => {
+    const response = await api.post<StitchingIssueResponse>(`${BASE_URL}/issues/${id}/complete`, data);
     return response.data.data;
   },
 

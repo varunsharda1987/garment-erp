@@ -330,7 +330,8 @@ export const receiveFromCuttingSchema = z.object({
  * POST /api/stitching/issues/:id/daily-output
  */
 export const recordStitchingOutputSchema = z.object({
-  outputDate: z.string().or(z.date()),
+  // A blank date is refused here ("Invalid date") instead of failing in the database
+  outputDate: z.coerce.date(),
   componentId: z.string().uuid('Invalid component ID').optional(),
   skuOutputs: z
     .array(
@@ -345,6 +346,15 @@ export const recordStitchingOutputSchema = z.object({
     )
     .min(1, 'At least one SKU output is required'),
   remarks: z.string().max(1000).optional(),
+});
+
+/**
+ * Complete Stitching Issue
+ * POST /api/stitching/issues/:id/complete
+ */
+export const completeStitchingIssueSchema = z.object({
+  // Required by the controller when fewer pieces are recorded than were issued (kept on the remarks)
+  shortReason: z.string().max(500).optional(),
 });
 
 /**
@@ -547,6 +557,7 @@ export type CompleteCuttingBatchInput = z.infer<typeof completeCuttingBatchSchem
 export type CreateStitchingIssueInput = z.infer<typeof createStitchingIssueSchema>;
 export type UpdateStitchingIssueInput = z.infer<typeof updateStitchingIssueSchema>;
 export type RecordStitchingOutputInput = z.infer<typeof recordStitchingOutputSchema>;
+export type CompleteStitchingIssueInput = z.infer<typeof completeStitchingIssueSchema>;
 export type DisposeDefectsInput = z.infer<typeof disposeDefectsSchema>;
 
 export type CreateFinishingIssueInput = z.infer<typeof createFinishingIssueSchema>;

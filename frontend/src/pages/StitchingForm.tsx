@@ -25,7 +25,11 @@ interface SKUEntry {
   colorName: string;
   sizeId: string;
   sizeName: string;
+  sortOrder: number;
+  /** Left on the selected slips (what cutting sent, less what earlier issues took) */
   availableQty: number;
+  /** What cutting sent on the selected slips */
+  sentQty: number;
   issuedQty: number;
 }
 
@@ -37,7 +41,8 @@ interface Contractor {
   phone: string | null;
 }
 
-// Merge SKU breakdowns from multiple transfer slips
+// Merge what is left on several transfer slips, in size order. A slip's `quantity` is what is LEFT
+// on it: pieces an earlier issue did not take stay on the slip for a later issue.
 function mergeSkuBreakdowns(slips: IncomingTransferSlip[]): SKUEntry[] {
   const map = new Map<string, SKUEntry>();
   for (const slip of slips) {
@@ -46,6 +51,7 @@ function mergeSkuBreakdowns(slips: IncomingTransferSlip[]): SKUEntry[] {
       const existing = map.get(key);
       if (existing) {
         existing.availableQty += sku.quantity;
+        existing.sentQty += sku.sentQty;
         existing.issuedQty += sku.quantity;
       } else {
         map.set(key, {
@@ -53,13 +59,17 @@ function mergeSkuBreakdowns(slips: IncomingTransferSlip[]): SKUEntry[] {
           colorName: sku.colorName,
           sizeId: sku.sizeId,
           sizeName: sku.sizeName,
+          sortOrder: sku.sortOrder,
           availableQty: sku.quantity,
+          sentQty: sku.sentQty,
           issuedQty: sku.quantity,
         });
       }
     }
   }
-  return Array.from(map.values());
+  return Array.from(map.values()).sort(
+    (a, b) => a.sortOrder - b.sortOrder || (a.colorName || '').localeCompare(b.colorName || '')
+  );
 }
 
 export default function StitchingForm() {
@@ -116,6 +126,10 @@ export default function StitchingForm() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transferSlipIdParam, pendingTransferSlips]);
+
+  // The link's slip has been fully issued since (or was never a pending cutting slip)
+  const staleSlipLink =
+    !loading && !!transferSlipIdParam && !pendingTransferSlips.some((s) => s.id === transferSlipIdParam);
 
   const loadInitialData = async () => {
     try {
@@ -299,6 +313,11 @@ export default function StitchingForm() {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
+      {staleSlipLink && (
+        <Alert className="mb-4">
+          <AlertDescription>That transfer slip has nothing left to issue. Pick another slip below.</AlertDescription>
+        </Alert>
+      )}
 
       <form onSubmit={handleSubmit}>
         <div className="grid gap-6">
@@ -368,7 +387,9 @@ export default function StitchingForm() {
                                   <span className="text-muted-foreground">{styleCodeLabel(slip)}</span>
                                   <span className="text-muted-foreground">{slip.styleName}</span>
                                   <Badge variant="secondary" className="text-xs">
-                                    {slip.totalGoodPieces} pcs
+                                    {slip.totalGoodPieces < slip.sentPieces
+                                      ? `${slip.totalGoodPieces} of ${slip.sentPieces} pcs left`
+                                      : `${slip.totalGoodPieces} pcs`}
                                   </Badge>
                                   <span className="text-xs text-muted-foreground">
                                     {formatDate(new Date(slip.transferDate))}
@@ -484,7 +505,7 @@ export default function StitchingForm() {
                       <TableRow>
                         <TableHead>Color</TableHead>
                         <TableHead>Size</TableHead>
-                        <TableHead className="text-right">Available</TableHead>
+                        <TableHead className="text-right">Left to Issue</TableHead>
                         <TableHead className="text-right w-[150px]">Issue Qty</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -493,7 +514,14 @@ export default function StitchingForm() {
                         <TableRow key={`${sku.colorId || 'null'}-${sku.sizeId}`}>
                           <TableCell className="font-medium">{sku.colorName || '—'}</TableCell>
                           <TableCell>{sku.sizeName}</TableCell>
-                          <TableCell className="text-right text-success font-medium">{sku.availableQty}</TableCell>
+                          <TableCell className="text-right text-success font-medium">
+                            {sku.availableQty}
+                            {sku.sentQty - sku.availableQty > 0 && (
+                              <span className="ml-1 text-xs font-normal text-muted-foreground">
+                                of {sku.sentQty} sent
+                              </span>
+                            )}
+                          </TableCell>
                           <TableCell className="text-right">
                             <Input
                               type="number"
@@ -521,8 +549,9 @@ export default function StitchingForm() {
 
                 {getTotalIssued() < getTotalAvailable() && (
                   <p className="text-sm text-warning mt-2">
-                    Note: You are issuing {getTotalIssued()} of {getTotalAvailable()} available pieces. Remaining pieces
-                    can be issued later.
+                    Note: You are issuing {getTotalIssued()} of {getTotalAvailable()} pieces left. The other{' '}
+                    {getTotalAvailable() - getTotalIssued()} stay on the slip under Incoming from Cutting, to issue
+                    later.
                   </p>
                 )}
               </CardContent>

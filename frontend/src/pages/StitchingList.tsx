@@ -37,6 +37,8 @@ import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { differenceInCalendarDays } from 'date-fns';
 import { formatDate } from '@/lib/date';
 import { StyleIdentity } from '@/components/StyleIdentity';
+import { CompleteStitchingDialog } from '@/components/production/CompleteStitchingDialog';
+import { stitchingOutputTotals } from '@/lib/stitching';
 import {
   BUYER_STYLE_CODE_LABEL,
   STYLE_CODE_LABEL,
@@ -74,6 +76,9 @@ export default function StitchingList() {
   // Active tab
   const [activeTab, setActiveTab] = useState('issues');
 
+  // The issue whose Complete dialog is open
+  const [completing, setCompleting] = useState<StitchingIssue | null>(null);
+
   // ─── Issues Tab Data ───────────────────────────
   const fetchIssuesData = async () => {
     try {
@@ -86,7 +91,8 @@ export default function StitchingList() {
           status: (statusFilter as StitchingIssueStatus) || undefined,
           workOrderId: workOrderId || undefined,
         }),
-        stitchingSummaryService.getSummary(),
+        // The cards follow the run filter (?workOrderId=) like the table does
+        workOrderId ? stitchingSummaryService.getSummaryByWorkOrder(workOrderId) : stitchingSummaryService.getSummary(),
       ]);
       setIssues(issuesRes.data);
       setTotalPages(issuesRes.pagination.totalPages);
@@ -133,12 +139,13 @@ export default function StitchingList() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, pageSize, search, statusFilter, workOrderId]);
 
-  // Fetch tab data when tab changes
+  // Fetch tab data when tab changes. The pending slips load with the Issues tab too, so the
+  // Incoming tab's count shows before that tab is opened.
   useEffect(() => {
-    if (activeTab === 'incoming') {
-      fetchIncomingData();
-    } else if (activeTab === 'sizewise') {
+    if (activeTab === 'sizewise') {
       fetchSizeSummary();
+    } else {
+      fetchIncomingData();
     }
   }, [activeTab]);
 
@@ -164,7 +171,7 @@ export default function StitchingList() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    if (activeTab === 'issues') await fetchIssuesData();
+    if (activeTab === 'issues') await Promise.all([fetchIssuesData(), fetchIncomingData()]);
     else if (activeTab === 'incoming') await fetchIncomingData();
     else if (activeTab === 'sizewise') await fetchSizeSummary();
     setIsRefreshing(false);
@@ -190,16 +197,6 @@ export default function StitchingList() {
       fetchIssuesData();
     } catch (error) {
       handleApiError(error, 'Failed to start stitching');
-    }
-  };
-
-  const handleComplete = async (id: string) => {
-    try {
-      await stitchingIssueService.complete(id);
-      handleApiSuccess('Success', 'Stitching completed successfully');
-      fetchIssuesData();
-    } catch (error) {
-      handleApiError(error, 'Failed to complete stitching');
     }
   };
 
@@ -286,10 +283,10 @@ export default function StitchingList() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Completed Pcs</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Pieces Stitched</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-accent">{summary.totalCompleted.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-accent">{summary.totalCompleted.toLocaleString('en-IN')}</div>
             </CardContent>
           </Card>
         </div>
@@ -420,11 +417,16 @@ export default function StitchingList() {
                         <TableCell>{issue.startDate ? formatDate(new Date(issue.startDate)) : '—'}</TableCell>
                         <TableCell>{issue.endDate ? formatDate(new Date(issue.endDate)) : '—'}</TableCell>
                         <TableCell className="text-center">
-                          {issue.startDate && issue.endDate
-                            ? Math.max(1, differenceInCalendarDays(new Date(issue.endDate), new Date(issue.startDate)))
-                            : issue.startDate
-                              ? `${Math.max(1, differenceInCalendarDays(new Date(), new Date(issue.startDate)))}...`
-                              : '—'}
+                          {issue.startDate && issue.endDate ? (
+                            Math.max(1, differenceInCalendarDays(new Date(issue.endDate), new Date(issue.startDate)))
+                          ) : issue.startDate ? (
+                            <span>
+                              {Math.max(1, differenceInCalendarDays(new Date(), new Date(issue.startDate)))}
+                              <span className="ml-1 text-xs text-muted-foreground">running</span>
+                            </span>
+                          ) : (
+                            '—'
+                          )}
                         </TableCell>
                         <TableCell className="text-right">
                           {issue.skuBreakdown?.reduce((sum, sku) => sum + sku.issuedQty, 0) || 0}
@@ -457,17 +459,18 @@ export default function StitchingList() {
                                 <Play className="h-4 w-4 text-info" />
                               </Button>
                             )}
-                            {issue.status === 'IN_PROGRESS' && (
+                            {/* Complete needs recorded good output (the server's rule) — open the issue to record it */}
+                            {issue.status === 'IN_PROGRESS' && stitchingOutputTotals(issue).good > 0 && (
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => handleComplete(issue.id)}
+                                onClick={() => setCompleting(issue)}
                                 title="Complete Stitching"
                               >
                                 <CheckCircle className="h-4 w-4 text-success" />
                               </Button>
                             )}
-                            {issue.status === 'COMPLETED' && (
+                            {issue.status === 'COMPLETED' && !issue.transferSlip && (
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -476,6 +479,11 @@ export default function StitchingList() {
                               >
                                 <Truck className="h-4 w-4 text-accent" />
                               </Button>
+                            )}
+                            {issue.transferSlip && (
+                              <Badge variant="outline" className="text-xs" title="Sent to finishing on this slip">
+                                {issue.transferSlip.slipNumber}
+                              </Badge>
                             )}
                           </div>
                         </TableCell>
@@ -532,7 +540,11 @@ export default function StitchingList() {
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="font-semibold text-base">{slip.slipNumber}</span>
-                              <Badge variant="outline">{slip.totalGoodPieces} pcs</Badge>
+                              <Badge variant="outline">
+                                {slip.totalGoodPieces < slip.sentPieces
+                                  ? `${slip.totalGoodPieces} of ${slip.sentPieces} pcs left`
+                                  : `${slip.totalGoodPieces} pcs`}
+                              </Badge>
                             </div>
                             <div className="text-sm text-muted-foreground mt-1">
                               <span className="font-medium">{slip.workOrderNumber}</span>
@@ -560,19 +572,25 @@ export default function StitchingList() {
                               <TableRow>
                                 {slip.skuBreakdown.some((s) => s.colorId) && <TableHead>Color</TableHead>}
                                 <TableHead>Size</TableHead>
-                                <TableHead className="text-right">Quantity</TableHead>
+                                <TableHead className="text-right">Left to Issue</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {slip.skuBreakdown
-                                .sort((a, b) => a.sortOrder - b.sortOrder)
-                                .map((sku, idx) => (
-                                  <TableRow key={idx}>
-                                    {slip.skuBreakdown.some((s) => s.colorId) && <TableCell>{sku.colorName}</TableCell>}
-                                    <TableCell>{sku.sizeName}</TableCell>
-                                    <TableCell className="text-right font-medium">{sku.quantity}</TableCell>
-                                  </TableRow>
-                                ))}
+                              {/* The server returns the sizes in size order */}
+                              {slip.skuBreakdown.map((sku) => (
+                                <TableRow key={`${sku.colorId ?? ''}|${sku.sizeId}`}>
+                                  {slip.skuBreakdown.some((s) => s.colorId) && <TableCell>{sku.colorName}</TableCell>}
+                                  <TableCell>{sku.sizeName}</TableCell>
+                                  <TableCell className="text-right font-medium">
+                                    {sku.quantity}
+                                    {sku.quantity < sku.sentQty && (
+                                      <span className="ml-1 text-xs font-normal text-muted-foreground">
+                                        of {sku.sentQty}
+                                      </span>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
                               <TableRow className="font-bold border-t-2">
                                 {slip.skuBreakdown.some((s) => s.colorId) && <TableCell />}
                                 <TableCell>Total</TableCell>
@@ -601,7 +619,7 @@ export default function StitchingList() {
               <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : sizeSummary.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">No active stitching issues to display</div>
+            <div className="text-center py-8 text-muted-foreground">Nothing in stitching or waiting from cutting</div>
           ) : (
             sizeSummary.map((item) => (
               <Card key={item.workOrderId}>
@@ -635,10 +653,12 @@ export default function StitchingList() {
                           Cutting: {item.daysInCutting}d
                         </Badge>
                       )}
-                      <Badge variant="outline" className="text-xs gap-1">
-                        <Clock className="h-3 w-3" />
-                        Stitching: {item.daysInStitching}d
-                      </Badge>
+                      {item.daysInStitching > 0 && (
+                        <Badge variant="outline" className="text-xs gap-1">
+                          <Clock className="h-3 w-3" />
+                          Stitching: {item.daysInStitching}d
+                        </Badge>
+                      )}
                       {item.daysPendingPush !== null && item.daysPendingPush > 0 && (
                         <Badge variant="destructive" className="text-xs gap-1">
                           <AlertTriangle className="h-3 w-3" />
@@ -647,16 +667,21 @@ export default function StitchingList() {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-4 text-sm mt-2">
+                  <div className="flex flex-wrap items-center gap-4 text-sm mt-2">
                     <span className="text-muted-foreground">
-                      Pending: <strong>{item.totalPending}</strong>
+                      Waiting: <strong>{item.totalWaiting}</strong>
                     </span>
                     <span className="text-info">
-                      Running: <strong>{item.totalInProgress}</strong>
+                      With contractor: <strong>{item.totalWithContractor}</strong>
                     </span>
                     <span className="text-success">
-                      Done: <strong>{item.totalCompleted}</strong>
+                      Stitched: <strong>{item.totalStitched}</strong>
                     </span>
+                    {item.totalDefects > 0 && (
+                      <span className="text-destructive">
+                        Defects: <strong>{item.totalDefects}</strong>
+                      </span>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -664,30 +689,37 @@ export default function StitchingList() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Size</TableHead>
-                        <TableHead className="text-right">Pending</TableHead>
-                        <TableHead className="text-right">In Progress</TableHead>
-                        <TableHead className="text-right">Completed</TableHead>
-                        <TableHead className="text-right">Total</TableHead>
+                        <TableHead className="text-right" title="Cut and on slips from cutting, not yet issued">
+                          Waiting
+                        </TableHead>
+                        <TableHead className="text-right">Issued</TableHead>
+                        <TableHead className="text-right" title="Issued and not yet recorded">
+                          With Contractor
+                        </TableHead>
+                        <TableHead className="text-right">Stitched</TableHead>
+                        <TableHead className="text-right">Defects</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {item.sizes.map((size) => (
                         <TableRow key={size.sizeId}>
                           <TableCell className="font-medium">{size.sizeName}</TableCell>
-                          <TableCell className="text-right text-muted-foreground">{size.pending || '-'}</TableCell>
-                          <TableCell className="text-right text-info font-medium">{size.inProgress || '-'}</TableCell>
-                          <TableCell className="text-right text-success font-medium">{size.completed || '-'}</TableCell>
-                          <TableCell className="text-right font-bold">{size.total}</TableCell>
+                          <TableCell className="text-right text-muted-foreground">{size.waiting || '-'}</TableCell>
+                          <TableCell className="text-right">{size.issued || '-'}</TableCell>
+                          <TableCell className="text-right text-info font-medium">
+                            {size.withContractor || '-'}
+                          </TableCell>
+                          <TableCell className="text-right text-success font-medium">{size.stitched || '-'}</TableCell>
+                          <TableCell className="text-right text-destructive">{size.defects || '-'}</TableCell>
                         </TableRow>
                       ))}
                       <TableRow className="font-bold border-t-2">
                         <TableCell>Total</TableCell>
-                        <TableCell className="text-right text-muted-foreground">{item.totalPending}</TableCell>
-                        <TableCell className="text-right text-info">{item.totalInProgress}</TableCell>
-                        <TableCell className="text-right text-success">{item.totalCompleted}</TableCell>
-                        <TableCell className="text-right">
-                          {item.totalPending + item.totalInProgress + item.totalCompleted}
-                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground">{item.totalWaiting}</TableCell>
+                        <TableCell className="text-right">{item.totalIssued}</TableCell>
+                        <TableCell className="text-right text-info">{item.totalWithContractor}</TableCell>
+                        <TableCell className="text-right text-success">{item.totalStitched}</TableCell>
+                        <TableCell className="text-right text-destructive">{item.totalDefects}</TableCell>
                       </TableRow>
                     </TableBody>
                   </Table>
@@ -697,6 +729,12 @@ export default function StitchingList() {
           )}
         </TabsContent>
       </Tabs>
+
+      <CompleteStitchingDialog
+        issue={completing}
+        onOpenChange={(open) => !open && setCompleting(null)}
+        onCompleted={fetchIssuesData}
+      />
     </div>
   );
 }

@@ -88,6 +88,14 @@ keywords:
   - buyer style code
   - buyer ka style code
   - बायर स्टाइल कोड
+  - several colours one job
+  - one job for several orders
+  - order wise job work
+  - what comes back
+  - ek job mein teen colour
+  - order wise dikhao
+  - एक जॉब में कई रंग
+  - ऑर्डर वाइज
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -95,6 +103,7 @@ sources:
   - frontend/src/pages/JobWorkOrderList.tsx
   - frontend/src/components/JobWorkOrderCreateDialog.tsx
   - frontend/src/pages/JobWorkOrderDetail.tsx
+  - frontend/src/components/job-work/JobWorkLinesTable.tsx
   - frontend/src/components/job-work/GreigeLotRows.tsx
   - frontend/src/components/job-work/ThanPicker.tsx
   - frontend/src/components/job-work/lot-rows.ts
@@ -116,6 +125,8 @@ sources:
   - frontend/src/lib/held-stock-confirm.ts
   - backend/src/controllers/dyeing.controller.ts
   - backend/src/controllers/printing.controller.ts
+  - backend/src/services/helpers/jwo-lines.helper.ts
+  - backend/src/services/document-data/job-work-order.doc-data.ts
 route: /job-work-orders
 ---
 
@@ -151,7 +162,7 @@ Both figures stay editable — type over either one and it will not be overwritt
 ## Send the material out
 1. Open the new order from the list. It is in **Draft**.
 2. Click **Approve**. The status becomes **Approved**.
-3. Click **Issue to Processor**. This button only appears while the order is **Approved** — there is no other status that can issue.
+3. Click **Issue to Processor**. This button only appears while the order is **Approved** — there is no other status that can issue. On a job made for several orders in different colours, the dialog first lists **This greige is for N fabrics — it goes out together**: each order, its Buyer Style Code, colour, greige and fabric expected back, with the total. The greige is issued in one go for all of them.
 4. Under **Greige Lots ***, pick the lot and quantity. Use **Add lot** to split across lots, or **Auto-fill**. The total must match the order, shown as "matches the order". Only lots of the greige the order names are offered — that is the cloth its rate and shrinkage were quoted on. On a lace job the list holds the greige lace lots instead, and every lot must be the lace the order names.
    The lots are grouped by where they are: **Already at <processor> — no dispatch needed** first, then one group per store, for example **In Kashaya Fabs**. Each lot shows its metres, width, weaver and place, for example "GRG-0072 — Cotton Flex (5,000 m, 63″) · Weaver … · at Aryan Dyeing since 28-Sep-2026". The badges above the list give the total in each place. **Auto-fill** takes the cloth already at the processor first, oldest first, and then the biggest store lots. An **Elsewhere** line shows the same cloth at other processors; it cannot go on this job.
    If the lot has a list of its pieces — typed on its GRN (than-wise, bale-wise or roll-wise), or recorded later with **Record bales & thans** — the pieces open under the lot: thans grouped by bale, or its rolls. The words follow the lot: a roll lot says "This lot has 18 rolls", its pieces read "Roll R-55", and the buttons read **Pick rolls for me** and **Best fit (whole rolls)**. Tick the pieces you are sending (you can type fewer metres for the last one), or click **Pick thans for me** / **Pick rolls for me** to tick whole pieces in order until the order is covered. The line under the list shows the metres counted on the tags and the actual metres they come to. Picking is optional — close the list to send by quantity only — but it keeps the godown list right.
@@ -164,6 +175,12 @@ Both figures stay editable — type over either one and it will not be overwritt
 5. Check **Sent date**. It is today unless you change it. It cannot be after today, and it cannot be before the day a chosen lot was received (or reached the processor). A date more than 7 days back shows a reminder to make sure it is the real day. Fill **Vehicle Number** if you know the truck. You do not type a challan number — the system assigns it.
 6. Click **Issue & Create Challan**. When every chosen lot is already at the processor the button reads **Allocate at <processor>** instead, and there is no vehicle box. The confirmation shows the challan number that was created (or, for an allocation, "allocated at … under challan …, nothing dispatched"). The challan names the store the goods leave from (for example Kashaya Fabs). Every issue that sends something out gets a challan — greige, lace, a fabric roll or garments; only greige that is already at this processor is allocated without one. Greige or lace the supplier delivered straight to this processor (approved with **Delivered straight to …** on the GRN) is taken from where it lies: no truck and no new challan — the job shows the challan that already covers it, and the one-year return period counts from the day the processor received it. Ready fabric delivered straight to this processor is taken the same way: on a fabric-roll job (for example embroidery) whose lot is already at the processor, the button reads **Allocate at <processor>**, nothing travels and no challan is created. Greige, lace or fabric sitting at a different processor cannot be put on this job as it is: the dialog lists it under **Elsewhere: … at <processor>** with a **Move here** link, which files a challan from that processor to this one — the cloth then shows under **Already at <processor>** and is taken without a truck.
 7. If some of the greige or lace you picked is held for another order (it arrived on a purchase order line linked to that order, or that order set it aside from stock), nothing is sent yet. A box titled **These goods are held for another order** lists who holds it, one line each ("Held for ORD… · SP27DR27 (EBWW-021): N m" — the order, then its style by Buyer Style Code first), and asks "Take them anyway? That order will need them bought again." Click **No, keep them** to leave the goods for that order: nothing is issued and the Issue dialog stays open, so you can pick other lots. Click **Take them anyway** to issue: the job takes the goods and that order's need reopens, to be bought again. Goods held for this job's own order are taken without asking.
+
+## One job for several orders
+A job raised from **Requirements** (Outsourced Work) for several orders of one greige and one processor is ONE job with a **line** for each fabric it brings back — for example one dyeing job for SP27CK130 Red, SP27CK130-B Black and SP27CK130-T Teal has three lines, each with its own finished fabric, greige, fabric expected back and orders. Orders of the same style and colour share a line (they make the same fabric). Orders on different greiges, or at different rates, become separate jobs.
+- On the job page, **Order Details** shows **Style** and **Colour** as **Several — see lines below**, and the **What comes back** card lists each line: **Order**, **Buyer Style Code**, **Colour**, **Fabric expected back** (with its finish width), **Greige**, **Expected back** and **Received**, with a total. A job for one order shows the same card with its one order.
+- The printed job work order (**Print**) has one row per fabric under *Expected output*, each with its orders ("for ORD…"), and the rows add up to the job charges.
+- Receiving such a job colour by colour is being added. Until then a job that expects more than one fabric back cannot be received (see *Receive processed material back from a processor*).
 
 ## Send to Mill from the Dyeing / Printing list
 On **Manufacturing → Dyeing & Printing**, tab **Job Work Orders**, a draft order has a **Send to Mill** button (paper-plane icon). The **Send … to Mill** dialog shows the same lot line as the Issue dialog: pick the lot under **Greige Stock Lot *** (one lot must cover the whole order — split across lots from the order's own page), and if the lot has a list of pieces, tick the thans or rolls going, or use **Pick thans for me** / **Best fit**. A lot with no list shows the same "no bale, than or roll list — it goes by quantity" line and **Record bales & thans** link. Fill **Sent Date** and **Vehicle Number**, then **Send & Create Challan** (or **Allocate at <processor>** when the cloth is already there). If the lot's cloth is held for another order, the same **These goods are held for another order** box appears: **No, keep them** sends nothing and leaves the dialog open to pick another lot; **Take them anyway** sends it and reopens that order's need.

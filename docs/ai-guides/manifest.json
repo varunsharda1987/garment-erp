@@ -799,15 +799,15 @@
       "backend/src/schemas/grn.schema.ts": "fad34c050e36",
       "backend/src/routes/grn.routes.ts": "05cd1c008651",
       "backend/src/controllers/job-work-order.controller.ts": "4c3ac7fd2ad2",
-      "backend/src/services/grn.service.ts": "55df11ffd0be",
-      "backend/src/services/helpers/jwo-arriving-material.helper.ts": "622bf8d344ab",
+      "backend/src/services/grn.service.ts": "b32f70130c41",
+      "backend/src/services/helpers/jwo-arriving-material.helper.ts": "05fac2c64d62",
       "backend/src/services/helpers/jwo-status.helper.ts": "fa58d498a64c",
       "backend/src/services/helpers/held-stock-doors.helper.ts": "ab2af05bc990",
       "backend/src/controllers/grn.controller.ts": "32eb70abefff",
       "backend/src/services/helpers/receipt-invoice.helper.ts": "6cc8412f24f2"
     },
-    "contentHash": "a19ee3069578",
-    "generatedAt": "2026-09-29T12:17:46.427Z"
+    "contentHash": "74e57fd07b69",
+    "generatedAt": "2026-09-30T10:07:37.787Z"
   },
   "lab-dip-approve": {
     "sources": {

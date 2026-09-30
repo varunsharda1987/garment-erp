@@ -30,9 +30,11 @@ interface SaleOrderItemsTableProps {
   items: DisplayItem[];
   onChange: (items: DisplayItem[]) => void;
   editable?: boolean;
+  /** The order's Primary Style: Add Item starts on it. */
+  defaultStyleId?: string | null;
 }
 
-export function SaleOrderItemsTable({ items, onChange, editable = true }: SaleOrderItemsTableProps) {
+export function SaleOrderItemsTable({ items, onChange, editable = true, defaultStyleId }: SaleOrderItemsTableProps) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -190,6 +192,7 @@ export function SaleOrderItemsTable({ items, onChange, editable = true }: SaleOr
         onSave={handleAddItem}
         onSaveMultiple={handleAddMultipleItems}
         mode="create"
+        defaultStyleId={defaultStyleId}
       />
 
       {/* Edit Item Dialog */}

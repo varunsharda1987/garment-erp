@@ -256,7 +256,7 @@ export function SaleOrderForm({
           {/* Items Section */}
           <div className="space-y-2">
             <Label>Items {mode === 'edit' && <span className="text-destructive">*</span>}</Label>
-            <SaleOrderItemsTable items={items} onChange={setItems} editable={true} />
+            <SaleOrderItemsTable items={items} onChange={setItems} editable={true} defaultStyleId={styleId} />
             {mode === 'create' && items.length === 0 && (
               <p className="text-xs text-muted-foreground">
                 You can save now and add items later — an order needs at least one item before it can be confirmed.

@@ -81,6 +81,8 @@ export interface SaleOrderItemDialogProps {
   onSaveMultiple?: (items: SOItemDraft[]) => void;
   editItem?: SOItemDraft;
   mode?: 'create' | 'edit';
+  /** A new line starts on this style — the order's Primary Style, already picked on the order form. */
+  defaultStyleId?: string | null;
 }
 
 export function SaleOrderItemDialog({
@@ -90,6 +92,7 @@ export function SaleOrderItemDialog({
   onSaveMultiple,
   editItem,
   mode = 'create',
+  defaultStyleId,
 }: SaleOrderItemDialogProps) {
   const [styleId, setStyleId] = useState('');
   const [colorId, setColorId] = useState<string | null>(null);
@@ -98,6 +101,10 @@ export function SaleOrderItemDialog({
   const [unitPrice, setUnitPrice] = useState('');
   const [buyerStyleRef, setBuyerStyleRef] = useState('');
   const [breakdownDialogOpen, setBreakdownDialogOpen] = useState(false);
+  // Bumped by the reset below so the style's colour / price / buyer code fill in again. Without it, a
+  // dialog reopened on the SAME style (the Primary Style) is cleared by the reset and never refilled:
+  // the style's data has not changed, so the fill effect would not run.
+  const [fillToken, setFillToken] = useState(0);
 
   const [colorOptions, setColorOptions] = useState<ColorOption[]>([]);
   const [sizeOptions, setSizeOptions] = useState<SizeOption[]>([]);
@@ -171,7 +178,7 @@ export function SaleOrderItemDialog({
     if (mode === 'create' && style.buyerStyleRef) {
       setBuyerStyleRef((prev) => prev || style.buyerStyleRef || '');
     }
-  }, [styleData, mode, editItem?.sizeId]);
+  }, [styleData, mode, editItem?.sizeId, fillToken]);
 
   // Populate form when editing
   useEffect(() => {
@@ -183,8 +190,10 @@ export function SaleOrderItemDialog({
       setUnitPrice(String(editItem.unitPrice));
       setBuyerStyleRef(editItem.buyerStyleRef || '');
     } else if (open && mode === 'create') {
-      // Reset form for new item
-      setStyleId('');
+      // Reset form for new item. It starts on the order's Primary Style — picked once on the order
+      // form, not again here; the fill above then gives it the style's colour, price and buyer code.
+      setStyleId(defaultStyleId || '');
+      setFillToken((t) => t + 1);
       setColorId(null);
       setSizeId('');
       setQuantity('1');
@@ -194,7 +203,7 @@ export function SaleOrderItemDialog({
       setSizeOptions([]);
       setPendingColorMasterId('');
     }
-  }, [open, editItem, mode]);
+  }, [open, editItem, mode, defaultStyleId]);
 
   const handleStyleChange = useCallback((id: string, style?: Style) => {
     setStyleId(id);
@@ -375,8 +384,8 @@ export function SaleOrderItemDialog({
                 maxLength={100}
               />
               <p className="text-xs text-muted-foreground">
-                Saved with this line, so the order and its invoices keep showing this code even if the style is re-coded
-                later.
+                Filled from the style — change it only if the buyer uses a different code on this order. Saved with this
+                line, so the order and its invoices keep showing this code even if the style is re-coded later.
               </p>
             </div>
 

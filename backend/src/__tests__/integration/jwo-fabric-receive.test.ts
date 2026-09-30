@@ -638,6 +638,13 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     expect(res.status).toBe(201);
     const jwo = await prisma.job_work_orders.findUnique({ where: { id: sameJwoId } });
     expect(jwo!.jwoStatus).toBe('STOCK_UPDATED');
+
+    // The job page's line: both orders under it, and what came back worked out from the receipt
+    const detail = await request(app).get(`/api/job-work-orders/${sameJwoId}`).set(authHeader);
+    expect(detail.status).toBe(200);
+    expect(detail.body.data.lines).toHaveLength(1);
+    expect(detail.body.data.lines[0].requirementLinks).toHaveLength(2);
+    expect(Number(detail.body.data.lines[0].receivedQty)).toBe(495);
   });
 
   it('the create-only door is closed: POST /api/grn/jwo answers 410 and points at the job', async () => {

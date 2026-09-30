@@ -12,6 +12,7 @@
 import { Prisma } from '@prisma/client';
 import { BusinessError } from '../../errors';
 import { addCurrency, divideCurrency, roundToCent, toCurrency, toNumber } from '../../utils/currency';
+import { grnLineActualQty, type GrnLineQtyInput } from './grn-line-value.helper';
 
 type Tx = Prisma.TransactionClient;
 
@@ -272,6 +273,17 @@ export async function updateTheOnlyLine(tx: Tx, jobWorkOrderId: string, patch: P
   ) as Prisma.job_work_order_linesUpdateInput;
   await tx.job_work_order_lines.update({ where: { id: line.id }, data });
   return syncJwoHeaderFromLines(tx, jobWorkOrderId);
+}
+
+/** The select that feeds lineReceivedQty: a line's ACCEPTED receipt rows */
+export const LINE_RECEIPTS_SELECT = {
+  where: { goods_receiving_notes: { status: 'ACCEPTED' as const } },
+  select: { acceptedQuantity: true, foldLengthCm: true },
+};
+
+/** What has come back on a line — never stored: its ACCEPTED receipt rows at their actual (fold-adjusted) metres */
+export function lineReceivedQty(receiptRows: readonly GrnLineQtyInput[]): number {
+  return toNumber(roundToCent(addCurrency(0, ...receiptRows.map((row) => grnLineActualQty(row)))));
 }
 
 /** Tie a requirement to the line that brings back its fabric */

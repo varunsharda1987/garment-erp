@@ -11,6 +11,7 @@ import { randomUUID } from 'crypto';
 import { prisma, createTestUser } from '../helpers/test-utils';
 import { findProcessingRequirementMatches, generatePOFromRequirements } from '../../services/mrp.service';
 import { ensureMaterialRecord } from '../../services/helpers/material-sync.helper';
+import { buildJobWorkOrderDocData } from '../../services/document-data/job-work-order.doc-data';
 
 const RUN = `JOG${Date.now().toString(36).toUpperCase()}`;
 const only = (id: string | undefined) => id ?? '__unset__';
@@ -223,6 +224,15 @@ describe('MRP gives a job one line per fabric it brings back (DJ-EBEW-002-001)',
     expect(job.styleId).toBeNull();
     expect(job.colorName).toBeNull();
     expect(job.finishedFabricId).toBeNull();
+
+    // The printed job work order: one §03 row per fabric, adding up to the job's taxable value
+    const doc = await buildJobWorkOrderDocData(jobId);
+    expect(doc.colourLine).toBe('Several — see 03');
+    expect(doc.chargeRows).toHaveLength(2);
+    expect(doc.chargeRows.map((r) => r.spec).sort()).toEqual(['Black', 'Red']);
+    expect(doc.chargeRows.every((r) => /for /.test(r.subline ?? ''))).toBe(true);
+    const amount = (s: string) => Number(s.replace(/,/g, ''));
+    expect(doc.chargeRows.reduce((total, r) => total + amount(r.amount), 0)).toBeCloseTo(amount(doc.taxableValue), 2);
   });
 });
 

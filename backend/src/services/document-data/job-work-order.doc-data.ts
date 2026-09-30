@@ -14,12 +14,16 @@ import {
   divideCurrency,
   multiplyCurrency,
   roundToCent,
+  subtractCurrency,
   toCurrency,
 } from '../../utils/currency';
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtMoney, fmtPct, fmtQty } from './format';
 import { unitHeader, unitShort, unitWord } from '../../utils/units';
 import { buyerStyleCode, styleCodeIfDifferent, styleCodeLabel } from '../../utils/style-code';
+
+/** What §01 says for a field the job's lines do not share — each line prints its own in §03 */
+const SEE_LINES = 'Several — see 03';
 
 const jwoDocInclude = {
   processor: {
@@ -87,6 +91,29 @@ const jwoDocInclude = {
     take: 1,
   },
   approvedBy: { select: { firstName: true, lastName: true } },
+  // What the job brings back — one line per fabric, each with the orders it is for (jwo-lines.helper)
+  lines: {
+    orderBy: { lineNo: 'asc' },
+    select: {
+      lineNo: true,
+      colorName: true,
+      qtySent: true,
+      qtyExpected: true,
+      expectedShrinkage: true,
+      sentWidthInches: true,
+      style: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
+      colorMaster: { select: { colorName: true } },
+      finishedFabric: { select: { fabricName: true } },
+      finishedLace: { select: { laceName: true, color: true } },
+      requirementLinks: {
+        orderBy: { createdAt: 'asc' },
+        select: {
+          allocatedQuantity: true,
+          material_requirements: { select: { orders: { select: { orderNumber: true } } } },
+        },
+      },
+    },
+  },
   // Colour + greige lineage for MRP JWOs (no lab dip; no stock lot before issue) —
   // the linked requirement carries the dye colour and the BOM greige with its snapshot cost.
   requirementLinks: {
@@ -250,17 +277,25 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
 
   // Primary MRP requirement link — colour + greige lineage when there's no lab dip / lot yet
   const reqLink = jwo.requirementLinks[0]?.material_requirements ?? null;
+  // Several lines = several fabrics back; each line prints its own style and colour in §03, and the
+  // header names only what they share (the first order's colour stood for all of them until 30-Sep).
+  const severalLines = jwo.lines.length > 1;
+  const lineColour = (l: (typeof jwo.lines)[number]) =>
+    l.colorMaster?.colorName ?? l.colorName ?? l.finishedLace?.color ?? null;
+  const sharedAcrossLines = (values: Array<string | null>) =>
+    values.every((v) => v != null && v === values[0]) ? values[0] : SEE_LINES;
   // Same ladder as the fabric-identity helper, order-linked rungs first: the two job-work
   // rungs at the bottom only ever fire on a stock job, which has no chain above them.
-  const colourName =
-    jwo.labDip?.targetColor?.colorName ??
-    reqLink?.colorName ??
-    reqLink?.orderBomItem?.colorName ??
-    jwo.colorMaster?.colorName ??
-    jwo.colorName ??
-    // A lace job's shade is the variant's own — it is the instruction to the dyer.
-    jwo.finishedLace?.color ??
-    null;
+  const colourName = severalLines
+    ? sharedAcrossLines(jwo.lines.map(lineColour))
+    : (jwo.labDip?.targetColor?.colorName ??
+      reqLink?.colorName ??
+      reqLink?.orderBomItem?.colorName ??
+      jwo.colorMaster?.colorName ??
+      jwo.colorName ??
+      // A lace job's shade is the variant's own — it is the instruction to the dyer.
+      jwo.finishedLace?.color ??
+      null);
 
   // ── 02 — material issued ─────────────────────────────────────────────────
   const materialRows: JwoMaterialRow[] = [];
@@ -434,26 +469,94 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
       : roundToCent(multiplyCurrency(jwo.qtyBillable ?? jwo.qtySentMeters, jwo.agreedRatePerMeter)).toNumber();
     chargesValue = jwo.subtotal != null ? Number(jwo.subtotal) : computed;
     // Widths on the processor-facing row: the FINISHED (stenter) width he must deliver,
-    // with the greige loom width for reference (also covers pre-issue orders with no lot row).
-    const widthSpecParts: string[] = [];
-    if (jwo.sentWidthInches != null) widthSpecParts.push(`Finish width ${fmtQty(Number(jwo.sentWidthInches))}″`);
-    if (jwo.greigeWidthInches != null) widthSpecParts.push(`greige ${fmtQty(Number(jwo.greigeWidthInches))}″`);
-    // Say the quantity math out loud: expected shrinkage links issued greige to fabric due back
-    if (jwo.expectedShrinkage != null && Number(jwo.expectedShrinkage) > 0) {
-      widthSpecParts.push(
-        `expected shrinkage ${Number(jwo.expectedShrinkage)}% ` +
-          `(${fmtQty(Number(jwo.qtySentMeters), jwo.uom)} → ${expQtyStr} ${jwo.uom})`
-      );
+    // with the greige loom width for reference (also covers pre-issue orders with no lot row),
+    // then the quantity math said out loud (expected shrinkage links issued greige to fabric due
+    // back) and the orders the fabric is for.
+    const rowSubline = (row: {
+      sentWidthInches: Prisma.Decimal | null;
+      expectedShrinkage: Prisma.Decimal | null;
+      qtySent: Prisma.Decimal | number;
+      expected: string;
+      orders: string | null;
+    }) => {
+      const parts: string[] = [];
+      if (row.sentWidthInches != null) parts.push(`Finish width ${fmtQty(Number(row.sentWidthInches))}″`);
+      if (jwo.greigeWidthInches != null) parts.push(`greige ${fmtQty(Number(jwo.greigeWidthInches))}″`);
+      if (row.expectedShrinkage != null && Number(row.expectedShrinkage) > 0) {
+        parts.push(
+          `expected shrinkage ${Number(row.expectedShrinkage)}% ` +
+            `(${fmtQty(Number(row.qtySent), jwo.uom)} → ${row.expected} ${jwo.uom})`
+        );
+      }
+      if (row.orders) parts.push(row.orders);
+      return parts.length ? parts.join(' · ') : null;
+    };
+    const ordersOf = (line: (typeof jwo.lines)[number] | undefined) => {
+      const orders = (line?.requirementLinks ?? [])
+        .map((l) => ({ no: l.material_requirements.orders?.orderNumber ?? null, qty: Number(l.allocatedQuantity) }))
+        .filter((o): o is { no: string; qty: number } => o.no != null);
+      if (orders.length === 0) return null;
+      if (orders.length === 1) return `for ${orders[0].no}`;
+      return `for ${orders.map((o) => `${o.no} ${fmtQty(o.qty, uomForRate)}`).join(', ')}`;
+    };
+    const rateStr = jwo.isRateTbd ? EM_DASH : fmtMoney(Number(jwo.agreedRatePerMeter));
+
+    if (!severalLines) {
+      chargeRows.push({
+        item: outputItem,
+        subline: rowSubline({
+          sentWidthInches: jwo.sentWidthInches,
+          expectedShrinkage: jwo.expectedShrinkage,
+          qtySent: jwo.qtySentMeters,
+          expected: expQtyStr,
+          orders: ordersOf(jwo.lines[0]),
+        }),
+        spec: specStr,
+        expQty: expQtyStr,
+        shrinkage: shrinkageColStr,
+        rate: rateStr,
+        amount: chargesValue != null ? fmtMoney(chargesValue) : EM_DASH,
+      });
+    } else {
+      // One row per fabric coming back. Amounts are each line's fabric × the job's rate; the last row
+      // takes the rounding so the rows add up to the job's taxable value exactly.
+      let billedSoFar = toCurrency(0);
+      jwo.lines.forEach((line, index) => {
+        const expected =
+          line.qtyExpected != null
+            ? toCurrency(line.qtyExpected)
+            : applyShrinkageLoss(line.qtySent, line.expectedShrinkage ?? 0);
+        const expectedStr = fmtQty(expected.toNumber(), uomForRate);
+        let amount: number | null = null;
+        if (!jwo.isRateTbd && chargesValue != null) {
+          amount =
+            index === jwo.lines.length - 1
+              ? roundToCent(subtractCurrency(chargesValue, billedSoFar)).toNumber()
+              : roundToCent(multiplyCurrency(expected, jwo.agreedRatePerMeter)).toNumber();
+          billedSoFar = addCurrency(billedSoFar, amount);
+        }
+        const style = line.style ? styleCodeLabel(line.style, null, '') || null : null;
+        const colour = lineColour(line);
+        chargeRows.push({
+          item:
+            line.finishedLace?.laceName ??
+            line.finishedFabric?.fabricName ??
+            [processName, style, colour].filter(Boolean).join(' — '),
+          subline: rowSubline({
+            sentWidthInches: line.sentWidthInches,
+            expectedShrinkage: line.expectedShrinkage,
+            qtySent: line.qtySent,
+            expected: expectedStr,
+            orders: ordersOf(line),
+          }),
+          spec: colour ?? style ?? EM_DASH,
+          expQty: expectedStr,
+          shrinkage: fmtPct(line.expectedShrinkage != null ? Number(line.expectedShrinkage) : null),
+          rate: rateStr,
+          amount: amount != null ? fmtMoney(amount) : EM_DASH,
+        });
+      });
     }
-    chargeRows.push({
-      item: outputItem,
-      subline: widthSpecParts.length ? widthSpecParts.join(' · ') : null,
-      spec: specStr,
-      expQty: expQtyStr,
-      shrinkage: shrinkageColStr,
-      rate: jwo.isRateTbd ? EM_DASH : fmtMoney(Number(jwo.agreedRatePerMeter)),
-      amount: chargesValue != null ? fmtMoney(chargesValue) : EM_DASH,
-    });
   }
 
   const gstRateNum = jwo.gstRate != null ? Number(jwo.gstRate) : ptm?.gstRate != null ? Number(ptm.gstRate) : null;
@@ -490,7 +593,7 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
     jobWorkerGstin: p.gst_numbers[0]?.gstNumber ?? null,
     jobWorkerContact: contactBits.length > 0 ? contactBits.join(' · ') : null,
     // Buyer Style Code first; the Style row then carries our code only when it differs, and the name.
-    buyerStyleCode: jwo.style ? buyerStyleCode(jwo.style, null, '') || null : null,
+    buyerStyleCode: jwo.style ? buyerStyleCode(jwo.style, null, '') || null : severalLines ? SEE_LINES : null,
     styleLine: jwo.style
       ? [styleCodeIfDifferent(jwo.style), jwo.style.styleName].filter(Boolean).join(' — ') || null
       : null,

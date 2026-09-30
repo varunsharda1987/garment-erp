@@ -58,7 +58,7 @@ import {
 import { toDateInputValue } from '../utils/date';
 import { echoShadowPoStatus } from '../services/helpers/shadow-po.helper';
 import { returnJobWorkUnprocessed } from '../services/helpers/jwo-return-unprocessed.helper';
-import { createOneLineJobWorkOrder } from '../services/helpers/jwo-lines.helper';
+import { createOneLineJobWorkOrder, LINE_RECEIPTS_SELECT, lineReceivedQty } from '../services/helpers/jwo-lines.helper';
 import { ConflictError, UnauthorizedError } from '../errors';
 import { resolveJwoRate, jwoRateProvenance, type JwoRateResolution } from '../services/helpers/jwo-rate.helper';
 import { resolveJwoExpectedShrinkage } from '../services/helpers/shrinkage-resolver.helper';
@@ -1149,6 +1149,35 @@ class JobWorkOrderController {
             include: { items: true },
           },
           challanItems: true,
+          // What the job brings back — one line per fabric, with the orders each serves
+          lines: {
+            orderBy: { lineNo: 'asc' as const },
+            select: {
+              id: true,
+              lineNo: true,
+              colorName: true,
+              qtySent: true,
+              qtyExpected: true,
+              expectedShrinkage: true,
+              sentWidthInches: true,
+              closedAt: true,
+              closedHow: true,
+              style: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
+              colorMaster: { select: { colorName: true, hexCode: true } },
+              finishedFabric: { select: { id: true, fabricCode: true, fabricName: true } },
+              finishedLace: { select: { id: true, laceCode: true, laceName: true, color: true } },
+              requirementLinks: {
+                orderBy: { createdAt: 'asc' as const },
+                select: {
+                  allocatedQuantity: true,
+                  material_requirements: {
+                    select: { id: true, requirementNumber: true, orders: { select: { id: true, orderNumber: true } } },
+                  },
+                },
+              },
+              receiptItems: LINE_RECEIPTS_SELECT,
+            },
+          },
         },
       });
 
@@ -1159,7 +1188,11 @@ class JobWorkOrderController {
         });
       }
 
-      res.json({ success: true, data: jwo });
+      const lines = jwo.lines.map(({ receiptItems, ...line }) => ({
+        ...line,
+        receivedQty: lineReceivedQty(receiptItems),
+      }));
+      res.json({ success: true, data: { ...jwo, lines } });
     } catch (error) {
       logger.error('Error fetching job work order:', error);
       res.status(500).json({

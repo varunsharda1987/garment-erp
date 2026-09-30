@@ -40,12 +40,16 @@
  * D30 finished-fabric lots whose roll / than list is out of step with their metres (a door took metres
  *     without naming pieces — fix on the Fabric Stock page with Check / Record rolls & thans; never refused)
  * D31 goods-in-transit challans in an impossible state (direct-supply-challan.helper is the only writer)
+ * D32 job work orders out of step with their lines (jwo-lines.helper is the only writer, 30-Sep): no line,
+ *     several lines on piece work / lace, a header that is not what its lines imply, a requirement link or
+ *     return receipt with no line or another job's line
  */
 
 import { PrismaClient } from '@prisma/client';
 import { productionBlockingValidationService } from '../src/services/productionBlockingValidation.service';
 import { findMirrorDrift } from './repair-material-mirror-names';
 import { findOrderStatusDrift } from '../src/services/helpers/order-status.helper';
+import { headerFromLines } from '../src/services/helpers/jwo-lines.helper';
 import { findSizelessLinkedItems } from '../src/services/helpers/sale-order-sizes.helper';
 import { lotPiecesSummary } from '../src/services/fabric-lot-pieces.service';
 
@@ -630,6 +634,99 @@ async function main() {
         }
         if (waiting && c.purchaseOrder && ['RECEIVED', 'SHORT_CLOSED', 'CANCELLED'].includes(c.purchaseOrder.status)) {
           out.push({ challan: c.challanNumber, problem: `still on the way on ${c.purchaseOrder.poNumber} (${c.purchaseOrder.status})` });
+        }
+      }
+      return out;
+    })()
+  );
+
+  // ---- Job work order lines -------------------------------------------------------------------
+
+  // A job carries one line per fabric it brings back; the header mirrors the lines (sums, else the value every
+  // line shares, else blank). Anything else means a writer went round jwo-lines.helper.
+  await run(
+    'D32',
+    'Job work orders out of step with their lines (jwo-lines.helper is the only writer)',
+    (async () => {
+      const out: Array<{ job: string; problem: string }> = [];
+      const jobs = await prisma.job_work_orders.findMany({
+        select: {
+          jobWorkNumber: true,
+          jwoStatus: true,
+          uom: true,
+          fabricType: true,
+          qtySentMeters: true,
+          qtyBillable: true,
+          styleId: true,
+          colorMasterId: true,
+          colorName: true,
+          finishedFabricId: true,
+          finishedLaceId: true,
+          sentWidthInches: true,
+          expectedShrinkage: true,
+          lines: true,
+        },
+      });
+      const sameNumber = (a: unknown, b: unknown) =>
+        (a == null && b == null) || (a != null && b != null && Math.abs(Number(a) - Number(b)) < 0.005);
+      for (const j of jobs) {
+        if (j.lines.length === 0) {
+          out.push({ job: j.jobWorkNumber, problem: 'has no line' });
+          continue;
+        }
+        if (j.lines.length > 1 && ((j.uom ?? 'MTR') !== 'MTR' || j.fabricType === 'LACE')) {
+          out.push({ job: j.jobWorkNumber, problem: `${j.lines.length} lines on a ${j.fabricType === 'LACE' ? 'lace' : j.uom} job` });
+        }
+        const mirror = headerFromLines(j.lines);
+        const numbers = ['qtySentMeters', 'sentWidthInches', 'expectedShrinkage'] as const;
+        for (const field of numbers) {
+          if (!sameNumber(j[field], mirror[field])) {
+            out.push({ job: j.jobWorkNumber, problem: `${field} ${j[field] ?? 'blank'} ≠ lines ${mirror[field] ?? 'blank'}` });
+          }
+        }
+        if (j.jwoStatus !== 'CLOSED' && !sameNumber(j.qtyBillable, mirror.qtyBillable)) {
+          out.push({ job: j.jobWorkNumber, problem: `qtyBillable ${j.qtyBillable ?? 'blank'} ≠ lines ${mirror.qtyBillable ?? 'blank'}` });
+        }
+        const texts = ['styleId', 'colorMasterId', 'colorName', 'finishedFabricId', 'finishedLaceId'] as const;
+        for (const field of texts) {
+          if ((j[field]?.trim() || null) !== mirror[field]) {
+            out.push({ job: j.jobWorkNumber, problem: `${field} ${j[field] ?? 'blank'} ≠ lines ${mirror[field] ?? 'blank'}` });
+          }
+        }
+      }
+
+      const links = await prisma.requirement_jwo_links.findMany({
+        select: {
+          jobWorkOrderId: true,
+          line: { select: { jobWorkOrderId: true } },
+          job_work_orders: { select: { jobWorkNumber: true } },
+          material_requirements: { select: { requirementNumber: true } },
+        },
+      });
+      for (const l of links) {
+        if (l.line?.jobWorkOrderId !== l.jobWorkOrderId) {
+          out.push({
+            job: l.job_work_orders.jobWorkNumber,
+            problem: `${l.material_requirements.requirementNumber} linked ${l.line ? "to another job's line" : 'to no line'}`,
+          });
+        }
+      }
+
+      const receiptRows = await prisma.grn_items.findMany({
+        where: { goods_receiving_notes: { jobWorkOrderId: { not: null } } },
+        select: {
+          jobWorkOrderLine: { select: { jobWorkOrderId: true } },
+          goods_receiving_notes: {
+            select: { grnNumber: true, jobWorkOrderId: true, jobWorkOrder: { select: { jobWorkNumber: true } } },
+          },
+        },
+      });
+      for (const r of receiptRows) {
+        if (r.jobWorkOrderLine?.jobWorkOrderId !== r.goods_receiving_notes.jobWorkOrderId) {
+          out.push({
+            job: r.goods_receiving_notes.jobWorkOrder?.jobWorkNumber ?? '?',
+            problem: `return ${r.goods_receiving_notes.grnNumber} ${r.jobWorkOrderLine ? "on another job's line" : 'on no line'}`,
+          });
         }
       }
       return out;

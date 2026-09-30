@@ -4189,12 +4189,11 @@ model requirement_jwo_links {
   allocatedQuantity     Decimal               @db.Decimal(12, 3)
   receivedQuantity      Decimal               @default(0) @db.Decimal(12, 3)
   createdAt             DateTime              @default(now())
-  /// The job line whose fabric serves this requirement — a receipt credits only its own line's links.
-  /// Nullable only until the follow-up migration (every writer goes through jwo-lines.helper.ts)
-  lineId                String?
+  /// The job line whose fabric serves this requirement — a receipt credits only its own line's links
+  lineId                String
   material_requirements material_requirements @relation(fields: [requirementId], references: [id], onDelete: Cascade)
   job_work_orders       job_work_orders       @relation(fields: [jobWorkOrderId], references: [id], onDelete: Cascade)
-  line                  job_work_order_lines? @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  line                  job_work_order_lines  @relation(fields: [lineId], references: [id], onDelete: Cascade)
 
   @@unique([requirementId, jobWorkOrderId])
   @@index([jobWorkOrderId])

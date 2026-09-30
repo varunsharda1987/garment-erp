@@ -210,7 +210,7 @@
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/CostSheetList.tsx": "6275b918ff84",
-      "frontend/src/pages/CostSheetForm.tsx": "26649baf5920",
+      "frontend/src/pages/CostSheetForm.tsx": "4ca2c78359a5",
       "frontend/src/components/fabric-costing/CostingRunDetailDialog.tsx": "cc2fa42a711f",
       "frontend/src/pages/CostSheetDetail.tsx": "400050ef170d",
       "frontend/src/components/cost-sheet/CadCorrectionBanner.tsx": "166b27ec75d1",
@@ -228,8 +228,8 @@
       "backend/src/services/helpers/cost-sheet-version.helper.ts": "81119dab49cb",
       "backend/src/controllers/style-costing-approval.controller.ts": "fab480920ee2"
     },
-    "contentHash": "09de2564460f",
-    "generatedAt": "2026-09-29T08:02:03.998Z"
+    "contentHash": "269df20bea65",
+    "generatedAt": "2026-09-30T04:12:08.510Z"
   },
   "credit-note-create": {
     "sources": {

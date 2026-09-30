@@ -118,6 +118,13 @@ keywords:
   - buyer style code
   - buyer ka style code
   - बायर स्टाइल कोड
+  - different fabrics back
+  - several colours one job
+  - cannot receive job
+  - alag colour receive nahi ho raha
+  - teen colour ek job
+  - अलग रंग रिसीव नहीं
+  - एक जॉब में कई रंग
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -257,6 +264,7 @@ A job that has already been received cannot be received again: a second click is
 - A processor with no **… - Processing Unit** is not in the list. Open the processor in **Suppliers** and save it once — the unit is created.
 - If a receipt delivered to the next processor is reversed, its lot there is taken back and both challans are cancelled — refused once the next processor's job has used any of it.
 - A job whose finished fabric cannot be identified is refused with a message asking you to link the job to its greige lot or requirement, or set its finished fabric, then receive again. A lace job with no dyed variant is refused the same way.
+- A job made for several orders that come back as **different fabrics** (different colours, prints or styles — for example one dyeing job for a Red, a Black and a Teal order) cannot be received yet: "… expects 3 different fabrics back (…), and a receipt books only one — all of it would go into stock as a single fabric. Receiving a job colour by colour is being added; until then this job cannot be received." Nothing is written. Keep the processor's challan; do not receive it as one fabric some other way. A job whose orders share one colour of one style receives as usual.
 - A dyed lace receipt lands on the **dyed variant**, not on the greige — the greige left stock when it was issued. Its cost per metre is all the greige money plus all the dyeing money, spread over the metres that actually came back.
 - A cancelled job blocks receiving. The error says the stock was already credited back; if the mill really returned material, ask the office to re-open the job first.
 - If the order was cancelled after material was issued, a disposition dialog appears asking what happened to the material. Complete that step first.

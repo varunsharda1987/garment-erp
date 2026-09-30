@@ -1342,9 +1342,9 @@
       "frontend/src/components/ui/combobox.tsx": "d1b66a9f97a1",
       "frontend/src/components/CustomerCombobox.tsx": "96c6cf20beff",
       "frontend/src/pages/SaleOrderDetail.tsx": "14272f4d5bfb",
-      "frontend/src/components/sale-order/SaleOrderForm.tsx": "a7bebea47106",
-      "frontend/src/components/sale-order/SaleOrderItemsTable.tsx": "5b1c4e241aab",
-      "frontend/src/components/sale-order/SaleOrderItemDialog.tsx": "198bb0e9bf3a",
+      "frontend/src/components/sale-order/SaleOrderForm.tsx": "2e75f3c20857",
+      "frontend/src/components/sale-order/SaleOrderItemsTable.tsx": "987d034f133f",
+      "frontend/src/components/sale-order/SaleOrderItemDialog.tsx": "087df5683c78",
       "frontend/src/components/sale-order/SizeBreakdownDialog.tsx": "aacb25829026",
       "frontend/src/components/sale-order/ChangeDatesDialog.tsx": "b7bb9f7e7fde",
       "frontend/src/components/DataTable.tsx": "3f941d111764",
@@ -1359,8 +1359,8 @@
       "backend/src/services/helpers/buyer-po-price.helper.ts": "a9b660c2bd05",
       "frontend/src/pages/DispatchDeliveryNoteForm.tsx": "543bba33453d"
     },
-    "contentHash": "001191fe736d",
-    "generatedAt": "2026-09-29T13:59:38.094Z"
+    "contentHash": "623d6d59581d",
+    "generatedAt": "2026-09-30T03:43:16.191Z"
   },
   "sample-approve": {
     "sources": {

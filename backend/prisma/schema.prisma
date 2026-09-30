@@ -2498,6 +2498,8 @@ model style_fabrics {
   selectedGreige         greige_master?        @relation("style_fabrics_selectedGreige", fields: [selectedGreigeId], references: [id])
   colorMaster            color_master?         @relation(fields: [colorMasterId], references: [id])
   stylePatternParts      style_pattern_parts[]
+  // Unique per part: greige (else fabric master) + finish + print design + colour + embroidery — raw SQL
+  // index style_fabrics_unique_component_fabric (migration 20260930120000), Prisma cannot express it; do not drop.
 
   @@index([componentId])
   @@index([fabricId])

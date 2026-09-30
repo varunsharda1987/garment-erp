@@ -260,7 +260,8 @@ export async function resolveManualJobStyleFabricAnchor(
 const sameText = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
 /**
- * Colour guard for the greige-lineage anchor. A component keeps ONE slot per greige, so a
+ * Colour guard for the greige-lineage anchor. A component usually keeps one slot per greige
+ * (two only for two prints / colours of it, which the anchor treats as ambiguous), so a
  * Black and a Navy run of the same style resolve to the same slot — and once the slot claims
  * the Black master, getOrCreateFinishedFabricV2's anchor step would hand that master to the
  * Navy run. Adopt the slot only when (a) its own colour, if set, matches the job's, and (b) the

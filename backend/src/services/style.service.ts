@@ -38,23 +38,58 @@ import { syncStyleColourway } from './helpers/style-colour.helper';
 import { buyerStyleCodeOwner, buyerStyleCodeTakenMessage } from './helpers/buyer-style-code.helper';
 
 // ============================================
-// Deduplicate Style Fabrics Helper
-// Prevents duplicate fabric entries in same component (BUG-FIX)
+// One fabric line per part per fabric
 // ============================================
-function deduplicateStyleFabrics(fabrics: StyleFabricInput[]): StyleFabricInput[] {
-  const seen = new Set<string>();
-  const unique: StyleFabricInput[] = [];
-  for (const fab of fabrics) {
-    // Create composite key from identity fields
-    const key = `${fab.genericGreigeName || ''}|${fab.fabricFinishType || ''}|${fab.hasEmbroidery || false}|${fab.embroideryId || ''}`;
-    if (seen.has(key)) {
-      logWarn(`Duplicate fabric skipped: ${key}`);
-      continue;
+const FINISH_LABEL: Record<string, string> = {
+  PRINTED: 'Printed',
+  YARN_DYED: 'Yarn Dyed',
+  DYED: 'Solid/Dyed',
+  RAW: 'Raw',
+};
+const normText = (v?: string | null) => (v ?? '').trim().toLowerCase();
+const hasDesign = (fab: StyleFabricInput) => fab.fabricFinishType === 'PRINTED' || fab.fabricFinishType === 'YARN_DYED';
+
+// Stricter than the unique index style_fabrics_unique_component_fabric (case/space-blind, and a design
+// only counts on a printed / yarn-dyed fabric), so a duplicate is refused here with a message, never
+// reaches the index as a 500. Two prints of one greige in one part are two fabrics (LNG129: Butta + Border).
+function styleFabricSlotKey(fab: StyleFabricInput): string {
+  return [
+    normText(fab.genericGreigeName) || `fabric:${fab.fabricId ?? ''}`,
+    fab.fabricFinishType ?? '',
+    hasDesign(fab) ? normText(fab.printDesign) : '',
+    fab.colorMasterId ?? '',
+    fab.hasEmbroidery ? 'EMB' : '',
+    fab.embroideryId ?? '',
+  ].join('|');
+}
+
+// Until 2026-09-30 a duplicate was dropped with only a log line, which also dropped a second print of
+// the same greige — the user saw their fabric vanish with no message.
+function assertNoDuplicateStyleFabrics(components: StyleComponentInput[] | undefined): void {
+  for (const comp of components ?? []) {
+    const seen = new Set<string>();
+    for (const fab of comp.fabrics ?? []) {
+      const key = styleFabricSlotKey(fab);
+      if (!seen.has(key)) {
+        seen.add(key);
+        continue;
+      }
+      const details = [
+        FINISH_LABEL[fab.fabricFinishType ?? ''],
+        hasDesign(fab) ? fab.printDesign?.trim() : undefined,
+        fab.hasEmbroidery ? 'embroidered' : undefined,
+      ].filter(Boolean);
+      const name = fab.genericGreigeName?.trim() || fab.fabricName?.trim() || 'the same fabric';
+      const fix = hasDesign(fab)
+        ? 'Remove one, or give it a different design name.'
+        : fab.fabricFinishType === 'DYED'
+          ? 'Remove one, or give it a different colour.'
+          : 'Remove one.';
+      throw new ValidationError(
+        `${comp.componentName} has ${name}${details.length ? ` (${details.join(', ')})` : ''} twice. ${fix}`
+      );
     }
-    seen.add(key);
-    unique.push(fab);
   }
-  return unique;
 }
 
 // ============================================
@@ -365,6 +400,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
    */
   async createWithRelations(data: CreateStyleDTO, userId: string): Promise<styles> {
     logDebug('Creating style with relations', { styleCode: data.styleCode });
+    assertNoDuplicateStyleFabrics(data.components);
 
     // Auto-generate style code if not provided
     let styleCode = data.styleCode;
@@ -419,11 +455,10 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                 componentType: comp.componentType || 'OTHER',
                 componentMasterId, // Set FK if found, null otherwise
                 sortOrder: idx,
-                // Create nested fabrics if provided (deduplicated to prevent duplicate entries)
                 ...(comp.fabrics && comp.fabrics.length > 0
                   ? {
                       style_fabrics: {
-                        create: deduplicateStyleFabrics(comp.fabrics).map((fab: StyleFabricInput) => ({
+                        create: comp.fabrics.map((fab: StyleFabricInput) => ({
                           id: randomUUID(),
                           fabricId: fab.fabricId || null,
                           fabricName: fab.fabricName || fab.greigeName || '',
@@ -1251,6 +1286,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
 
     // Verify style exists
     await this.findByIdOrThrow(id);
+    assertNoDuplicateStyleFabrics(data.components);
 
     // A Buyer Style Code belongs to one active style — this one excluded (shared with the style import)
     const existingBuyerRef = await buyerStyleCodeOwner(data.buyerStyleRef, id, this.prisma);
@@ -1339,8 +1375,8 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           },
         });
         const existingFabricIds = existingFabrics.map((f) => f.id);
-        // Received-fabric links to carry over (see looseLinkKey). style_fabrics is unique on
-        // (componentId, genericGreigeName, hasEmbroidery, embroideryId), so at most one per key.
+        // Received-fabric links to carry over (see looseLinkKey). The save refuses two slots with the
+        // same greige, finish, design, colour and embroidery in one part, so at most one per key.
         const carriedLinks = new Map<string, string>();
         for (const f of existingFabrics) {
           if (f.fabricId) {
@@ -1444,11 +1480,9 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
               },
             });
 
-            // Create nested fabrics if provided (deduplicated to prevent duplicate entries)
             let firstFabricIdForComponent: string | null = null;
             if (comp.fabrics && comp.fabrics.length > 0) {
-              const uniqueFabrics = deduplicateStyleFabrics(comp.fabrics as StyleFabricInput[]);
-              for (const fab of uniqueFabrics) {
+              for (const fab of comp.fabrics as StyleFabricInput[]) {
                 const newFabricId = randomUUID();
                 if (!firstFabricIdForComponent) firstFabricIdForComponent = newFabricId;
                 // A greige slot the payload sent without its received-fabric link keeps it
@@ -1617,6 +1651,12 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
             cadsByPurpose.get(key)!.push(cad);
           }
 
+          const linkedNow = await tx.fabric_width_cad.findMany({
+            where: { styleFabricId: { in: newFabrics.map((f) => f.id) } },
+            select: { styleFabricId: true, purpose: true },
+          });
+          const holdsPurpose = new Set(linkedNow.map((c) => `${c.styleFabricId}_${c.purpose}`));
+
           // Re-link: for each purpose-greige group, distribute CADs across matching fabrics
           for (const [, cads] of cadsByPurpose) {
             const sortedCADs = cads.sort((a, b) => Number(a.cadMeters) - Number(b.cadMeters));
@@ -1629,11 +1669,15 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
               : cadFabricId
                 ? newFabrics.filter((f) => f.fabricId === cadFabricId)
                 : [];
+            // Two prints of one greige: the print renamed in this edit is the one pass 1 left without a
+            // CAD of this purpose — its twin kept its own, so it must not be handed these as well
+            const free = matchingFabrics.filter((f) => !holdsPurpose.has(`${f.id}_${cads[0].purpose}`));
+            const pool = free.length > 0 ? free : matchingFabrics;
 
             // Distribute CADs across matching fabrics (round-robin if more CADs than fabrics)
             for (let i = 0; i < sortedCADs.length; i++) {
               const cad = sortedCADs[i];
-              const fabric = matchingFabrics.length > 0 ? matchingFabrics[i % matchingFabrics.length] : undefined;
+              const fabric = pool.length > 0 ? pool[i % pool.length] : undefined;
               if (fabric) {
                 await tx.fabric_width_cad.update({
                   where: { id: cad.id },

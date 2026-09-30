@@ -1490,7 +1490,7 @@ export const allocateToStyle = async (req: Request, res: Response) => {
   // Verify fabric exists
   const fabric = await prisma.fabric_master.findUnique({
     where: { id },
-    select: { id: true, fabricCode: true, fabricName: true, genericGreigeName: true },
+    select: { id: true, fabricCode: true, fabricName: true, genericGreigeName: true, printDesign: true },
   });
 
   if (!fabric) {
@@ -1553,44 +1553,47 @@ export const allocateToStyle = async (req: Request, res: Response) => {
     }
   }
 
+  // The unlinked slot (fabricId=null) this fabric fills in each part, picked before anything is written so
+  // an ambiguous part refuses the whole allocation. A part may hold two prints of one greige (LNG129: Poplin
+  // Butta + Poplin Border) — the fabric's own design tells them apart; it never takes whichever comes first.
+  const unlinkedSlots = await prisma.style_fabrics.findMany({
+    where: { componentId: { in: targetComponentIds }, fabricId: null },
+    include: { stylePatternParts: true },
+  });
+  const sameText = (a?: string | null, b?: string | null) =>
+    !!a?.trim() && !!b?.trim() && a.trim().toLowerCase() === b.trim().toLowerCase();
+  const placeholderFor = new Map<string, (typeof unlinkedSlots)[number] | null>();
+  for (const component of components) {
+    const unlinked = unlinkedSlots.filter((s) => s.componentId === component.id);
+    // Same greige, or a slot whose name contains the fabric's; else the part's only unlinked slot
+    let candidates = unlinked.filter(
+      (s) =>
+        sameText(s.genericGreigeName, fabric.genericGreigeName) ||
+        sameText(s.greigeName, fabric.genericGreigeName) ||
+        (!!fabric.fabricName && !!s.fabricName?.toLowerCase().includes(fabric.fabricName.toLowerCase()))
+    );
+    if (candidates.length === 0 && unlinked.length === 1) candidates = unlinked;
+    if (candidates.length > 1) {
+      const byDesign = candidates.filter((s) => sameText(s.printDesign, fabric.printDesign));
+      if (byDesign.length > 0) candidates = byDesign;
+    }
+    if (candidates.length > 1) {
+      const which = candidates.map((s) => s.printDesign?.trim() || s.fabricName || 'unnamed').join(', ');
+      throw new ValidationError(
+        fabric.printDesign
+          ? `${component.componentName} has ${candidates.length} fabric lines not yet linked to a fabric (${which}) and none is design "${fabric.printDesign}". Correct the design name on the style or on this fabric, then allocate again.`
+          : `${component.componentName} has ${candidates.length} fabric lines not yet linked to a fabric (${which}). Give this fabric its design name so the right one can be picked, then allocate again.`
+      );
+    }
+    placeholderFor.set(component.id, candidates[0] ?? null);
+  }
+
   // Process each component - create/update style_fabrics record
   const allocations: any[] = [];
 
   for (const component of components) {
     const componentId = component.id;
-
-    // Try to find an existing placeholder row (fabricId=null) in this component
-    let placeholder = null;
-
-    // Match by greigeName or fabricName
-    if (fabric.genericGreigeName || fabric.fabricName) {
-      const orConditions: any[] = [];
-      if (fabric.genericGreigeName) {
-        orConditions.push({ greigeName: fabric.genericGreigeName });
-      }
-      if (fabric.fabricName) {
-        orConditions.push({ fabricName: { contains: fabric.fabricName, mode: 'insensitive' as const } });
-      }
-      placeholder = await prisma.style_fabrics.findFirst({
-        where: {
-          componentId,
-          fabricId: null,
-          OR: orConditions,
-        },
-        include: { stylePatternParts: true },
-      });
-    }
-
-    // Fallback: if no name match but only ONE unlinked placeholder exists, use it
-    if (!placeholder) {
-      const unlinkedPlaceholders = await prisma.style_fabrics.findMany({
-        where: { componentId, fabricId: null },
-        include: { stylePatternParts: true },
-      });
-      if (unlinkedPlaceholders.length === 1) {
-        placeholder = unlinkedPlaceholders[0];
-      }
-    }
+    const placeholder = placeholderFor.get(componentId) ?? null;
 
     let styleFabric;
 

@@ -1728,20 +1728,27 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
         select: { greigeId: true },
       });
       if (fabric?.greigeId) {
-        const matchingSf = await prisma.style_fabrics.findFirst({
-          where: {
-            style_components: { styleId: workOrder.styleId },
-            fabric: { greigeId: fabric.greigeId },
-          },
-          select: {
-            id: true,
-            fabricId: true,
-            fabricName: true,
-            fabricColor: true,
-            cutableWidth: true,
-            style_components: { select: { componentName: true } },
-          },
-        });
+        const sfSelect = {
+          id: true,
+          fabricId: true,
+          fabricName: true,
+          fabricColor: true,
+          cutableWidth: true,
+          style_components: { select: { componentName: true } },
+        } as const;
+        // The slot holding this exact fabric first — two prints of one greige are two slots
+        const matchingSf =
+          (await prisma.style_fabrics.findFirst({
+            where: { style_components: { styleId: workOrder.styleId }, fabricId: cad.fabricId },
+            select: sfSelect,
+          })) ??
+          (await prisma.style_fabrics.findFirst({
+            where: {
+              style_components: { styleId: workOrder.styleId },
+              fabric: { greigeId: fabric.greigeId },
+            },
+            select: sfSelect,
+          }));
         if (matchingSf) {
           await prisma.fabric_width_cad.update({
             where: { id: cad.id },

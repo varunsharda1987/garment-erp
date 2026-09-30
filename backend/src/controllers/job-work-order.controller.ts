@@ -1164,7 +1164,7 @@ class JobWorkOrderController {
               closedHow: true,
               style: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
               colorMaster: { select: { colorName: true, hexCode: true } },
-              finishedFabric: { select: { id: true, fabricCode: true, fabricName: true } },
+              finishedFabric: { select: { id: true, fabricCode: true, fabricName: true, colorName: true } },
               finishedLace: { select: { id: true, laceCode: true, laceName: true, color: true } },
               requirementLinks: {
                 orderBy: { createdAt: 'asc' as const },

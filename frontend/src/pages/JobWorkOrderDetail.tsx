@@ -92,6 +92,7 @@ import { useDefaultSettings } from '@/hooks/useDefaultSettings';
 import { useHeldStockConfirm } from '@/hooks/useHeldStockConfirm';
 import { formatDate, toDateInputValue } from '@/lib/date';
 import { StyleIdentity } from '@/components/StyleIdentity';
+import { JobWorkLinesTable } from '@/components/job-work/JobWorkLinesTable';
 import { section143Days, SECTION_143_CRITICAL_DAYS } from '@/lib/section143';
 import { isQtyZero, prefillQty, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit } from '@/lib/quantity';
 
@@ -793,8 +794,17 @@ export default function JobWorkOrderDetail() {
   const daysOutstanding = section143Days(jwo);
   // Colour ladder, order-linked rungs first — mirrors the server's fabric-identity helper and
   // the challan. The last two only ever fire on a stock job, which has no requirement chain.
-  const colourName =
-    jwo.requirementLinks?.[0]?.materialRequirements?.colorName ?? jwo.colorMaster?.colorName ?? jwo.colorName ?? null;
+  // A job with several lines brings back several fabrics: the header names only what they share (the first
+  // order's colour stood for all of them until 30-Sep) and the lines card below names each one.
+  const jobLines = jwo.lines ?? [];
+  const severalLines = jobLines.length > 1;
+  const colourName = severalLines
+    ? (jwo.colorName ?? 'Several — see lines below')
+    : (jwo.requirementLinks?.[0]?.materialRequirements?.colorName ??
+      jwo.colorMaster?.colorName ??
+      jwo.colorName ??
+      null);
+  const showLines = severalLines || jobLines.some((line) => line.requirementLinks.length > 0);
   const isOverdue = daysOutstanding !== null && daysOutstanding > SECTION_143_CRITICAL_DAYS && !jwo.receivedDate;
   const hasAbnormalLoss = (jwo.qtyAbnormalLoss || 0) > 0;
   const currentStatus = jwo.jwoStatus;
@@ -1039,7 +1049,7 @@ export default function JobWorkOrderDetail() {
                 <div>
                   <Label className="text-muted-foreground">Style</Label>
                   <p className="font-medium">
-                    <StyleIdentity style={jwo.style} fallback="-" />
+                    <StyleIdentity style={jwo.style} fallback={severalLines ? 'Several — see lines below' : '-'} />
                   </p>
                 </div>
                 {colourName && (
@@ -1315,6 +1325,23 @@ export default function JobWorkOrderDetail() {
               </div>
             </CardContent>
           </Card>
+
+          {/* What comes back — one line per fabric, with the orders each is for */}
+          {showLines && (
+            <Card>
+              <CardHeader>
+                <CardTitle>What comes back</CardTitle>
+                <CardDescription>
+                  {severalLines
+                    ? `${jobLines.length} fabrics from one lot of greige — each order gets its own. The greige goes out together; each colour comes back as its own fabric.`
+                    : 'The order this job is for and the fabric it brings back.'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <JobWorkLinesTable lines={jobLines} uom={jwo.uom} />
+              </CardContent>
+            </Card>
+          )}
 
           {/* Components */}
           {jwo.components && jwo.components.length > 0 && (
@@ -1776,6 +1803,15 @@ export default function JobWorkOrderDetail() {
           </DialogHeader>
 
           <div className="space-y-4 py-4">
+            {severalLines && (
+              <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+                <p className="text-sm font-medium">
+                  This greige is for {jobLines.length} fabrics — it goes out together:
+                </p>
+                <JobWorkLinesTable lines={jobLines} uom={jwo.uom} compact />
+              </div>
+            )}
+
             {issueBlockers.length > 0 && (
               <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />

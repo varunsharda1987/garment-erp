@@ -103,7 +103,7 @@ const jwoDocInclude = {
       sentWidthInches: true,
       style: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
       colorMaster: { select: { colorName: true } },
-      finishedFabric: { select: { fabricName: true } },
+      finishedFabric: { select: { fabricName: true, colorName: true } },
       finishedLace: { select: { laceName: true, color: true } },
       requirementLinks: {
         orderBy: { createdAt: 'asc' },
@@ -281,7 +281,7 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
   // header names only what they share (the first order's colour stood for all of them until 30-Sep).
   const severalLines = jwo.lines.length > 1;
   const lineColour = (l: (typeof jwo.lines)[number]) =>
-    l.colorMaster?.colorName ?? l.colorName ?? l.finishedLace?.color ?? null;
+    l.colorMaster?.colorName ?? l.colorName ?? l.finishedLace?.color ?? l.finishedFabric?.colorName ?? null;
   const sharedAcrossLines = (values: Array<string | null>) =>
     values.every((v) => v != null && v === values[0]) ? values[0] : SEE_LINES;
   // Same ladder as the fabric-identity helper, order-linked rungs first: the two job-work

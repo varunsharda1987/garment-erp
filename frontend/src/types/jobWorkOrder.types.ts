@@ -60,6 +60,36 @@ export interface JobWorkOrderComponent {
   lace?: { id: string; laceCode: string; laceName: string };
 }
 
+/** One output a job brings back (job_work_order_lines) */
+export interface JobWorkOrderLine {
+  id: string;
+  lineNo: number;
+  colorName?: string | null;
+  /** This line's share of the greige sent (the greige is issued for the whole job at once) */
+  qtySent: number | string;
+  /** Fabric / lace expected back */
+  qtyExpected?: number | string | null;
+  expectedShrinkage?: number | string | null;
+  /** The finished width asked for this output */
+  sentWidthInches?: number | string | null;
+  /** Worked out from the line's accepted receipts — never stored */
+  receivedQty: number;
+  closedAt?: string | null;
+  closedHow?: 'FINAL' | 'SHORT' | null;
+  style?: { id: string; styleCode: string; buyerStyleRef?: string | null; styleName?: string | null } | null;
+  colorMaster?: { colorName: string; hexCode?: string | null } | null;
+  finishedFabric?: { id: string; fabricCode: string; fabricName: string; colorName?: string | null } | null;
+  finishedLace?: { id: string; laceCode: string; laceName: string; color?: string | null } | null;
+  requirementLinks: Array<{
+    allocatedQuantity: number | string;
+    materialRequirements: {
+      id: string;
+      requirementNumber: string;
+      orders?: { id: string; orderNumber: string } | null;
+    };
+  }>;
+}
+
 export interface JobWorkOrder {
   id: string;
   jobWorkNumber: string;
@@ -162,6 +192,11 @@ export interface JobWorkOrder {
       orderBomItem?: { greige?: { id: string; greigeCode: string; greigeName: string } | null } | null;
     } | null;
   }>;
+  /**
+   * What the job brings back — one line per fabric / dyed lace, each with the orders it serves (detail endpoint
+   * only). The header's style / colour / fabric / quantities mirror these: blank when the lines differ.
+   */
+  lines?: JobWorkOrderLine[];
   style?: { id: string; styleCode: string; buyerStyleRef?: string | null };
   /** Shade asked on a stock (style-less) job. Order-linked jobs read colour off the chain above. */
   colorMaster?: { id: string; colorCode: string; colorName: string; hexCode?: string | null } | null;

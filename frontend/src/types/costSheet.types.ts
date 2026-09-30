@@ -13,6 +13,10 @@ export type FabricDetail = {
   isNotApplicable?: boolean;
   // Track if fabric was auto-populated (N/A checkbox only shows for manually added items)
   isAutoPopulated?: boolean;
+  // The CAD row (fabric_width_cad) this line was filled from. The server pairs the line with that
+  // row by this id; without it, it guesses by name and width, and two rows of one greige at one
+  // width (SP27CK130's Combined 2.46 m and its 0.46 m part) tie and get linked crossed.
+  fabricCADId?: string;
   // Sourcing Strategy Fields
   fabricId?: string;
   sourcingStrategy?: 'STOCK_REUSE' | 'READY_FABRIC' | 'GREIGE_PROCESSED';

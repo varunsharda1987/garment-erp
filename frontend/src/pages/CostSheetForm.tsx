@@ -918,6 +918,8 @@ const CostSheetForm = () => {
                           fabricRate: optFabricRate,
                           fabricTotal: optFabricAverage * optFabricRate,
                           fabricId: fabric.fabricId ?? undefined,
+                          // The costing option IS the CAD row — the server pairs by this, never a guess
+                          fabricCADId: opt.id,
                           // Carry sourcing strategy from fabric costing
                           sourcingStrategy: opt.processorId ? 'GREIGE_PROCESSED' : 'READY_FABRIC',
                           processorId: opt.processorId ?? undefined,
@@ -1061,7 +1063,12 @@ const CostSheetForm = () => {
                 // Create unique key using IDENTITY fields only
                 // fabricId is primary identifier; if absent, use fabricName + fabricWidth
                 // Include sourcingStrategy and processorId as they represent different procurement paths
-                const identityPart = fabric.fabricId ? fabric.fabricId : `${fabric.fabricName}-${fabric.fabricWidth}`;
+                // A line filled from a CAD row is identified by that row: the same option reached twice
+                // (Body / Body - Embroidered) collapses, while two rows of one greige at one width stay
+                // two lines — name + width alone would drop one of them.
+                const identityPart =
+                  fabric.fabricCADId ??
+                  (fabric.fabricId ? fabric.fabricId : `${fabric.fabricName}-${fabric.fabricWidth}`);
                 const fabricKey = `${identityPart}-${fabric.sourcingStrategy || ''}-${fabric.processorId || ''}`;
 
                 if (!seenFabricKeys.has(fabricKey)) {
@@ -1808,6 +1815,8 @@ const CostSheetForm = () => {
             fabricAverage: Number(fab.cadAverage) || 0,
             fabricRate: Number(fab.totalCostPerMeter) || 0,
             fabricTotal: (Number(fab.cadAverage) || 0) * (Number(fab.totalCostPerMeter) || 0),
+            // The CAD row this run line was frozen from (null once that row's costing was removed)
+            fabricCADId: fab.cadId ?? undefined,
             // Carry sourcing strategy from costing run
             sourcingStrategy: fab.processor ? 'GREIGE_PROCESSED' : 'READY_FABRIC',
             processorId: fab.processor?.id,

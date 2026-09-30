@@ -309,6 +309,67 @@ describe('Cost-sheet update pairs each CAD row with its OWN fabric line', () => 
       .send({ fabricDetails: fabricDetailsPayload() });
   });
 
+  it('pairs each line with the CAD row the page sends when two rows of one greige tie on width (SP27CK130)', async () => {
+    // SP27CK130 (30-Sep): one greige at 53" costed as two CAD rows — the "Combined: Kurta, Pallazo"
+    // 2.46 m row and a 0.46 m part. Nothing the matcher reads told them apart: same greige, same
+    // width, and line names ("Combined: …", "GRG-0038 - …") that match neither by name. So the row
+    // saved last took the first line and the two were linked crossed. The page now sends each
+    // line's CAD row (fabricCADId), and that must win outright.
+    const COMBINED = 'Combined: Shirt, Pant';
+    await prisma.fabric_width_cad.update({ where: { id: cadWide }, data: { componentName: COMBINED } });
+    // the part row: same width as the Combined row, and saved last so it sorts first
+    await prisma.fabric_width_cad.update({
+      where: { id: cadNarrow },
+      data: { cutableWidth: WIDE.width, updatedAt: new Date(Date.now() + 1000) },
+    });
+    try {
+      const line = (name: string, cad: typeof WIDE, fabricCADId?: string) => ({
+        fabricName: name,
+        fabricWidth: WIDE.width,
+        fabricAverage: cad.average,
+        fabricRate: cad.rate,
+        fabricTotal: cad.average * cad.rate,
+        ...(fabricCADId && { fabricCADId }),
+      });
+      const partName = `${RUN}-GRG - ${SHORT_NAME} 30x30 / 68x64 / 63" (Super Dyeing)`;
+
+      // Without the ids: the old guess — a tie, and the part row takes the Combined line
+      const guessed = await request(app)
+        .put(`/api/style-costing/${costSheetId}`)
+        .set(authHeader)
+        .send({ fabricDetails: [line(COMBINED, WIDE), line(partName, NARROW)] });
+      expect(guessed.status).toBe(200);
+      expect((guessed.body.warnings ?? []).join(' ')).toMatch(/equally well/);
+      const crossed = await prisma.style_costing_fabric_items.findMany({ where: { costingId: costSheetId } });
+      expect(Number(crossed.find((i) => i.fabricCADId === cadNarrow)!.cadMeters)).toBeCloseTo(WIDE.average, 4);
+
+      // With the ids, as the page now posts them: exact, and no warning
+      const res = await request(app)
+        .put(`/api/style-costing/${costSheetId}`)
+        .set(authHeader)
+        .send({ fabricDetails: [line(COMBINED, WIDE, cadWide), line(partName, NARROW, cadNarrow)] });
+      expect(res.status).toBe(200);
+      expect((res.body.warnings ?? []).join(' ')).not.toMatch(/equally well|paired by position/);
+
+      const items = await prisma.style_costing_fabric_items.findMany({ where: { costingId: costSheetId } });
+      expect(items).toHaveLength(2);
+      const combinedItem = items.find((i) => i.fabricCADId === cadWide)!;
+      const partItem = items.find((i) => i.fabricCADId === cadNarrow)!;
+      expect(combinedItem.fabricName).toBe(COMBINED);
+      expect(Number(combinedItem.cadMeters)).toBeCloseTo(WIDE.average, 4);
+      expect(partItem.fabricName).toBe(partName);
+      expect(Number(partItem.cadMeters)).toBeCloseTo(NARROW.average, 4);
+    } finally {
+      // width first: at one width the two rows may not share a component name (unique index)
+      await prisma.fabric_width_cad.update({ where: { id: cadNarrow }, data: { cutableWidth: NARROW.width } });
+      await prisma.fabric_width_cad.update({ where: { id: cadWide }, data: { componentName: 'Shirt' } });
+      await request(app)
+        .put(`/api/style-costing/${costSheetId}`)
+        .set(authHeader)
+        .send({ fabricDetails: fabricDetailsPayload() });
+    }
+  });
+
   it('reports a warning instead of silently dropping a CAD row with no cost line', async () => {
     const res = await request(app)
       .put(`/api/style-costing/${costSheetId}`)

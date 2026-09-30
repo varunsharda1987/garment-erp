@@ -27,6 +27,7 @@ import { purchaseOrderService } from '../../services/purchaseOrder.service';
 import { grnService } from '../../services/grn.service';
 import { supplierService } from '../../services/supplier.service';
 import { checkForDuplicatePOs } from '../../services/unified-po-creation.service';
+import { createOneLineJobWorkOrder } from '../../services/helpers/jwo-lines.helper';
 
 const RUN = `POSC${Date.now().toString(36).toUpperCase()}`;
 
@@ -535,18 +536,16 @@ describe('Short-close is refused where it would lie', () => {
     const supplierId = await makeSupplier('I');
     const poId = await makePO({ suffix: 'I', supplierId, status: 'PARTIALLY_RECEIVED', poCategory: 'PROCESSING' });
     await makeItem(poId, 100, 40);
-    await prisma.job_work_orders.create({
-      data: {
-        id: randomUUID(),
-        jobWorkNumber: `${RUN}-JWO`,
-        processType: 'DYEING',
-        processorId: supplierId,
-        purchaseOrderId: poId,
-        qtySentMeters: 100,
-        agreedRatePerMeter: 25,
-        jwoStatus: 'AT_PROCESSOR',
-        createdById: userId,
-      },
+    await createOneLineJobWorkOrder(prisma, {
+      id: randomUUID(),
+      jobWorkNumber: `${RUN}-JWO`,
+      processType: 'DYEING',
+      processorId: supplierId,
+      purchaseOrderId: poId,
+      qtySentMeters: 100,
+      agreedRatePerMeter: 25,
+      jwoStatus: 'AT_PROCESSOR',
+      createdById: userId,
     });
 
     const res = await shortClose(poId, { reason: 'close it' });

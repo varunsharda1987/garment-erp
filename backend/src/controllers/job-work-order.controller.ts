@@ -58,6 +58,7 @@ import {
 import { toDateInputValue } from '../utils/date';
 import { echoShadowPoStatus } from '../services/helpers/shadow-po.helper';
 import { returnJobWorkUnprocessed } from '../services/helpers/jwo-return-unprocessed.helper';
+import { createOneLineJobWorkOrder } from '../services/helpers/jwo-lines.helper';
 import { ConflictError, UnauthorizedError } from '../errors';
 import { resolveJwoRate, jwoRateProvenance, type JwoRateResolution } from '../services/helpers/jwo-rate.helper';
 import { resolveJwoExpectedShrinkage } from '../services/helpers/shrinkage-resolver.helper';
@@ -405,8 +406,9 @@ class JobWorkOrderController {
 
       const jobWorkNumber = await generateJobWorkNumber(body.processType, style?.styleCode || 'STK');
 
-      const jwo = await prisma.job_work_orders.create({
-        data: {
+      // The job and its one line (its output), together
+      const jwo = await prisma.$transaction((tx) =>
+        createOneLineJobWorkOrder(tx, {
           jobWorkNumber,
           processType: body.processType,
           processTypeId: processTypeMaster.id,
@@ -463,8 +465,8 @@ class JobWorkOrderController {
           buttonholeRatePerUnit: buttonholeRate,
           buttonRatePerUnit: buttonRate,
           createdById: userId,
-        },
-      });
+        })
+      );
 
       // Commercial totals. KAAJ subtotal comes from the two-operation formula (qty × rate
       // does not apply); everything else uses the shared computeCommercialTotals.

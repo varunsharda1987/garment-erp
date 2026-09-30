@@ -24,6 +24,7 @@ import { randomUUID } from 'crypto';
 import app from '../../app';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
 import { ensureMaterialRecord, syncStockLevelQuantity } from '../../services/helpers/material-sync.helper';
+import { linkRequirementToLine, theOnlyLine } from '../../services/helpers/jwo-lines.helper';
 
 const RUN = `FIS${Date.now().toString(36).toUpperCase()}`;
 
@@ -306,8 +307,11 @@ describe('issuing greige fabric on a job work order', () => {
     const created = await createJwo();
     expect(created.status).toBe(201);
     const jobId = created.body.data.id as string;
-    await prisma.requirement_jwo_links.create({
-      data: { requirementId: dyeReq.id, jobWorkOrderId: jobId, allocatedQuantity: SEND_QTY },
+    await linkRequirementToLine(prisma, {
+      requirementId: dyeReq.id,
+      jobWorkOrderId: jobId,
+      lineId: (await theOnlyLine(prisma, jobId, 'Linking')).id,
+      allocatedQuantity: SEND_QTY,
     });
 
     const res = await request(app)

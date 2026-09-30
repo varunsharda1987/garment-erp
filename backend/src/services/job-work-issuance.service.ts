@@ -28,6 +28,7 @@ import { consumeLaceStock, restoreLaceStock } from './laceStock.service';
 import { jobWorkOrderService, JobWorkOrderError, JWO_ERROR_CODES } from './job-work-order.service';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
 import { jwoStockUnit, setJwoStatus } from './helpers/jwo-status.helper';
+import { stampJwoFinishedFabric } from './helpers/jwo-arriving-material.helper';
 import { consumeReservations, unconsumeReservations } from './helpers/stock-reservation.helper';
 import {
   heldForOtherOrders,
@@ -1454,6 +1455,8 @@ async function issueOneWithinTx(
       ].filter(Boolean)
     ),
   ].join(', ');
+  // A finished fabric minted at send time (Create & Send) is the job line's — jwo-lines.helper
+  if (opts.finishedFabricId) await stampJwoFinishedFabric(jwoId, opts.finishedFabricId, tx);
   await setJwoStatus(tx, jwoId, 'ISSUED', {
     challanNumber:
       opts.challanNumber ||
@@ -1463,7 +1466,6 @@ async function issueOneWithinTx(
     greigeStockLotId: lots[0]?.row.id ?? null,
     fabricStockLotId: fabricLotRow?.id ?? jwo.fabricStockLotId,
     outwardChallanId: challan?.id ?? null,
-    finishedFabricId: opts.finishedFabricId ?? jwo.finishedFabricId,
     ...(declaredValue > 0 ? { declaredValue } : {}),
     // Actual lot width wins silence: fill only when creation didn't already set it
     ...(jwo.greigeWidthInches == null && lots[0]?.row.greigeWidth != null

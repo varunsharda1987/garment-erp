@@ -17,6 +17,7 @@ import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
 import { calculateRequirementsFromOrder } from '../../services/mrp.service';
 import { ensureMaterialRecord } from '../../services/helpers/material-sync.helper';
 import { only } from '../../utils/prisma-test-guard';
+import { linkRequirementToLine, theOnlyLine } from '../../services/helpers/jwo-lines.helper';
 
 const RUN = `MGS${Date.now().toString(36).toUpperCase()}`;
 const QTY = 1000;
@@ -179,8 +180,11 @@ describe('MRP re-run after the greige has gone to the dyer', () => {
     expect(job.status).toBe(201);
     jobId = job.body.data.id;
     await prisma.job_work_orders.update({ where: { id: jobId }, data: { jwoStatus: 'STOCK_UPDATED' } });
-    await prisma.requirement_jwo_links.create({
-      data: { requirementId: processing.id, jobWorkOrderId: jobId, allocatedQuantity: QTY },
+    await linkRequirementToLine(prisma, {
+      requirementId: processing.id,
+      jobWorkOrderId: jobId,
+      lineId: (await theOnlyLine(prisma, jobId, 'Linking')).id,
+      allocatedQuantity: QTY,
     });
     await prisma.material_requirements.update({ where: { id: processing.id }, data: { status: 'RECEIVED' } });
 

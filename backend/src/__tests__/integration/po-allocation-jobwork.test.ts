@@ -21,6 +21,7 @@ import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
 import { only } from '../../utils/prisma-test-guard';
 import { ensureMaterialRecord, syncStockLevelQuantity } from '../../services/helpers/material-sync.helper';
 import { heldForRequirement } from '../../services/helpers/stock-reservation.helper';
+import { linkRequirementToLine, theOnlyLine } from '../../services/helpers/jwo-lines.helper';
 
 jest.setTimeout(120000);
 
@@ -212,8 +213,11 @@ beforeAll(async () => {
   });
   expect(created.status).toBe(201);
   jwoId = created.body.data.id;
-  await prisma.requirement_jwo_links.create({
-    data: { requirementId: R.rAp, jobWorkOrderId: jwoId, allocatedQuantity: 500 },
+  await linkRequirementToLine(prisma, {
+    requirementId: R.rAp,
+    jobWorkOrderId: jwoId,
+    lineId: (await theOnlyLine(prisma, jwoId, 'Linking')).id,
+    allocatedQuantity: 500,
   });
 });
 
@@ -362,8 +366,11 @@ describe('issuing greige held for another order to a job work order', () => {
     });
     expect(created.status).toBe(201);
     const job = created.body.data.id as string;
-    await prisma.requirement_jwo_links.create({
-      data: { requirementId: R.rAp, jobWorkOrderId: job, allocatedQuantity: 600 },
+    await linkRequirementToLine(prisma, {
+      requirementId: R.rAp,
+      jobWorkOrderId: job,
+      lineId: (await theOnlyLine(prisma, job, 'Linking')).id,
+      allocatedQuantity: 600,
     });
     const send = (body: Record<string, unknown>) =>
       request(app).post(`/api/dyeing/process-pos/${job}/send`).set(authHeader).send(body);

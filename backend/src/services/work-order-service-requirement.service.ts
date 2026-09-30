@@ -23,6 +23,7 @@ import { applySearch } from '../utils/search-filter';
 import { generateJobWorkNumber } from '../utils/jobWorkNumber';
 import { jobWorkOrderService, JobWorkOrderError, JWO_ERROR_CODES } from './job-work-order.service';
 import { splitReceiptAcrossLinks, RECEIPT_COMPLETE_TOLERANCE } from './helpers/receipt-split.helper';
+import { createOneLineJobWorkOrder } from './helpers/jwo-lines.helper';
 
 // ============================================
 // TYPES
@@ -1093,26 +1094,25 @@ export async function generateServiceJWOs(data: {
 
       const jobWorkNumber = await generateJobWorkNumber(serviceType, styleCodes[0] || 'STK');
 
-      const jwo = await tx.job_work_orders.create({
-        data: {
-          jobWorkNumber,
-          processType: serviceType,
-          processTypeId: processTypeMasterId,
-          processorId,
-          styleId: styleIds.length === 1 ? styleIds[0] : null,
-          workOrderId: workOrderIds.length === 1 ? workOrderIds[0] : null,
-          qtySentMeters: totalQty,
-          uom,
-          agreedRatePerMeter: rate,
-          // Rate provenance (qty-rate audit 2026-08-24): service rates come from the style's
-          // own estimates/cost sheet, never a fabric slab card
-          rateSource: 'MANUAL',
-          rateBasisQuantity: totalQty,
-          expectedReturnDate: new Date(expectedDeliveryDate),
-          jwoStatus: 'DRAFT',
-          remarks: `[Service Req] ${woNumbers.join(', ')}${remarks ? `\n${remarks}` : ''}`,
-          createdById: userId,
-        },
+      // Piece work brings back one thing: the job and its one line
+      const jwo = await createOneLineJobWorkOrder(tx, {
+        jobWorkNumber,
+        processType: serviceType,
+        processTypeId: processTypeMasterId,
+        processorId,
+        styleId: styleIds.length === 1 ? styleIds[0] : null,
+        workOrderId: workOrderIds.length === 1 ? workOrderIds[0] : null,
+        qtySentMeters: totalQty,
+        uom,
+        agreedRatePerMeter: rate,
+        // Rate provenance (qty-rate audit 2026-08-24): service rates come from the style's
+        // own estimates/cost sheet, never a fabric slab card
+        rateSource: 'MANUAL',
+        rateBasisQuantity: totalQty,
+        expectedReturnDate: new Date(expectedDeliveryDate),
+        jwoStatus: 'DRAFT',
+        remarks: `[Service Req] ${woNumbers.join(', ')}${remarks ? `\n${remarks}` : ''}`,
+        createdById: userId,
       });
 
       // Commercial totals (R1 softening: unresolved GST → subtotal-only + warning)

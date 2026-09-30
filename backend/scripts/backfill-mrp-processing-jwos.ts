@@ -17,6 +17,7 @@
 import { PrismaClient } from '@prisma/client';
 import { buildJwoDataForProcessingPO } from '../src/services/mrp.service';
 import { generateJobWorkNumber } from '../src/utils/jobWorkNumber';
+import { createOneLineJobWorkOrder } from '../src/services/helpers/jwo-lines.helper';
 
 const prisma = new PrismaClient();
 const APPLY = process.argv.includes('--apply');
@@ -101,8 +102,9 @@ async function main() {
     if (APPLY) {
       const jobWorkNumber = await generateJobWorkNumber(processType, styleCode);
       await prisma.$transaction(async (tx) => {
-        await tx.job_work_orders.create({
-          data: buildJwoDataForProcessingPO(
+        await createOneLineJobWorkOrder(
+          tx,
+          buildJwoDataForProcessingPO(
             {
               poId: po.id,
               processorId: po.supplierId,
@@ -120,8 +122,8 @@ async function main() {
               userId: po.createdById,
             },
             jobWorkNumber
-          ),
-        });
+          )
+        );
       });
       console.log(`  → created ${jobWorkNumber}`);
       created++;

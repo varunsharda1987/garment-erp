@@ -35,6 +35,7 @@ import {
   resolveFinishedFabricIdentity,
 } from './fabric-identity.helper';
 import { buyerStyleCode } from '../../utils/style-code';
+import { stampLineFinishedFabric, theOnlyLine } from './jwo-lines.helper';
 
 type Tx = Prisma.TransactionClient;
 
@@ -273,7 +274,13 @@ export async function resolveOrMintJwoArrivingMaterial(
   );
 }
 
-/** Persist a freshly minted finished fabric on the JWO so approval — and every later reader — finds it. */
+/**
+ * Persist the finished fabric a one-output job brings back — on its line, mirrored to the job — so approval
+ * and every later reader find it. A job with several lines names each line's fabric instead (refused here).
+ */
 export async function stampJwoFinishedFabric(jwoId: string, finishedFabricId: string, tx?: Tx): Promise<void> {
-  await (tx ?? prisma).job_work_orders.update({ where: { id: jwoId }, data: { finishedFabricId } });
+  const client = tx ?? prisma;
+  const line = await theOnlyLine(client, jwoId, 'Naming the finished fabric');
+  if (line.finishedFabricId === finishedFabricId) return;
+  await stampLineFinishedFabric(client, line.id, finishedFabricId);
 }

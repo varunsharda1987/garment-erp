@@ -40,6 +40,13 @@ import { jobWorkOrderService, JobWorkOrderError, JWO_ERROR_CODES } from '../serv
 // (shared with dyeing.controller.ts and the MRP → JWO bridge in mrp.service.ts)
 import { maxNumericSuffix, seedScopedSequenceIfMissing, generateJobWorkNumber } from '../utils/jobWorkNumber';
 import { findProcessingRequirementMatches, updateJwoReceivedQuantity } from '../services/mrp.service';
+import {
+  createOneLineJobWorkOrder,
+  linkRequirementToLine,
+  theOnlyLine,
+  updateTheOnlyLine,
+  type JwoLineShape,
+} from '../services/helpers/jwo-lines.helper';
 import { resolveJwoExpectedShrinkage } from '../services/helpers/shrinkage-resolver.helper';
 import { jwoRateProvenance } from '../services/helpers/jwo-rate.helper';
 import {
@@ -886,8 +893,8 @@ export const createPrintJob = async (req: Request, res: Response, _next: NextFun
 
   const jobWorkNumber = await generateJobWorkNumber(processType, (labDip as any).style.styleCode);
 
-  const job = await prisma.job_work_orders.create({
-    data: {
+  const created = await prisma.$transaction((tx) =>
+    createOneLineJobWorkOrder(tx, {
       jobWorkNumber,
       processType,
       labDipId,
@@ -905,7 +912,10 @@ export const createPrintJob = async (req: Request, res: Response, _next: NextFun
       remarks,
       jwoStatus: 'DRAFT',
       createdById: userId,
-    },
+    })
+  );
+  const job = await prisma.job_work_orders.findUniqueOrThrow({
+    where: { id: created.id },
     include: jobWorkOrderInclude,
   });
 
@@ -945,17 +955,22 @@ export const updatePrintJob = async (req: Request, res: Response, _next: NextFun
   if (fabricStockLotId !== undefined) updateData.fabricStockLotId = fabricStockLotId;
   if (fabricType !== undefined) updateData.fabricType = fabricType;
   if (reprocessReason !== undefined) updateData.reprocessReason = reprocessReason;
-  if (qtySentMeters !== undefined) updateData.qtySentMeters = qtySentMeters;
-  if (sentWidthInches !== undefined) updateData.sentWidthInches = sentWidthInches;
   if (expectedReturnDate !== undefined) updateData.expectedReturnDate = new Date(expectedReturnDate);
-  if (expectedShrinkage !== undefined) updateData.expectedShrinkage = expectedShrinkage;
   if (agreedRatePerMeter !== undefined) updateData.agreedRatePerMeter = agreedRatePerMeter;
   if (remarks !== undefined) updateData.remarks = remarks;
 
-  const job = await prisma.job_work_orders.update({
-    where: { id },
-    data: updateData,
-    include: jobWorkOrderInclude,
+  // The quantity sent, the width asked and the shrinkage are the job's LINE (its output): the line changes and
+  // the header follows it (jwo-lines.helper). A job with several lines is refused there.
+  const linePatch: Partial<JwoLineShape> = {};
+  if (qtySentMeters !== undefined) linePatch.qtySent = qtySentMeters;
+  if (sentWidthInches !== undefined) linePatch.sentWidthInches = sentWidthInches;
+  if (expectedShrinkage !== undefined) linePatch.expectedShrinkage = expectedShrinkage;
+
+  const job = await prisma.$transaction(async (tx) => {
+    if (Object.keys(linePatch).length > 0) {
+      await updateTheOnlyLine(tx, id, linePatch, 'Editing the quantity, width or shrinkage');
+    }
+    return tx.job_work_orders.update({ where: { id }, data: updateData, include: jobWorkOrderInclude });
   });
 
   res.json({ data: transformJobWorkOrder(job as any) });
@@ -1574,37 +1589,35 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
     });
 
     // Create job work order (greige lot attached; no PO)
-    const job = await tx.job_work_orders.create({
-      data: {
-        jobWorkNumber,
-        processType: 'PRINTING',
-        processTypeId: processTypeMaster?.id ?? null,
-        labDipId: labDipId || null, // Now optional for style-based PO
-        styleId: resolvedStyleId,
-        fabricId: resolvedFabricId,
-        processorId: resolvedProcessorId,
-        fabricStockLotId: validatedFabricStockLotId || null,
-        greigeStockLotId: greigeStockLotId || null,
-        fabricType,
-        qtySentMeters,
-        qtyBillable, // billing basis = expected fabric out (sent × (1 − shrinkage))
-        greigeWidthInches,
-        sentWidthInches,
-        expectedReturnDate: expectedReturnDate ? new Date(expectedReturnDate) : null,
-        expectedShrinkage: resolvedExpectedShrinkage,
-        agreedRatePerMeter: effectiveAgreedRate,
-        isRateTbd, // Explicit TBD marker when rate=0 is intentional
-        // Rate provenance (qty-rate audit 2026-08-24)
-        rateCardId: rateProvenance.rateCardId,
-        slabId: rateProvenance.slabId,
-        rateSource: rateProvenance.rateSource,
-        rateBasisQuantity: qtyBillable,
-        costedRatePerMeter: rateProvenance.costedRatePerMeter,
-        rateVarianceReason: rateProvenance.rateVarianceReason,
-        remarks,
-        jwoStatus: 'DRAFT',
-        createdById: userId,
-      },
+    const job = await createOneLineJobWorkOrder(tx, {
+      jobWorkNumber,
+      processType: 'PRINTING',
+      processTypeId: processTypeMaster?.id ?? null,
+      labDipId: labDipId || null, // Now optional for style-based PO
+      styleId: resolvedStyleId,
+      fabricId: resolvedFabricId,
+      processorId: resolvedProcessorId,
+      fabricStockLotId: validatedFabricStockLotId || null,
+      greigeStockLotId: greigeStockLotId || null,
+      fabricType,
+      qtySentMeters,
+      qtyBillable, // billing basis = expected fabric out (sent × (1 − shrinkage))
+      greigeWidthInches,
+      sentWidthInches,
+      expectedReturnDate: expectedReturnDate ? new Date(expectedReturnDate) : null,
+      expectedShrinkage: resolvedExpectedShrinkage,
+      agreedRatePerMeter: effectiveAgreedRate,
+      isRateTbd, // Explicit TBD marker when rate=0 is intentional
+      // Rate provenance (qty-rate audit 2026-08-24)
+      rateCardId: rateProvenance.rateCardId,
+      slabId: rateProvenance.slabId,
+      rateSource: rateProvenance.rateSource,
+      rateBasisQuantity: qtyBillable,
+      costedRatePerMeter: rateProvenance.costedRatePerMeter,
+      rateVarianceReason: rateProvenance.rateVarianceReason,
+      remarks,
+      jwoStatus: 'DRAFT',
+      createdById: userId,
     });
 
     // Phase 4a (BUG-JWC6): JWO commercial parity — unresolved GST downgrades to
@@ -1633,17 +1646,16 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
         data: { status: 'PO_GENERATED' },
       });
       if (flip.count === 1) {
-        await tx.requirement_jwo_links.create({
-          data: {
-            requirementId: openReq.id,
-            jobWorkOrderId: job.id,
-            // Fabric-basis: receivedQuantity accumulates fabric meters, so the allocation
-            // must be fabric too (requirement shortfall is greige-basis — deduct shrinkage).
-            allocatedQuantity: Math.min(
-              toNumber(roundToCent(applyShrinkageLoss(openReq.shortfall, resolvedExpectedShrinkage ?? 0))),
-              qtyBillable
-            ),
-          },
+        await linkRequirementToLine(tx, {
+          lineId: (await theOnlyLine(tx, job.id, 'Linking a requirement')).id,
+          requirementId: openReq.id,
+          jobWorkOrderId: job.id,
+          // Fabric-basis: receivedQuantity accumulates fabric meters, so the allocation
+          // must be fabric too (requirement shortfall is greige-basis — deduct shrinkage).
+          allocatedQuantity: Math.min(
+            toNumber(roundToCent(applyShrinkageLoss(openReq.shortfall, resolvedExpectedShrinkage ?? 0))),
+            qtyBillable
+          ),
         });
         linkedRequirementNumbers.push(openReq.requirementNumber);
       }

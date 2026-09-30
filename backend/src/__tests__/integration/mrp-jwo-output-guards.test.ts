@@ -180,6 +180,52 @@ describe('MRP raises one job work order per greige', () => {
   });
 });
 
+describe('MRP gives a job one line per fabric it brings back (DJ-EBEW-002-001)', () => {
+  it('two Red orders of one style share a line; a Black order of another style gets its own, with its own fabric', async () => {
+    const g4 = await mkGreige('4');
+    const redA1 = await mkRequirement({ greigeId: g4, orderItemId: itemA, colorName: 'Red' });
+    const redA2 = await mkRequirement({ greigeId: g4, orderItemId: itemA, colorName: 'Red' });
+    const blackB = await mkRequirement({ greigeId: g4, orderItemId: itemB, colorName: 'Black' });
+
+    const result = await generatePOFromRequirements(
+      {
+        requirementIds: [redA1.id, redA2.id, blackB.id],
+        supplierId: dyerId,
+        expectedDeliveryDate: new Date(Date.now() + 20 * 86400000).toISOString(),
+        itemPrices: { [redA1.id]: 10, [redA2.id]: 10, [blackB.id]: 10 },
+      } as never,
+      userId
+    );
+
+    expect(result.jobWorkOrders ?? [result.jobWorkOrder]).toHaveLength(1);
+    const jobId = result.jobWorkOrder!.id;
+    const lines = await prisma.job_work_order_lines.findMany({
+      where: { jobWorkOrderId: jobId },
+      include: { requirementLinks: true },
+      orderBy: { lineNo: 'asc' },
+    });
+    expect(lines).toHaveLength(2);
+    const redLine = lines.find((l) => l.colorName === 'Red')!;
+    const blackLine = lines.find((l) => l.colorName === 'Black')!;
+    expect(redLine.styleId).toBe(styleA);
+    expect(redLine.requirementLinks.map((l) => l.requirementId).sort()).toEqual([redA1.id, redA2.id].sort());
+    expect(blackLine.styleId).toBe(styleB);
+    expect(blackLine.requirementLinks.map((l) => l.requirementId)).toEqual([blackB.id]);
+    expect(redLine.finishedFabricId).toBeTruthy();
+    expect(blackLine.finishedFabricId).toBeTruthy();
+    expect(redLine.finishedFabricId).not.toBe(blackLine.finishedFabricId);
+    expect(Number(redLine.qtyExpected)).toBe(2 * Number(blackLine.qtyExpected));
+
+    // The job mirrors its lines: totals summed, the style / colour / fabric they do not share left blank
+    const job = await prisma.job_work_orders.findUniqueOrThrow({ where: { id: jobId } });
+    expect(Number(job.qtySentMeters)).toBe(Number(redLine.qtySent) + Number(blackLine.qtySent));
+    expect(Number(job.qtyBillable)).toBe(Number(redLine.qtyExpected) + Number(blackLine.qtyExpected));
+    expect(job.styleId).toBeNull();
+    expect(job.colorName).toBeNull();
+    expect(job.finishedFabricId).toBeNull();
+  });
+});
+
 describe('the Process PO matcher links only requirements of the job’s own style and colour', () => {
   it('offers the job’s style + colour (and colourless requirements of that style), and warns greige-wide', async () => {
     const g3 = await mkGreige('3');

@@ -56,10 +56,13 @@ async function main() {
         `${APPLY ? 'LINK' : 'WOULD LINK'}: ${jwo.jobWorkNumber} ← ${poLinks.length} requirement link(s) (${existing} already present)`
       );
       if (APPLY) {
+        // A job linked to a PO brings back one output — its links belong to its one line
+        const line = await prisma.job_work_order_lines.findFirstOrThrow({ where: { jobWorkOrderId: jwo.id, lineNo: 1 } });
         const result = await prisma.requirement_jwo_links.createMany({
           data: poLinks.map((l) => ({
             requirementId: l.requirementId,
             jobWorkOrderId: jwo.id,
+            lineId: line.id,
             allocatedQuantity: l.allocatedQuantity,
             receivedQuantity: l.receivedQuantity,
           })),

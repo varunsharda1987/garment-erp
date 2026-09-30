@@ -48,6 +48,7 @@ import {
   JWO_AT_PROCESSOR_STATUSES,
   JWO_GRN_UOMS,
 } from './helpers/jwo-status.helper';
+import { theOnlyLine } from './helpers/jwo-lines.helper';
 import { closeOutwardChallanForJwo, resyncOutwardChallanAfterReversal } from './helpers/jwo-challan-lifecycle.helper';
 import { updateGreigeLastPurchaseRate } from './helpers/greige-rate.helper';
 import { determineFinishType } from './helpers/processing-fabric.helper';
@@ -1667,8 +1668,8 @@ class GRNService {
                   // BUG-JWC4: if a (bridged) JWO exists, stamp it so the job-work views and
                   // GRN reversal see the receipt — previously this case created no stock at all
                   if (jobWorkOrder) {
+                    await stampJwoFinishedFabric(jobWorkOrder.id, fabricResult.fabricId, tx);
                     await setJwoStatus(tx, jobWorkOrder.id, 'STOCK_UPDATED', {
-                      finishedFabricId: fabricResult.fabricId,
                       qtyReceivedMeters: qtyReceived,
                       receivedDate: receivedAt,
                       grnId: id,
@@ -3161,6 +3162,9 @@ class GRNService {
       );
     }
     await assertOneArrivingFabric(jwo, opts?.tx);
+    // The line (output) this receipt brings back — receiving works on one-line jobs until a receipt can
+    // pick its line; a job with several lines is refused here, before anything is written.
+    const line = await theOnlyLine(client, jwo.id, 'Receiving');
 
     // A return cannot be dated before the day the greige went out (the owner's first receipt was
     // dated 27-Aug on a job sent 19-Sep — nothing refused it). Calendar-day compare, UTC.
@@ -3331,6 +3335,7 @@ class GRNService {
             {
               id: randomUUID(),
               poItemId: null,
+              jobWorkOrderLineId: line.id,
               materialId,
               // Expected fabric due back (billable basis), not the greige sent
               orderedQuantity: expectedFabricMeters,
@@ -3800,9 +3805,10 @@ class GRNService {
       tx
     );
 
+    // The fabric that came back is the job line's (mirrored to the job) — jwo-lines.helper
+    await stampJwoFinishedFabric(jobWorkOrder.id, finishedFabricId, tx);
     // What every part writes on the job: the running total, the latest receipt and its challan.
     const receiptFields: Prisma.job_work_ordersUncheckedUpdateInput = {
-      finishedFabricId,
       qtyReceivedMeters: cumulativeReceived,
       grnId,
       thanCount,

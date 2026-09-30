@@ -109,7 +109,18 @@ import {
   PLANNING_LOT_SELECT,
   unitLotHolderId,
 } from './helpers/lot-location.helper';
-import { getOrCreateFinishedFabricV2, resolveFinishedFabricIdentity } from './helpers/fabric-identity.helper';
+import {
+  FinishedFabricIdentity,
+  finishedFabricOutputKey,
+  getOrCreateFinishedFabricV2,
+  resolveFinishedFabricIdentity,
+} from './helpers/fabric-identity.helper';
+import {
+  JwoLineInput,
+  createJobWorkOrderWithLines,
+  impliedShrinkagePercent,
+  splitOneLine,
+} from './helpers/jwo-lines.helper';
 import { applySearch } from '../utils/search-filter';
 import { normalizeUnit, unitLabel, unitShort, unitToJwoUom } from '../utils/units';
 
@@ -4350,35 +4361,36 @@ export async function generatePOFromRequirements(
 
     // Widths (industry model 2026-08-18): the processor is asked for a FINISHED width
     // (stenter target) = CAD cutable width + selvedge deduction; the greige width is what
-    // is physically issued. Cutable stays internal to marker planning.
-    const cutableWidth =
-      primary.orderBomItem?.fabricWidthInches != null
-        ? Number(primary.orderBomItem.fabricWidthInches)
-        : primary.fabricWidth != null
-          ? Number(primary.fabricWidth)
-          : null;
+    // is physically issued. Cutable stays internal to marker planning. Asked per requirement:
+    // one job can bring back several outputs, each at its own width.
     const widthDeduction = await systemSettingsService.getCutableWidthDeductionInches();
-    const askedFinishedWidthInches = cutableWidth != null ? cutableWidth + widthDeduction : null;
+    const askedFinishedWidthOf = (req: any): number | null => {
+      const cutable =
+        req.orderBomItem?.fabricWidthInches != null
+          ? Number(req.orderBomItem.fabricWidthInches)
+          : req.fabricWidth != null
+            ? Number(req.fabricWidth)
+            : null;
+      return cutable != null ? cutable + widthDeduction : null;
+    };
     let greigeWidthInches: number | null = null;
     // Lace has no loom width to reconcile and no stenter target — the width lives on the master
-    // and never changes in dyeing.
+    // and never changes in dyeing. One greige per job (split above), so the first names it.
     if (!isLaceJob && primary.orderBomItem?.greigeId) {
       const greigeMaster = await prisma.greige_master.findUnique({
         where: { id: primary.orderBomItem.greigeId },
         select: { greigeCode: true, greigeWidth: true, expectedFinishedWidthMin: true, expectedFinishedWidthMax: true },
       });
       greigeWidthInches = greigeMaster?.greigeWidth != null ? Number(greigeMaster.greigeWidth) : null;
-      if (askedFinishedWidthInches != null && greigeMaster) {
+      for (const asked of new Set(requirements.map(askedFinishedWidthOf))) {
+        if (asked == null || !greigeMaster) continue;
         const bandMin =
           greigeMaster.expectedFinishedWidthMin != null ? Number(greigeMaster.expectedFinishedWidthMin) : null;
         const bandMax =
           greigeMaster.expectedFinishedWidthMax != null ? Number(greigeMaster.expectedFinishedWidthMax) : null;
-        if (
-          (bandMin != null && askedFinishedWidthInches < bandMin) ||
-          (bandMax != null && askedFinishedWidthInches > bandMax)
-        ) {
+        if ((bandMin != null && asked < bandMin) || (bandMax != null && asked > bandMax)) {
           logWarn(
-            `[MRP] Asked finished width ${askedFinishedWidthInches}" is outside ${greigeMaster.greigeCode}'s ` +
+            `[MRP] Asked finished width ${asked}" is outside ${greigeMaster.greigeCode}'s ` +
               `achievable band ${bandMin ?? '?'}–${bandMax ?? '?'}" — creating anyway; verify with the processor.`
           );
         }
@@ -4406,61 +4418,118 @@ export async function generatePOFromRequirements(
         select: { id: true },
       });
 
-      // Fabric-naming: mint the finished fabric master NOW — the requirement chain carries
-      // the full identity (colour, CAD pattern part, style, greige) — so the JWO PDF's
-      // "Expected Output" names the real fabric before receipt. Never blocks JWO creation.
-      // A lace job mints nothing: the dyed variant already exists (the cost sheet created it
-      // when the shade was chosen), and it is carried on the BOM line as laceId.
-      let finishedFabricId: string | null = null;
-      if (!isLaceJob) {
-        try {
-          const identity = await resolveFinishedFabricIdentity({
-            requirement: primary,
-            jwo: { sentWidthInches: askedFinishedWidthInches },
-            finishType: processingProcessType === 'PRINTING' ? 'PRINTED' : 'DYED',
-            tx,
-          });
-          if (identity) {
-            const minted = await getOrCreateFinishedFabricV2(identity, userId, 'AUTO_FROM_MRP_JWO', tx);
-            finishedFabricId = minted.fabricId;
-          } else {
+      // One LINE per output (2026-09-30): requirements that come back as the same finished fabric at the
+      // same asked width share a line; each line mints its own fabric and carries its own style, colour,
+      // width and quantities. All of it used to come from requirements[0], so DJ-EBEW-002-001's Red, Black
+      // and Teal orders were all named the Red fabric. Minting now lets the JWO PDF name each real fabric
+      // before receipt, and never blocks creation (a failed mint is deferred to receipt). A lace job mints
+      // nothing: the dyed variant already exists (the cost sheet created it when the shade was chosen) and
+      // is carried on the BOM line as laceId; lace jobs are one shade (refused above otherwise).
+      const finishType = processingProcessType === 'PRINTING' ? 'PRINTED' : 'DYED';
+      const outputs = new Map<
+        string,
+        { req: any; identity: FinishedFabricIdentity | null; askedWidth: number | null; items: typeof poItems }
+      >();
+      for (const item of poItems) {
+        const req = reqById.get(item.requirementIds[0]) as any;
+        const askedWidth = askedFinishedWidthOf(req);
+        let identity: FinishedFabricIdentity | null = null;
+        if (!isLaceJob) {
+          try {
+            identity = await resolveFinishedFabricIdentity({
+              requirement: req,
+              jwo: { sentWidthInches: askedWidth },
+              finishType,
+              tx,
+            });
+          } catch (error) {
             logWarn(
-              `[MRP] JWO ${jobWorkNumber}: no greige lineage on requirement — finished fabric deferred to receipt`
+              `[MRP] ${req.requirementNumber}: finished fabric identity failed — deferred to receipt: ${error instanceof Error ? error.message : error}`
             );
           }
-        } catch (error) {
-          logWarn(
-            `[MRP] JWO ${jobWorkNumber}: finished fabric mint failed — deferred to receipt: ${error instanceof Error ? error.message : error}`
-          );
         }
+        const key = isLaceJob
+          ? 'lace'
+          : identity
+            ? `${finishedFabricOutputKey(identity)}|${askedWidth ?? ''}`
+            : `requirement:${req.id}`;
+        const output = outputs.get(key) ?? { req, identity, askedWidth, items: [] };
+        output.items.push(item);
+        outputs.set(key, output);
       }
 
-      const jwo = await tx.job_work_orders.create({
-        data: {
-          ...buildJwoDataForProcessingPO(
-            {
-              poId: null,
-              processorId: supplierId,
-              processType: processingProcessType!,
-              styleId: primary.order_items?.styleId ?? null,
-              fabricId: primary.orderBomItem?.fabricId ?? null,
-              finishedFabricId,
-              // Lace: the greige sent, and the dyed variant the BOM line already names.
-              greigeLaceId: isLaceJob ? (primary.orderBomItem?.greigeLaceId ?? null) : null,
-              finishedLaceId: isLaceJob ? (primary.orderBomItem?.laceId ?? null) : null,
-              qtyMeters: toNumber(roundToCent(toCurrency(totalGreigeMeters))), // greige to issue
-              qtyBillable: toNumber(roundToCent(toCurrency(totalBillableMeters))), // fabric the processor bills for
-              greigeWidthInches,
-              askedFinishedWidthInches,
-              ratePerMeter,
-              uom: jwoUomCode, // MRP-15: carry the requirement's real unit
-              expectedShrinkage: impliedShrinkage,
-              expectedReturnDate: new Date(expectedDeliveryDate),
-              requirementNumbers: requirements.map((r) => r.requirementNumber),
-              userId,
-            },
-            jobWorkNumber
+      const lines: JwoLineInput[] = [];
+      for (const output of outputs.values()) {
+        let finishedFabricId: string | null = null;
+        if (output.identity) {
+          try {
+            finishedFabricId = (await getOrCreateFinishedFabricV2(output.identity, userId, 'AUTO_FROM_MRP_JWO', tx))
+              .fabricId;
+          } catch (error) {
+            logWarn(
+              `[MRP] JWO ${jobWorkNumber}: finished fabric mint failed — deferred to receipt: ${error instanceof Error ? error.message : error}`
+            );
+          }
+        } else if (!isLaceJob) {
+          logWarn(
+            `[MRP] JWO ${jobWorkNumber}: no greige lineage on ${output.req.requirementNumber} — finished fabric deferred to receipt`
+          );
+        }
+        const qtySent = toNumber(
+          roundToCent(
+            addCurrency(
+              ...output.items.map((item) => roundToCent(divideByShrinkage(item.quantity, itemShrinkage(item))))
+            )
+          )
+        );
+        const qtyExpected = toNumber(roundToCent(addCurrency(...output.items.map((item) => item.quantity))));
+        const shrinkages = [...new Set(output.items.map(itemShrinkage))];
+        lines.push({
+          styleId: output.req.order_items?.styleId ?? null,
+          colorMasterId: output.identity?.colorMasterId ?? null,
+          colorName: output.identity?.colorName ?? output.req.colorName ?? null,
+          finishedFabricId,
+          finishedLaceId: isLaceJob ? (output.req.orderBomItem?.laceId ?? null) : null,
+          sentWidthInches: output.askedWidth,
+          expectedShrinkage: shrinkages.length === 1 ? shrinkages[0] : impliedShrinkagePercent(qtySent, qtyExpected),
+          qtySent,
+          qtyExpected,
+          requirementLinks: output.items.flatMap((item) =>
+            item.requirementIds.map((requirementId) => ({
+              requirementId,
+              allocatedQuantity:
+                item.requirementIds.length > 1 ? item.quantity / item.requirementIds.length : item.quantity,
+            }))
           ),
+        });
+      }
+
+      const jwo = await createJobWorkOrderWithLines(
+        tx,
+        {
+          // The seed's own fields; its output — style, fabric, lace, width, quantities, shrinkage — is the lines'
+          ...splitOneLine(
+            buildJwoDataForProcessingPO(
+              {
+                poId: null,
+                processorId: supplierId,
+                processType: processingProcessType!,
+                styleId: null,
+                fabricId: primary.orderBomItem?.fabricId ?? null,
+                // Lace: the greige sent (the dyed variant expected back is the line's)
+                greigeLaceId: isLaceJob ? (primary.orderBomItem?.greigeLaceId ?? null) : null,
+                qtyMeters: totalGreigeMeters,
+                greigeWidthInches,
+                ratePerMeter,
+                uom: jwoUomCode, // MRP-15: carry the requirement's real unit
+                expectedShrinkage: impliedShrinkage,
+                expectedReturnDate: new Date(expectedDeliveryDate),
+                requirementNumbers: requirements.map((r) => r.requirementNumber),
+                userId,
+              },
+              jobWorkNumber
+            )
+          ).header,
           processTypeId: processTypeMaster?.id ?? null,
           // Rate provenance (qty-rate audit 2026-08-24): which card/slab priced this JWO, at
           // what basis meters, and what it superseded — the paid document is now auditable.
@@ -4472,7 +4541,8 @@ export async function generatePOFromRequirements(
           rateVarianceReason: rateProvenance.rateVarianceReason,
           remarks: `[MRP] Job work for ${requirements.map((r) => r.requirementNumber).join(', ')}${remarks ? `\n${remarks}` : ''}`,
         },
-      });
+        lines
+      );
 
       // Commercial totals (unresolved GST downgrades to subtotal-only)
       try {
@@ -4489,21 +4559,8 @@ export async function generatePOFromRequirements(
         }
       }
 
-      // Requirement ↔ JWO links (processing items carry exactly one requirement each)
-      let linkedCount = 0;
-      for (const item of poItems) {
-        for (const reqId of item.requirementIds) {
-          await tx.requirement_jwo_links.create({
-            data: {
-              requirementId: reqId,
-              jobWorkOrderId: jwo.id,
-              allocatedQuantity:
-                item.requirementIds.length > 1 ? item.quantity / item.requirementIds.length : item.quantity,
-            },
-          });
-          linkedCount++;
-        }
-      }
+      // Requirement ↔ JWO links were written with their lines (processing items carry one requirement each)
+      const linkedCount = lines.reduce((n, line) => n + (line.requirementLinks?.length ?? 0), 0);
 
       // MRP-12: same partial-coverage rule as the purchase-order path — a job work order that
       // covers only part of a processing requirement leaves the balance orderable rather than

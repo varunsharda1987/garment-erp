@@ -25,6 +25,7 @@ import app from '../../app';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
 import { grnService } from '../../services/grn.service';
 import { ensureMaterialRecord, syncStockLevelQuantity } from '../../services/helpers/material-sync.helper';
+import { linkRequirementToLine, theOnlyLine } from '../../services/helpers/jwo-lines.helper';
 
 /** The fabric's measured width on arrival — every fabric job-work receipt needs one (lot-width.helper) */
 const MEASURED_WIDTH = 58;
@@ -590,8 +591,11 @@ describe('receiving dyed fabric on a job work order GRN', () => {
         createdById: userId,
       },
     });
-    await prisma.requirement_jwo_links.create({
-      data: { requirementId: requirement.id, jobWorkOrderId: jobId, allocatedQuantity: 250 },
+    await linkRequirementToLine(prisma, {
+      requirementId: requirement.id,
+      jobWorkOrderId: jobId,
+      lineId: (await theOnlyLine(prisma, jobId, 'Linking')).id,
+      allocatedQuantity: 250,
     });
   };
 

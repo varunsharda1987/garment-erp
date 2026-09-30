@@ -937,6 +937,12 @@ export const BuyerApprovalStatus = {
 } as const;
 export type BuyerApprovalStatus = (typeof BuyerApprovalStatus)[keyof typeof BuyerApprovalStatus];
 
+export const JwoLineClose = {
+  FINAL: 'FINAL',
+  SHORT: 'SHORT',
+} as const;
+export type JwoLineClose = (typeof JwoLineClose)[keyof typeof JwoLineClose];
+
 export const JobWorkOrderStatus = {
   DRAFT: 'DRAFT',
   PENDING_APPROVAL: 'PENDING_APPROVAL',

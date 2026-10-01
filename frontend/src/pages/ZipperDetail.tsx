@@ -62,7 +62,7 @@ export default function ZipperDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center">
+      <div className="flex items-center justify-center py-12">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-info mx-auto"></div>
           <p className="mt-4 text-muted-foreground">Loading zipper details...</p>
@@ -73,16 +73,14 @@ export default function ZipperDetail() {
 
   if (error || !zipper) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
-        <header className="bg-card shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 py-4">
-            <Button variant="ghost" onClick={() => navigate('/materials/zipper')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Zippers
-            </Button>
-          </div>
-        </header>
-        <main className="max-w-4xl mx-auto px-4 py-8">
+      <div className="space-y-6">
+        <div>
+          <Button variant="ghost" onClick={() => navigate('/materials/zipper')}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Zippers
+          </Button>
+        </div>
+        <div>
           <Card>
             <CardContent className="py-8 text-center">
               <p className="text-destructive">{error || 'Zipper not found'}</p>
@@ -91,29 +89,27 @@ export default function ZipperDetail() {
               </Button>
             </CardContent>
           </Card>
-        </main>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
-      <header className="bg-card shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <Button variant="ghost" onClick={() => navigate('/materials/zipper')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Zippers
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <Button variant="ghost" onClick={() => navigate('/materials/zipper')}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Zippers
+        </Button>
+        {canEdit && (
+          <Button onClick={() => navigate(`/materials/zipper/${zipper.id}/edit`)}>
+            <Edit className="h-4 w-4 mr-2" />
+            Edit Zipper
           </Button>
-          {canEdit && (
-            <Button onClick={() => navigate(`/materials/zipper/${zipper.id}/edit`)}>
-              <Edit className="h-4 w-4 mr-2" />
-              Edit Zipper
-            </Button>
-          )}
-        </div>
-      </header>
+        )}
+      </div>
 
-      <main className="max-w-5xl mx-auto px-4 py-8">
+      <div>
         {/* Header */}
         <Card className="mb-6">
           <CardHeader>
@@ -373,7 +369,7 @@ export default function ZipperDetail() {
             </CardContent>
           </Card>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

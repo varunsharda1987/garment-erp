@@ -45,7 +45,7 @@ export default function MaterialDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center">
+      <div className="flex items-center justify-center py-12">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-info mx-auto"></div>
           <p className="mt-4 text-muted-foreground">Loading material details...</p>
@@ -56,16 +56,14 @@ export default function MaterialDetail() {
 
   if (error || !material) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
-        <header className="bg-card shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 py-4">
-            <Button variant="ghost" onClick={() => navigate('/materials')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Materials
-            </Button>
-          </div>
-        </header>
-        <main className="max-w-4xl mx-auto px-4 py-8">
+      <div className="space-y-6">
+        <div>
+          <Button variant="ghost" onClick={() => navigate('/materials')}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Materials
+          </Button>
+        </div>
+        <div>
           <Card>
             <CardContent className="py-8 text-center">
               <p className="text-destructive">{error || 'Material not found'}</p>
@@ -74,29 +72,27 @@ export default function MaterialDetail() {
               </Button>
             </CardContent>
           </Card>
-        </main>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
-      <header className="bg-card shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <Button variant="ghost" onClick={() => navigate('/materials')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Materials
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <Button variant="ghost" onClick={() => navigate('/materials')}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Materials
+        </Button>
+        {canEdit && (
+          <Button onClick={() => navigate(`/materials/raw/${material.id}/edit`)}>
+            <Edit className="h-4 w-4 mr-2" />
+            Edit Material
           </Button>
-          {canEdit && (
-            <Button onClick={() => navigate(`/materials/raw/${material.id}/edit`)}>
-              <Edit className="h-4 w-4 mr-2" />
-              Edit Material
-            </Button>
-          )}
-        </div>
-      </header>
+        )}
+      </div>
 
-      <main className="max-w-5xl mx-auto px-4 py-8">
+      <div>
         {/* Header */}
         <Card className="mb-6">
           <CardHeader>
@@ -302,7 +298,7 @@ export default function MaterialDetail() {
             </CardContent>
           </Card>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

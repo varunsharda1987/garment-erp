@@ -118,15 +118,13 @@ export default function UserForm({ mode }: UserFormProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
-      <header className="bg-card shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <Button variant="ghost" onClick={() => navigate('/users')}>
-            Back
-          </Button>
-        </div>
-      </header>
-      <main className="max-w-3xl mx-auto px-4 py-8">
+    <div className="space-y-6">
+      <div>
+        <Button variant="ghost" onClick={() => navigate('/users')}>
+          Back
+        </Button>
+      </div>
+      <div>
         <Card>
           <CardHeader>
             <CardTitle>{isNewUser ? 'Create New User' : 'Edit User'}</CardTitle>
@@ -239,7 +237,7 @@ export default function UserForm({ mode }: UserFormProps) {
             </form>
           </CardContent>
         </Card>
-      </main>
+      </div>
     </div>
   );
 }

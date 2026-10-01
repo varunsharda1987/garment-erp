@@ -47,7 +47,7 @@
       "backend/src/schemas/common.schema.ts": "408d77eb8826",
       "backend/src/controllers/button.controller.ts": "36e3dd7d2f28",
       "backend/src/services/supplier.service.ts": "fc06e1ab40d8",
-      "frontend/src/pages/ButtonDetail.tsx": "b177bec39a39",
+      "frontend/src/pages/ButtonDetail.tsx": "85be34ec5c33",
       "backend/src/services/helpers/master-config.ts": "8f0855dd6a91",
       "backend/src/services/material.service.ts": "a45e078ada26",
       "backend/src/services/helpers/material-hsn.helper.ts": "b1511c6ef6c5",
@@ -397,7 +397,7 @@
       "backend/src/schemas/common.schema.ts": "408d77eb8826",
       "backend/src/controllers/elastic.controller.ts": "c0f15945819e",
       "backend/src/services/supplier.service.ts": "fc06e1ab40d8",
-      "frontend/src/pages/ElasticDetail.tsx": "3277c63c909f",
+      "frontend/src/pages/ElasticDetail.tsx": "015e162e476d",
       "backend/src/services/helpers/master-config.ts": "8f0855dd6a91",
       "backend/src/services/material.service.ts": "a45e078ada26",
       "backend/src/services/helpers/material-hsn.helper.ts": "b1511c6ef6c5",
@@ -854,7 +854,7 @@
       "backend/src/controllers/label.controller.ts": "aba94d432561",
       "backend/src/services/helpers/label-name.helper.ts": "67547fbe81f9",
       "frontend/src/components/CustomerCombobox.tsx": "96c6cf20beff",
-      "frontend/src/pages/LabelDetail.tsx": "62f84b30a3ba",
+      "frontend/src/pages/LabelDetail.tsx": "75265a1c398a",
       "frontend/src/components/ui/combobox.tsx": "d1b66a9f97a1"
     },
     "contentHash": "114b40204004",
@@ -1728,7 +1728,7 @@
     "sources": {
       "frontend/src/config/navigation.ts": "ca630f08ce15",
       "frontend/src/pages/Users.tsx": "58a96bfe3c87",
-      "frontend/src/pages/UserForm.tsx": "1be8506b3509"
+      "frontend/src/pages/UserForm.tsx": "340ac424ff1f"
     },
     "contentHash": "c01f6792cce1",
     "generatedAt": "2026-09-29T11:35:20.174Z"
@@ -1803,7 +1803,7 @@
       "backend/src/controllers/zipper.controller.ts": "a1a2c06ae9fb",
       "backend/src/utils/code-generator.ts": "2672cbc3ab81",
       "backend/src/services/supplier.service.ts": "fc06e1ab40d8",
-      "frontend/src/pages/ZipperDetail.tsx": "dd3104249e89",
+      "frontend/src/pages/ZipperDetail.tsx": "dd028a4717c8",
       "backend/src/services/helpers/master-config.ts": "8f0855dd6a91",
       "backend/src/services/material.service.ts": "a45e078ada26",
       "backend/src/services/helpers/material-hsn.helper.ts": "b1511c6ef6c5",

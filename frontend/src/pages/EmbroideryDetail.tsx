@@ -64,7 +64,7 @@ export default function EmbroideryDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-accent/5 to-primary/10 flex items-center justify-center">
+      <div className="flex items-center justify-center py-12">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto"></div>
           <p className="mt-4 text-muted-foreground">Loading embroidery details...</p>
@@ -75,16 +75,14 @@ export default function EmbroideryDetail() {
 
   if (error || !embroidery) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-accent/5 to-primary/10">
-        <header className="bg-card shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 py-4">
-            <Button variant="ghost" onClick={() => navigate('/embroidery')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Embroidery
-            </Button>
-          </div>
-        </header>
-        <main className="max-w-4xl mx-auto px-4 py-8">
+      <div className="space-y-6">
+        <div>
+          <Button variant="ghost" onClick={() => navigate('/embroidery')}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Embroidery
+          </Button>
+        </div>
+        <div>
           <Card>
             <CardContent className="py-8 text-center">
               <p className="text-destructive">{error || 'Embroidery design not found'}</p>
@@ -93,29 +91,27 @@ export default function EmbroideryDetail() {
               </Button>
             </CardContent>
           </Card>
-        </main>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-accent/5 to-primary/10">
-      <header className="bg-card shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <Button variant="ghost" onClick={() => navigate('/embroidery')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Embroidery
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <Button variant="ghost" onClick={() => navigate('/embroidery')}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Embroidery
+        </Button>
+        {canEdit && (
+          <Button onClick={() => navigate(`/embroidery/${embroidery.id}/edit`)}>
+            <Edit className="h-4 w-4 mr-2" />
+            Edit Design
           </Button>
-          {canEdit && (
-            <Button onClick={() => navigate(`/embroidery/${embroidery.id}/edit`)}>
-              <Edit className="h-4 w-4 mr-2" />
-              Edit Design
-            </Button>
-          )}
-        </div>
-      </header>
+        )}
+      </div>
 
-      <main className="max-w-5xl mx-auto px-4 py-8">
+      <div>
         {/* Header */}
         <Card className="mb-6">
           <CardHeader>
@@ -335,7 +331,7 @@ export default function EmbroideryDetail() {
             </CardContent>
           </Card>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

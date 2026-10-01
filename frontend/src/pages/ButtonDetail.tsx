@@ -60,7 +60,7 @@ export default function ButtonDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center">
+      <div className="flex items-center justify-center py-12">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-info mx-auto"></div>
           <p className="mt-4 text-muted-foreground">Loading button details...</p>
@@ -71,16 +71,14 @@ export default function ButtonDetail() {
 
   if (error || !button) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
-        <header className="bg-card shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 py-4">
-            <UIButton variant="ghost" onClick={() => navigate('/materials/button')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Buttons
-            </UIButton>
-          </div>
-        </header>
-        <main className="max-w-4xl mx-auto px-4 py-8">
+      <div className="space-y-6">
+        <div>
+          <UIButton variant="ghost" onClick={() => navigate('/materials/button')}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Buttons
+          </UIButton>
+        </div>
+        <div>
           <Card>
             <CardContent className="py-8 text-center">
               <p className="text-destructive">{error || 'Button not found'}</p>
@@ -89,29 +87,27 @@ export default function ButtonDetail() {
               </UIButton>
             </CardContent>
           </Card>
-        </main>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
-      <header className="bg-card shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <UIButton variant="ghost" onClick={() => navigate('/materials/button')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Buttons
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <UIButton variant="ghost" onClick={() => navigate('/materials/button')}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Buttons
+        </UIButton>
+        {canEdit && (
+          <UIButton onClick={() => navigate(`/materials/button/${button.id}/edit`)}>
+            <Edit className="h-4 w-4 mr-2" />
+            Edit Button
           </UIButton>
-          {canEdit && (
-            <UIButton onClick={() => navigate(`/materials/button/${button.id}/edit`)}>
-              <Edit className="h-4 w-4 mr-2" />
-              Edit Button
-            </UIButton>
-          )}
-        </div>
-      </header>
+        )}
+      </div>
 
-      <main className="max-w-5xl mx-auto px-4 py-8">
+      <div>
         {/* Header */}
         <Card className="mb-6">
           <CardHeader>
@@ -377,7 +373,7 @@ export default function ButtonDetail() {
             </CardContent>
           </Card>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

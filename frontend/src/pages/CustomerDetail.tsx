@@ -266,7 +266,7 @@ export default function CustomerDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center">
+      <div className="flex items-center justify-center py-12">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-info mx-auto"></div>
           <p className="mt-4 text-muted-foreground">Loading customer details...</p>
@@ -277,16 +277,14 @@ export default function CustomerDetail() {
 
   if (error || !customer) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
-        <header className="bg-card shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 py-4">
-            <Button variant="ghost" onClick={() => navigate('/customers')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Customers
-            </Button>
-          </div>
-        </header>
-        <main className="max-w-4xl mx-auto px-4 py-8">
+      <div className="space-y-6">
+        <div>
+          <Button variant="ghost" onClick={() => navigate('/customers')}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Customers
+          </Button>
+        </div>
+        <div>
           <Card>
             <CardContent className="py-8 text-center">
               <p className="text-destructive">{error || 'Customer not found'}</p>
@@ -295,29 +293,27 @@ export default function CustomerDetail() {
               </Button>
             </CardContent>
           </Card>
-        </main>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
-      <header className="bg-card shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <Button variant="ghost" onClick={() => navigate('/customers')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Customers
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <Button variant="ghost" onClick={() => navigate('/customers')}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Customers
+        </Button>
+        {canEdit && (
+          <Button onClick={() => navigate(`/customers/${customer.id}/edit`)}>
+            <Edit className="h-4 w-4 mr-2" />
+            Edit Customer
           </Button>
-          {canEdit && (
-            <Button onClick={() => navigate(`/customers/${customer.id}/edit`)}>
-              <Edit className="h-4 w-4 mr-2" />
-              Edit Customer
-            </Button>
-          )}
-        </div>
-      </header>
+        )}
+      </div>
 
-      <main className="max-w-5xl mx-auto px-4 py-8">
+      <div>
         {/* Customer Header */}
         <Card className="mb-6">
           <CardHeader>
@@ -767,7 +763,7 @@ export default function CustomerDetail() {
             <CustomerAccessoryPresets customerId={customer.id} customerName={customer.name} />
           </TabsContent>
         </Tabs>
-      </main>
+      </div>
 
       {/* Address Dialog */}
       <CustomerAddressDialog

@@ -184,22 +184,20 @@ export default function TemplateManager() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
-      <header className="bg-card shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-3">
-              <Button variant="ghost" onClick={() => navigate('/dashboard')}>
-                ← Back
-              </Button>
-              <div className="text-2xl">📋</div>
-              <h1 className="text-xl font-display font-medium text-foreground">Export Template Manager</h1>
-            </div>
+    <div className="space-y-6">
+      <div>
+        <div className="flex justify-between items-center h-16">
+          <div className="flex items-center space-x-3">
+            <Button variant="ghost" onClick={() => navigate('/dashboard')}>
+              ← Back
+            </Button>
+            <div className="text-2xl">📋</div>
+            <h1 className="text-xl font-display font-medium text-foreground">Export Template Manager</h1>
           </div>
         </div>
-      </header>
+      </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div>
         {/* Module Selector */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-foreground mb-2">Select Module</label>
@@ -373,7 +371,7 @@ export default function TemplateManager() {
           onConfirm={confirmDelete}
           variant="destructive"
         />
-      </main>
+      </div>
     </div>
   );
 }

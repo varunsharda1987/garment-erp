@@ -58,7 +58,7 @@ export default function PackagingDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center">
+      <div className="flex items-center justify-center py-12">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-info mx-auto"></div>
           <p className="mt-4 text-muted-foreground">Loading packaging details...</p>
@@ -69,16 +69,14 @@ export default function PackagingDetail() {
 
   if (error || !packaging) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
-        <header className="bg-card shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 py-4">
-            <Button variant="ghost" onClick={() => navigate('/materials/packaging')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Packaging
-            </Button>
-          </div>
-        </header>
-        <main className="max-w-4xl mx-auto px-4 py-8">
+      <div className="space-y-6">
+        <div>
+          <Button variant="ghost" onClick={() => navigate('/materials/packaging')}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Packaging
+          </Button>
+        </div>
+        <div>
           <Card>
             <CardContent className="py-8 text-center">
               <p className="text-destructive">{error || 'Packaging not found'}</p>
@@ -87,29 +85,27 @@ export default function PackagingDetail() {
               </Button>
             </CardContent>
           </Card>
-        </main>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
-      <header className="bg-card shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <Button variant="ghost" onClick={() => navigate('/materials/packaging')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Packaging
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <Button variant="ghost" onClick={() => navigate('/materials/packaging')}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Packaging
+        </Button>
+        {canEdit && (
+          <Button onClick={() => navigate(`/materials/packaging/${packaging.id}/edit`)}>
+            <Edit className="h-4 w-4 mr-2" />
+            Edit Packaging
           </Button>
-          {canEdit && (
-            <Button onClick={() => navigate(`/materials/packaging/${packaging.id}/edit`)}>
-              <Edit className="h-4 w-4 mr-2" />
-              Edit Packaging
-            </Button>
-          )}
-        </div>
-      </header>
+        )}
+      </div>
 
-      <main className="max-w-5xl mx-auto px-4 py-8">
+      <div>
         {/* Header */}
         <Card className="mb-6">
           <CardHeader>
@@ -343,7 +339,7 @@ export default function PackagingDetail() {
             </CardContent>
           </Card>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

@@ -91,6 +91,7 @@ import {
 } from '@/types/cad-planning.types';
 
 import { CopyCADConfirmationDialog } from './CopyCADConfirmationDialog';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { CADPartMultiSelect } from './CADPartMultiSelect';
 import { formatDate, formatDateTime } from '@/lib/date';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -188,6 +189,8 @@ export function CADSpreadsheetTable({
   const [editingRow, setEditingRow] = useState<string | null>(null);
   // Another row was asked for while this one has unsaved changes (withEditOf): save / discard them, then go on
   const [switchRowPrompt, setSwitchRowPrompt] = useState<{ from: string; then: () => void } | null>(null);
+  // The row whose Delete was clicked, waiting for the confirmation
+  const [deleteConfirmRowId, setDeleteConfirmRowId] = useState<string | null>(null);
   const [savingRow, setSavingRow] = useState<string | null>(null);
   const [deletingRow, setDeletingRow] = useState<string | null>(null);
   const [sizeBreakdownOpen, setSizeBreakdownOpen] = useState<string | null>(null);
@@ -731,11 +734,12 @@ export function CADSpreadsheetTable({
     then();
   };
 
-  // Handle delete row
+  // Handle delete row — asked first (deleteConfirmRowId): the row menu deleted at one click, with no way back
   const handleDeleteRow = async (rowId: string) => {
+    setDeleteConfirmRowId(null);
     setDeletingRow(rowId);
     try {
-      await onDeleteRow(rowId); // the page confirms it
+      await onDeleteRow(rowId);
     } catch {
       // allow-silent-catch: the page's handler has already shown the server's reason (it names the next
       // click); a second, vaguer toast here only buried it
@@ -2220,7 +2224,7 @@ export function CADSpreadsheetTable({
                                   </DropdownMenuItem>
                                   {/* Delete */}
                                   <DropdownMenuItem
-                                    onClick={() => handleDeleteRow(row.id)}
+                                    onClick={() => setDeleteConfirmRowId(row.id)}
                                     disabled={isDeleting || isRowLocked}
                                     className="text-destructive focus:text-destructive"
                                   >
@@ -2864,6 +2868,29 @@ export function CADSpreadsheetTable({
           />
         );
       })()}
+
+      <ConfirmDialog
+        open={!!deleteConfirmRowId}
+        onOpenChange={(open) => !open && setDeleteConfirmRowId(null)}
+        title="Delete this CAD row?"
+        description={(() => {
+          const row = rows.find((r) => r.id === deleteConfirmRowId);
+          const purpose =
+            row?.purpose === 'RAW_MATERIAL_CALCULATION'
+              ? 'Raw Mat'
+              : row?.purpose === 'PRODUCTION'
+                ? 'Production'
+                : 'Costing';
+          const label = row
+            ? `${purpose} · ${row.componentName ?? ''}${row.partName ? ` · ${row.partName}` : ''}${row.cutableWidth ? ` · ${row.cutableWidth}"` : ''}`
+            : 'This row';
+          return `${label} — its values, size breakdown and costing are deleted. This cannot be undone.`;
+        })()}
+        confirmText="Delete row"
+        cancelText="Cancel"
+        variant="destructive"
+        onConfirm={() => deleteConfirmRowId && void handleDeleteRow(deleteConfirmRowId)}
+      />
 
       {/* Unsaved changes on the row being edited, and another row was asked for */}
       <Dialog open={!!switchRowPrompt} onOpenChange={(open) => !open && setSwitchRowPrompt(null)}>

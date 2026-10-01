@@ -9,7 +9,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/query-client';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -176,6 +177,11 @@ export default function CADPlanningPage() {
     enabled: !!id,
   });
 
+  // The CAD Planning list and its tab counts are cached (30 s / 2 min): after an approve, reject or delete here they
+  // are marked stale, so going back shows the style in its new tab (it stayed under Pending)
+  const queryClient = useQueryClient();
+  const invalidateCadLists = () => void queryClient.invalidateQueries({ queryKey: queryKeys.cadPlanning.all });
+
   // Corrections of this style's CAD rows waiting for an admin ("Correction pending" badges)
   const { data: pendingCorrections = [], refetch: refetchPendingCorrections } = useQuery({
     queryKey: ['cadPendingCorrections', id],
@@ -334,6 +340,7 @@ export default function CADPlanningPage() {
 
       notify.success('CAD plan approved! You can now generate cost sheet.', { duration: 5000 });
       setShowApproveDialog(false);
+      invalidateCadLists();
       navigate('/cad-planning');
     } catch (error: unknown) {
       console.error('Failed to approve CAD:', error);
@@ -362,6 +369,7 @@ export default function CADPlanningPage() {
       setRejectInUse(null);
       // loadCADTableData also refreshes style info (cadStatus, approvedCadDate)
       await loadCADTableData();
+      invalidateCadLists();
     } catch (error: unknown) {
       const inUse = cadInUseFromError(error);
       if (inUse) {
@@ -438,13 +446,11 @@ export default function CADPlanningPage() {
     try {
       await cadPlanningService.deleteCADTableRow(id, rowId);
       notify.success('Row deleted successfully');
-      // Update local state
-      if (cadTableData) {
-        setCadTableData({
-          ...cadTableData,
-          cadRows: cadTableData.cadRows.filter((row) => row.id !== rowId),
-        });
-      }
+      // Reload, not just drop the row here: the style's CAD status, the stock banner (a deleted Production CAD
+      // frees its lot for Create CAD) and pending corrections all change with it
+      await loadCADTableData();
+      void refetchPendingCorrections();
+      invalidateCadLists();
     } catch (error: unknown) {
       console.error('Failed to delete row:', error);
       const axiosMsg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -762,6 +768,7 @@ export default function CADPlanningPage() {
                 onDataRefresh={() => {
                   void loadCADTableData();
                   void refetchPendingCorrections();
+                  invalidateCadLists();
                 }}
                 pendingCorrections={pendingCorrections}
               />

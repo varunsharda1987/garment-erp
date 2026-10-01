@@ -142,15 +142,17 @@ export const updateCADTableRowSchema = z.object({
   // CAD calculations
   cadMeters: z.number().nonnegative().optional().nullable(), // Layer length
   layerLengthMeters: z.number().nonnegative().optional().nullable(), // Alias for cadMeters
-  piecesPerMarker: z.number().int().positive().optional().nullable(),
+  // 0 = the size breakdown was cleared (the sizes popup's Clear) — stored as no pieces
+  piecesPerMarker: z.number().int().nonnegative().optional().nullable(),
   markerEfficiency: z.number().min(0).max(100).optional().nullable(),
   cadWastagePercent: z.number().min(0).max(100).optional().nullable(),
   layerMarginMeters: z.number().nonnegative().optional().nullable(),
-  // Size breakdown
+  // Size breakdown — sizeId links the line to the style's size (it was stripped here, so every save stored null)
   sizeBreakdowns: z
     .array(
       z.object({
         sizeName: z.string(),
+        sizeId: z.string().optional().nullable(),
         quantity: z.number().nonnegative(),
       })
     )

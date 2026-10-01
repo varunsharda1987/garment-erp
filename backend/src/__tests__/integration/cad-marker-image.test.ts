@@ -404,6 +404,20 @@ describe('CAD values are saved from the marker image', () => {
     await put(costing.id, { layerLengthMeters: 3.82 }).expect(200);
   });
 
+  it('clearing the sizes clears the stored CAD average (it was kept and approved on)', async () => {
+    const costing = await createRow({ purpose: 'COSTING', purposeEnum: 'COSTING' });
+    await put(costing.id, {
+      layerLengthMeters: 3.82,
+      sizeBreakdowns: [{ sizeName: 'S', quantity: 2 }],
+      piecesPerMarker: 2,
+    }).expect(200);
+    expect((await prisma.fabric_width_cad.findUnique({ where: { id: costing.id } }))?.cadAverage).not.toBeNull();
+    await put(costing.id, { sizeBreakdowns: [], piecesPerMarker: 0 }).expect(200);
+    const cleared = await prisma.fabric_width_cad.findUnique({ where: { id: costing.id } });
+    expect(cleared?.cadAverage).toBeNull();
+    expect(cleared?.piecesPerMarker).toBeNull();
+  });
+
   it('with no marker image to give, the values are saved by hand with a reason — and can then be approved', async () => {
     const row = await createRow();
     const refused = await put(row.id, { layerLengthMeters: 3.82 });

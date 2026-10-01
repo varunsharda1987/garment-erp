@@ -8,7 +8,11 @@ import { multiplyCurrency, toNumber } from '../utils/currency'; // BUG-FAB12 fix
 import { recomputeStyleCadStatus } from '../services/helpers/cad-status.helper';
 import { cadMarkerFields, copyCadChildren } from '../services/helpers/cad-copy.helper';
 import { checkMarkerOnApprove, copyMarkerImage } from '../services/helpers/cad-marker.helper';
-import { resolveProductionLot, CREATE_CAD_HINT } from '../services/helpers/production-cad-lot.helper';
+import {
+  resolveProductionLot,
+  CREATE_CAD_HINT,
+  PRODUCTION_PURPOSE_WHERE,
+} from '../services/helpers/production-cad-lot.helper';
 import { assertMarkerFitsLot, markerFitsLot } from '../services/helpers/lot-width.helper';
 import {
   EMPTY_CAD_SNAPSHOT,
@@ -162,6 +166,24 @@ export async function approveCADPurpose(req: Request, res: Response) {
           '(row menu → Link to Stock), or delete it and use Create CAD on the lot in the stock banner.'
       );
     }
+    // One live Production CAD per lot: a REJECTED one approved again would sit beside the lot's new one, and
+    // cutting would have two markers for it (Create CAD on a lot only skips REJECTED rows)
+    const other = await prisma.fabric_width_cad.findFirst({
+      where: {
+        AND: [
+          PRODUCTION_PURPOSE_WHERE,
+          { fabricStockId: cadRecord.fabricStockId, id: { not: rowId }, approvalStatus: { not: 'REJECTED' } },
+        ],
+      },
+      select: { id: true, approvalStatus: true },
+    });
+    if (other) {
+      throw new BusinessError(
+        `This lot already has another Production CAD (${other.approvalStatus === 'APPROVED' ? 'approved' : 'pending'}). ` +
+          'A lot has one marker: reject or delete that one first, or use it instead.',
+        { code: 'PRODUCTION_LOT_HAS_CAD', cadId: other.id }
+      );
+    }
     const pieces = cadRecord.piecesPerMarker ?? cadRecord.sizeBreakdowns.reduce((sum, s) => sum + (s.quantity || 0), 0);
     const average =
       cadRecord.cadAverage !== null
@@ -189,6 +211,9 @@ export async function approveCADPurpose(req: Request, res: Response) {
       approvalStatus: 'APPROVED',
       approvedBy: userId,
       approvedAt: new Date(),
+      // a row approved again after a rejection no longer reads "Rejected by …" (Approve CAD plan clears them too)
+      rejectedBy: null,
+      rejectedAt: null,
       approvalNotes: approvalNotes || null,
       ...(productionAverageToStore !== null ? { cadAverage: productionAverageToStore } : {}),
     },

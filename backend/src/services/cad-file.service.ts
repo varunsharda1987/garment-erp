@@ -263,10 +263,10 @@ class CadFileService {
 
       // A correction waiting for approval applies this image when it is approved — deleting it would approve the
       // corrected values with no image and a reason given for it
-      const pending = await prisma.cad_corrections.count({
+      const waitingCorrections = await prisma.cad_corrections.count({
         where: { markerFileId: fileId, status: 'PENDING_APPROVAL' },
       });
-      if (pending > 0) {
+      if (waitingCorrections > 0) {
         throw new BusinessError(
           'This image is the corrected marker of a CAD correction waiting for approval. Approve or reject the ' +
             'correction first.'

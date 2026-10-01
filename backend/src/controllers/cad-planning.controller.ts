@@ -3397,7 +3397,7 @@ export async function updateCADTableRow(req: Request, res: Response) {
     updateData.cadMeters = effectiveLayerLength;
     updateData.layerMarginMeters = layerMarginMetersValue;
   }
-  if (piecesPerMarker !== undefined) updateData.piecesPerMarker = piecesPerMarker;
+  if (piecesPerMarker !== undefined) updateData.piecesPerMarker = piecesPerMarker || null;
 
   const updatedCad = (await prisma.fabric_width_cad.update({
     where: { id: rowId },
@@ -3496,12 +3496,19 @@ export async function updateCADTableRow(req: Request, res: Response) {
     updatedCad.layerMarginMeters ? Number(updatedCad.layerMarginMeters) : null
   );
 
-  // IMPORTANT: Store cadAverage in the database
+  // IMPORTANT: Store cadAverage in the database. When this save cleared what it is made of (layer length or
+  // sizes), the stored average goes too — it was kept, and approve / costing / order BOM / cutting read it as if
+  // the row still had a marker. A save that touched neither leaves a legacy row's stored average alone.
+  const markerInputsSent =
+    effectiveLayerLength !== undefined || sizeBreakdowns !== undefined || piecesPerMarker !== undefined;
   if (cadAverage !== null) {
     await prisma.fabric_width_cad.update({
       where: { id: rowId },
       data: { cadAverage },
     });
+  } else if (markerInputsSent && updatedCad.cadAverage !== null) {
+    await prisma.fabric_width_cad.update({ where: { id: rowId }, data: { cadAverage: null } });
+    updatedCad.cadAverage = null;
   }
 
   // History: who changed the marker, and from what (nothing recorded this until 2026-09-26)
@@ -3525,7 +3532,9 @@ export async function updateCADTableRow(req: Request, res: Response) {
   // =====================================================
   // Never re-seed a row that Fabric Costing has already costed: overwriting its greige
   // rate with today's market rate silently changed saved costings.
+  // …and never a Production CAD: it is the marker of one lot, never costed (CLAUDE.md, rule 5)
   const shouldAutoTriggerCosting =
+    (purpose ?? currentPurpose) !== 'PRODUCTION' &&
     cadAverage !== null &&
     updatedCad.greigeId !== null &&
     updatedCad.cutableWidth !== null &&
@@ -3592,8 +3601,10 @@ export async function updateCADTableRow(req: Request, res: Response) {
     varianceRequiresApproval: boolean;
   } | null = null;
 
-  const effectivePurpose = purpose ?? existingCad.purpose;
-  if (effectivePurpose === 'PRODUCTION' && cadAverage !== null) {
+  // Only a save that changed the marker (length, sizes, width) re-runs it: any other save (print direction,
+  // notes) used to reset an admin's variance approval to PENDING_APPROVAL
+  const effectivePurpose = purpose ?? currentPurpose;
+  if (effectivePurpose === 'PRODUCTION' && cadAverage !== null && (markerInputsSent || cutableWidth !== undefined)) {
     try {
       // Find the source RAW_MATERIAL_CALCULATION CAD
       // Either via clonedFromCadId or by matching fabric/greige/width
@@ -3621,7 +3632,7 @@ export async function updateCADTableRow(req: Request, res: Response) {
       }
 
       // If not found via clonedFromCadId, try to match by greige and width
-      if (!sourceCad && existingCad.greigeId) {
+      if (!sourceCad && (updatedCad.greigeId ?? existingCad.greigeId)) {
         // Find the RAW_MATERIAL_CALCULATION CAD for the same greige and width
         const rawMatCad = await prisma.fabric_width_cad.findFirst({
           where: {
@@ -3630,8 +3641,9 @@ export async function updateCADTableRow(req: Request, res: Response) {
             // approvedBy-not-null was a proxy that a rejection used to stamp too, so a
             // freshly rejected CAD could become the >3% variance comparison baseline.
             approvalStatus: 'APPROVED',
-            greigeId: existingCad.greigeId,
-            cutableWidth: existingCad.cutableWidth,
+            greigeId: updatedCad.greigeId ?? existingCad.greigeId,
+            // the width this save leaves on the row, not the one it had
+            cutableWidth: updatedCad.cutableWidth,
           },
           select: { id: true, cadAverage: true, cadMeters: true, cutableWidth: true },
           orderBy: { approvedAt: 'desc' },

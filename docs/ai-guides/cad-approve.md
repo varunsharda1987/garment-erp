@@ -105,8 +105,9 @@ If any of these are missing, you will see an error when trying to approve.
 2. Find the style whose CAD plan you want to approve and click on it to open the CAD Planning page.
 
 3. Review the **CAD Spreadsheet** tab to ensure:
-   - Every row has a **Part** selected in the Part column
-   - Every row shows a **CAD Average** value (not blank or zero)
+   - Every Costing and Raw Mat row has a **Part** selected in the Part column (an old "All Parts" row counts)
+   - Every Costing and Raw Mat row shows a **CAD Average** value (not blank or zero)
+   - The plan is the **Costing and Raw Mat rows**. Production rows and rejected rows are not part of it — approve each of those with **Approve** in its own row menu
    - The status banner shows "All CAD entries complete. Ready to approve!"
 
 4. Click the **Actions** dropdown button in the top-right area of the status banner.
@@ -126,6 +127,7 @@ If any of these are missing, you will see an error when trying to approve.
 
 When you approve a CAD plan:
 
+- **Every Costing and Raw Mat row is approved** (not rejected ones) — each fabric is then linked to its Raw Mat row, or its Costing row when it has no Raw Mat row
 - **The CAD plan is locked** - You cannot edit fabric widths, greige selections, size breakdowns, or CAD values
 - **Status changes to APPROVED** - The style badge shows a green checkmark with "APPROVED"
 - **Cost sheet generation is enabled** - You can now create or generate the style's cost sheet
@@ -135,6 +137,8 @@ When you approve a CAD plan:
 
 - **Cannot edit after approval** - Once approved, you cannot change any CAD values (the Size Breakup button is greyed out too). To fix an approved Costing or Raw Mat row, use row menu (three dots) > **Correct…** (see the guide "Correct an approved CAD"). While nothing uses the CAD, you can also Reject it, edit it and approve it again
 - **Reject requires a reason** - To undo an approval, you must provide a rejection reason
+- **"CAD Plan Approved" means every Costing and Raw Mat row is approved** - An approved Production CAD on its own does not make the plan approved: **Approve CAD Plan** stays available, and **Reject CAD Plan** is refused with "The CAD plan is not approved — no Costing or Raw Mat row is approved"
+- **One Production CAD per lot** - Approving a Production CAD is refused while its lot has another Production CAD that is pending or approved: "This lot already has another Production CAD … reject or delete that one first"
 - **Reject is refused when the CAD is in use** - If an approved cost sheet or an order's BOM is built on the CAD, Reject stops with a yellow box **This CAD is already in use — it cannot be rejected**. It lists the cost sheets and orders. There is no way to reject past it. Use **Correct…** instead: it carries the change to those cost sheets, order BOMs and requirements
 - **Rejection resets the planning rows** - Rejecting an approved CAD plan resets the Costing and Raw Mat rows to PENDING and unlocks them for editing. Production CADs stay approved, because cutting uses them
 - **Rejection clears the fabric price approval** - The fabric costing figures are kept, but their approval is removed and must be done again on the Costing Options page

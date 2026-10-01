@@ -220,13 +220,15 @@ A style must exist with:
 
 > **Received fabric?** For a Production CAD, use **Create CAD** on the lot in the **Fabric Stock Available** box instead (section 11) — it fills the marker in for you.
 
-> **Tip**: To create a combined-cutting row (one marker for several components), tick them all and click **Combine as 1 … Row**. Components can be combined only when they are the SAME fabric: same generic greige, same finish, same colour (or print design) and same embroidery. The box under the list says **Can be combined** or tells you why not.
+> **Tip**: To create a combined-cutting row (one marker for several components), tick them all and click **Combine as 1 … Row**. Components can be combined only when they are the SAME fabric: same generic greige, same finish, same colour (or print design) and same embroidery. The box under the list says **Can be combined** or tells you why not. For a **Production** row pick the lot first: a combined Production row is the marker of that one lot. Adding Production rows without combining takes **one** fabric at a time (one lot each).
 
 ### 5. Fill in CAD row data
 
 The columns, left to right: **Purpose**, **Ver**, **Component**, **Part**, **Finish**, **Emb.**, **Generic Greige**, **Greige / Fabric**, **Design Name**, **Width**, **Print**, **Sizes**, **Pcs**, **Layer(M)**, **Margin**, **CAD Avg**, **CAD Image**, **Actions**.
 
-Open the row menu (three dots) > **Edit** to change a row, then click the save icon (or the cross to cancel).
+Open the row menu (three dots) > **Edit** to change a row, then click the save icon (or the cross to cancel). One row is edited at a time: if you start on another row (Edit, its Sizes, **Use these values**, **Enter values by hand**) while this one has unsaved changes, **Unsaved changes on another row** asks you to **Save changes**, **Discard changes** or **Keep editing**.
+
+Changing a row's **Greige / Fabric** puts the width that will be saved into the **Width** cell straight away: the received lot's width, else the greige's default (63" greige → 52", 48" → 40", otherwise its minimum finished width). Type another width before saving if you need one.
 
 **Pre-populated (grey):** **Purpose** (a row cannot be switched into or out of Production: a Production CAD comes only from a received lot), **Component**, **Finish**, **Emb.**, **Generic Greige**.
 
@@ -299,7 +301,7 @@ The chip turns amber (**reason given**) and the row can be approved. The reason 
 
 ### 9. Approve the CAD plan
 
-Once all rows have CAD values — and every Raw Mat and Production row has its marker image, with any difference saved with a reason:
+Once all Costing and Raw Mat rows have CAD values — and every Raw Mat row has its marker image (or its values saved by hand with a reason), with any difference saved with a reason. The plan is the Costing and Raw Mat rows; Production rows and rejected rows are approved on their own row (row menu > **Approve**):
 
 1. The status card shows: "All CAD entries complete. Ready to approve!"
 2. Click **Actions** dropdown > **Approve CAD Plan**.
@@ -309,7 +311,7 @@ Once all rows have CAD values — and every Raw Mat and Production row has its m
 4. Click **Approve & Lock**.
 
 After approval:
-- Status changes to **APPROVED** (green badge)
+- Every Costing and Raw Mat row is APPROVED, and the status changes to **APPROVED** (green badge)
 - You can now generate cost sheets
 - CAD values are locked for this style. To fix an approved Costing or Raw Mat row later, use row menu > **Correct…** (see Row actions)
 
@@ -392,8 +394,9 @@ Click the row menu (three dots) for:
 - **Correct…** - Fix an approved Costing or Raw Mat row (layer length, size breakup, greige or width) and carry the fix to the cost sheets, order BOMs and requirements built on it. Enter the new values and a **Reason**, click **Check impact**, then **Submit correction** (or **Send for approval** when an approved cost sheet or order uses it — an admin then approves the new cost sheet version). While it waits, the row shows a **Correction pending** badge and **Correct…** is hidden. Not shown on Production rows. See the guide "Correct an approved CAD"
 - **Create Version** - New version of an approved Costing or Raw Mat entry. A Production CAD has no versions: **Reject** it, edit the row, then **Approve** it again
 - **Copy to Raw Mat** (on Costing rows) - Copies the marker, size breakdown and marker image. There is no Copy to Production: a Production CAD is made with **Create CAD** on the received lot (section 11)
-- **Link to Stock** - Attach one of the style's own received lots to a pending Production row
+- **Link to Stock** - Attach one of the style's own received lots to a pending Production row. The row takes the lot's greige; it keeps its marker's width when the marker fits the lot, else it takes the lot's cutable width. An approved Production CAD cannot be moved to another lot
 - **History** - Opens **CAD history**: who created, edited, approved, rejected or corrected the row, with date and time, the old and new values (CAD average, layer length, pieces, width, greige, sizes) and the reason. A correction also shows where it stands (waiting for the admin, approved, or rejected). Changes are recorded from 26-Sep-2026; the row's creator and creation date are shown at the top
+- **Delete** - asks first: **Delete this CAD row?** names the row; click **Delete row** to confirm.
 - **Edit** / **Delete** - Not available on approved rows (the Size Breakup button is greyed out too) — use **Correct…** on an approved Costing or Raw Mat row. A pending or rejected row can be deleted while nothing uses it (a cost sheet line, an order BOM line, an order, or a fabric stock reservation)
 
 ## Reject CAD plan

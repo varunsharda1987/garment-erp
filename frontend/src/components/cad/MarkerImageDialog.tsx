@@ -167,7 +167,10 @@ function MarkerImageBody({
       }
     } catch (error) {
       const details = (error as { response?: { data?: any } })?.response?.data?.details;
-      if (details?.code === 'CAD_MARKER_APPROVED_DIFFERS') {
+      if (kind === 'reread' && details?.code === 'CAD_MARKER_APPROVED_DIFFERS') {
+        // Read again on an approved row: the image stays the row's marker — only the new reading was not kept
+        notify.warning(getErrorMessage(error), { duration: 8000 });
+      } else if (details?.code === 'CAD_MARKER_APPROVED_DIFFERS') {
         setApprovedRefusal({
           message: getErrorMessage(error),
           differences: Array.isArray(details.differences) ? details.differences : [],
@@ -200,7 +203,7 @@ function MarkerImageBody({
   const canUse = !readOnly && !approved && !!reading && (reading.status === 'READ' || reading.status === 'PARTIAL');
   const useValues = () => {
     if (!reading) return;
-    const sizes =
+    const mapped =
       reading.sizes.length === 0
         ? null
         : reading.sizes
@@ -210,6 +213,12 @@ function MarkerImageBody({
               sizeId: offered.get(sameSizeKey(s.sizeName))?.id ?? null,
               quantity: s.quantity,
             }));
+    // None of the marker's sizes is one the style offers: leave the row's sizes as they are (an empty list
+    // cleared them, and with them the stored CAD average); the note above names the sizes to add to the style
+    const sizes = mapped && mapped.length > 0 ? mapped : null;
+    if (mapped && mapped.length === 0) {
+      notify.warning("None of the marker's sizes is a size of this style — the row's sizes were left as they are");
+    }
     onUseValues({ layerLengthMeters: reading.lengthM, cutableWidth: reading.widthIn, sizeBreakdowns: sizes });
     onClose();
   };

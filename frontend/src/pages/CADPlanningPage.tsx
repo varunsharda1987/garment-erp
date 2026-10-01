@@ -7,7 +7,7 @@
  * - Auto-calculation of CAD values
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-client';
@@ -145,7 +145,14 @@ interface StyleInfo {
  * the server approved one arbitrary row per fabric.
  */
 function planRowsOf(data: CADTableData | null | undefined) {
-  return (data?.cadRows ?? []).filter((row) => row.purpose !== 'PRODUCTION' && row.approvalStatus !== 'REJECTED');
+  const rows = (data?.cadRows ?? []).filter((row) => row.purpose !== 'PRODUCTION' && row.approvalStatus !== 'REJECTED');
+  // A pending TWIN of an approved row (same fabric, part, width and purpose — a Fabric Costing clone for another
+  // processor or quantity) is a costing option of approved geometry: the server leaves it pending (two approved
+  // rows on that key break the row's unique index), so it is not part of the plan either
+  const twin = (row: (typeof rows)[number]) =>
+    [row.styleFabricId, row.partId ?? row.partCode, Number(row.cutableWidth), row.purpose].join('|');
+  const approved = new Set(rows.filter((row) => row.approvalStatus === 'APPROVED').map(twin));
+  return rows.filter((row) => row.approvalStatus === 'APPROVED' || !approved.has(twin(row)));
 }
 
 export default function CADPlanningPage() {
@@ -201,10 +208,14 @@ export default function CADPlanningPage() {
   // ============================================
   // DATA LOADING
   // ============================================
+  // The spinner (which replaces the table) shows only on the FIRST load. A reload after a save, delete or link
+  // refreshes in place: swapping the table out unmounted it, and with it the unsaved edits of any other row and
+  // the follow-up a "Save changes" prompt was about to run
+  const tableLoadedRef = useRef(false);
   const loadCADTableData = useCallback(async () => {
     if (!id) return;
     try {
-      setLoadingTableData(true);
+      if (!tableLoadedRef.current) setLoadingTableData(true);
       setTableDataError(false);
       const response = await cadPlanningService.getCADTableData(id);
       const tableData = response.data;
@@ -212,6 +223,7 @@ export default function CADPlanningPage() {
         throw new Error(`CAD API returned unexpected structure: components=${typeof tableData?.components}`);
       }
       setCadTableData(tableData);
+      tableLoadedRef.current = true;
       // Extract style info from table data
       if (tableData.style) {
         setStyle({
@@ -225,7 +237,8 @@ export default function CADPlanningPage() {
       }
     } catch (error: unknown) {
       console.error('Failed to load CAD table data:', error);
-      setTableDataError(true);
+      // a failed reload keeps the table that is showing (and its unsaved edits); the toast says it failed
+      if (!tableLoadedRef.current) setTableDataError(true);
       const errMsg = error instanceof Error ? error.message : 'Failed to load CAD spreadsheet data';
       const axiosMsg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
       notify.error(axiosMsg || errMsg);
@@ -584,7 +597,9 @@ export default function CADPlanningPage() {
     cadTableData && cadTableData.cadRows.length > 0
       ? planRows.length > 0 && planRows.every((row) => row.approvalStatus === 'APPROVED')
       : style.cadStatus === 'APPROVED';
-  const planStatus = isApproved ? 'APPROVED' : cadTableData?.cadRows.length ? 'IN_PROGRESS' : style.cadStatus;
+  // Some planning rows approved, others (a new width variant) pending: Approve CAD Plan shows, and so do Push to
+  // Fabric Costing and Reject CAD Plan — the server rejects a plan with any approved planning row
+  const anyPlanApproved = planRows.some((row) => row.approvalStatus === 'APPROVED');
   const canApprove =
     planRows.length > 0 && planRows.every((row) => row.cadAverage && row.cadAverage > 0) && !isApproved;
 
@@ -607,11 +622,15 @@ export default function CADPlanningPage() {
         <div className="flex items-center gap-2">
           <MiniMarkerBadge styleId={id!} count={miniMarkerCount} />
           <Badge
-            variant={isApproved ? 'default' : planStatus === 'IN_PROGRESS' ? 'secondary' : 'outline'}
-            className={cn('text-sm px-3 py-1', isApproved && 'bg-success')}
+            variant={
+              style.cadStatus === 'APPROVED' ? 'default' : style.cadStatus === 'IN_PROGRESS' ? 'secondary' : 'outline'
+            }
+            className={cn('text-sm px-3 py-1', style.cadStatus === 'APPROVED' && 'bg-success')}
+            // the style's CAD status, as the CAD Planning list files it (APPROVED once any row is approved);
+            // the card below says whether the PLAN is approved
           >
-            {isApproved && <CheckCircle2 className="h-4 w-4 mr-1" />}
-            {planStatus}
+            {style.cadStatus === 'APPROVED' && <CheckCircle2 className="h-4 w-4 mr-1" />}
+            {style.cadStatus}
           </Badge>
         </div>
       </div>
@@ -705,10 +724,29 @@ export default function CADPlanningPage() {
                 Approve CAD Plan
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              {anyPlanApproved && (
+                <DropdownMenuItem onClick={handleCheckAndShowPushModal} disabled={loadingPushStatus}>
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Push to Fabric Costing
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={() => navigate(`/fabric-costing?styleId=${id}`)}>
                 <ExternalLink className="h-4 w-4 mr-2" />
                 View Fabric Costing
               </DropdownMenuItem>
+              {anyPlanApproved && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => setShowRejectDialog(true)}
+                    disabled={rejecting}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Reject CAD Plan
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

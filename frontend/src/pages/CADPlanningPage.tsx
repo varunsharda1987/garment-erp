@@ -58,7 +58,7 @@ import {
 import { notify } from '../lib/notify';
 import { cn } from '../lib/utils';
 import { StyleIdentity } from '@/components/StyleIdentity';
-import type { CADTableData } from '../types/cad-planning.types';
+import { ALL_PARTS_CODE, type CADTableData } from '../types/cad-planning.types';
 import CADSpreadsheetTable from '../components/cad/CADSpreadsheetTable';
 import { StockSummaryBanner } from '../components/cad/StockSummaryBanner';
 import { CADOrderHistoryTable } from '../components/cad/CADOrderHistoryTable';
@@ -139,6 +139,15 @@ interface StyleInfo {
 // ============================================
 // MAIN COMPONENT
 // ============================================
+/**
+ * The CAD plan: the Costing and Raw Mat rows that are not rejected. A Production CAD is approved on its own row (it
+ * needs its lot), and a rejected row is reworked and approved on its own — Approve CAD Plan used to send both, and
+ * the server approved one arbitrary row per fabric.
+ */
+function planRowsOf(data: CADTableData | null | undefined) {
+  return (data?.cadRows ?? []).filter((row) => row.purpose !== 'PRODUCTION' && row.approvalStatus !== 'REJECTED');
+}
+
 export default function CADPlanningPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -261,9 +270,10 @@ export default function CADPlanningPage() {
   // ============================================
   const handleApproveCAD = async () => {
     if (!cadTableData) return;
+    const planRows = planRowsOf(cadTableData);
 
-    // Check if all rows have Part assigned
-    const rowsWithoutPart = cadTableData.cadRows.filter((row) => !row.partId);
+    // Check if all rows have Part assigned (a legacy "All Parts" row has its part as ALL_PARTS, no part link)
+    const rowsWithoutPart = planRows.filter((row) => !row.partId && row.partCode !== ALL_PARTS_CODE);
     if (rowsWithoutPart.length > 0) {
       notify.error(
         `Please select a Part for all rows (${rowsWithoutPart.length} row${rowsWithoutPart.length > 1 ? 's' : ''} missing Part)`
@@ -272,7 +282,7 @@ export default function CADPlanningPage() {
     }
 
     // Check if all rows have CAD values
-    const incompleteRows = cadTableData.cadRows.filter((row) => !row.cadAverage || row.cadAverage <= 0);
+    const incompleteRows = planRows.filter((row) => !row.cadAverage || row.cadAverage <= 0);
 
     if (incompleteRows.length > 0) {
       notify.error(`Please complete CAD values for all rows (${incompleteRows.length} incomplete)`);
@@ -290,7 +300,7 @@ export default function CADPlanningPage() {
     // Combined-cutting rows cover several fabrics: styleFabricId is only the first one,
     // the full list lives in combinedFabricIds (same expansion as CADSpreadsheetTable)
     const coveredFabricIds = new Set<string>();
-    cadTableData.cadRows
+    planRows
       .filter((row) => row.cadAverage && row.cadAverage > 0)
       .forEach((row) => {
         if (row.styleFabricId) coveredFabricIds.add(row.styleFabricId);
@@ -322,7 +332,7 @@ export default function CADPlanningPage() {
       // primary styleFabricId, so the else-if avoids duplicates).
       const fabricCADMappings: Array<{ fabricId: string; fabricCADId: string }> = [];
 
-      cadTableData.cadRows.forEach((row) => {
+      planRows.forEach((row) => {
         if (!row.id) return;
         if (row.isCombinedCutting && Array.isArray(row.combinedFabricIds) && row.combinedFabricIds.length > 0) {
           row.combinedFabricIds.forEach((fabricId) => {
@@ -566,12 +576,17 @@ export default function CADPlanningPage() {
     );
   }
 
-  const isApproved = style.cadStatus === 'APPROVED';
+  // "CAD Plan Approved" = every Costing and Raw Mat row (not rejected) is approved. styles.cadStatus says APPROVED as
+  // soon as ANY row is — an approved Production CAD alone hid Approve CAD Plan while the planning rows were pending.
+  // A style with no rows at all keeps its stored status (legacy stamps).
+  const planRows = planRowsOf(cadTableData);
+  const isApproved =
+    cadTableData && cadTableData.cadRows.length > 0
+      ? planRows.length > 0 && planRows.every((row) => row.approvalStatus === 'APPROVED')
+      : style.cadStatus === 'APPROVED';
+  const planStatus = isApproved ? 'APPROVED' : cadTableData?.cadRows.length ? 'IN_PROGRESS' : style.cadStatus;
   const canApprove =
-    cadTableData &&
-    cadTableData.cadRows.length > 0 &&
-    cadTableData.cadRows.every((row) => row.cadAverage && row.cadAverage > 0) &&
-    !isApproved;
+    planRows.length > 0 && planRows.every((row) => row.cadAverage && row.cadAverage > 0) && !isApproved;
 
   return (
     <div className="p-4 w-full">
@@ -592,11 +607,11 @@ export default function CADPlanningPage() {
         <div className="flex items-center gap-2">
           <MiniMarkerBadge styleId={id!} count={miniMarkerCount} />
           <Badge
-            variant={isApproved ? 'default' : style.cadStatus === 'IN_PROGRESS' ? 'secondary' : 'outline'}
+            variant={isApproved ? 'default' : planStatus === 'IN_PROGRESS' ? 'secondary' : 'outline'}
             className={cn('text-sm px-3 py-1', isApproved && 'bg-success')}
           >
             {isApproved && <CheckCircle2 className="h-4 w-4 mr-1" />}
-            {style.cadStatus}
+            {planStatus}
           </Badge>
         </div>
       </div>

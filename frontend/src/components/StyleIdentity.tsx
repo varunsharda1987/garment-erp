@@ -66,14 +66,16 @@ export function StyleIdentity({
   if (layout === 'stacked') {
     const sub = [styleName, ours].filter(Boolean).join(' · ');
     const text = (
-      <div className={cn('min-w-0', !photo && className)}>
+      <div className={cn(photo ? 'shrink-0' : 'min-w-0', !photo && className)}>
         <div className={cn('font-medium', codeClassName)}>{main}</div>
         {sub && <div className="text-xs text-muted-foreground">{sub}</div>}
       </div>
     );
     if (!photo) return text;
     return (
-      <div className={cn('flex min-w-0 items-center gap-2', className)}>
+      // min-w-max: a table sizes the column to photo + code (without it Chrome squeezed the cell and
+      // the code ran into the next column — Cutting list, 2026-10-01).
+      <div className={cn('flex min-w-max items-center gap-2', className)}>
         {photo}
         {text}
       </div>

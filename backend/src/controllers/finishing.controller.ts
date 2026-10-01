@@ -38,6 +38,7 @@ const transformFinishingIssue = (issue: any) => ({
               styleCode: issue.workOrder.styles.styleCode,
               buyerStyleRef: issue.workOrder.styles.buyerStyleRef ?? null,
               styleName: issue.workOrder.styles.styleName,
+              imageUrl: issue.workOrder.styles.imageUrl ?? null, // the garment photo
             }
           : null,
         order: issue.workOrder.orders

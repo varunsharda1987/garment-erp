@@ -89,7 +89,9 @@ export function StyleThumbnail({
   return (
     // Thumbnails sit inside clickable rows and cards; the dialog is portalled but its React events
     // still bubble here — stop them so opening or closing the photo never opens the row.
-    <span className="contents" onClick={(e) => e.stopPropagation()}>
+    // A real box, not `display: contents`: tables size their columns from it (a contents wrapper let
+    // the Cutting list's code run into the next column).
+    <span className="inline-flex shrink-0" onClick={(e) => e.stopPropagation()}>
       <button
         type="button"
         className={cn('group relative shrink-0 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring', className)}

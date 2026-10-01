@@ -470,6 +470,7 @@ export const getAllSamples = async (req: Request, res: Response) => {
           buyerStyleRef: true,
           styleName: true,
           customerName: true,
+          imageUrl: true, // the garment photo
           color: { select: { id: true, colorCode: true, colorName: true, hexCode: true } },
         },
       },
@@ -546,6 +547,7 @@ export const getSampleById = async (req: Request, res: Response) => {
           styleName: true,
           customerName: true,
           brandName: true,
+          imageUrl: true, // the garment photo
           size_options: { select: { id: true, sizeName: true, sizeCode: true, sortOrder: true } },
           color_options: { select: { id: true, colorName: true, colorCode: true, sortOrder: true } },
         },

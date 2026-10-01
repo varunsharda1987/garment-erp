@@ -21,6 +21,7 @@ import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtMoney, fmtPct, fmtQty } from './format';
 import { unitHeader, unitShort, unitWord } from '../../utils/units';
 import { buyerStyleCode, styleCodeIfDifferent, styleCodeLabel } from '../../utils/style-code';
+import { garmentPhotoSrc } from './style-doc-common';
 
 /** What §01 says for a field the job's lines do not share — each line prints its own in §03 */
 const SEE_LINES = 'Several — see 03';
@@ -57,7 +58,7 @@ const jwoDocInclude = {
       lace: { select: { laceCode: true, laceName: true } },
     },
   },
-  style: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
+  style: { select: { styleCode: true, buyerStyleRef: true, styleName: true, imageUrl: true, image: true } },
   fabric: { select: { fabricName: true } },
   finishedFabric: { select: { fabricName: true } },
   // Lace dyeing: what is sent, and the dyed variant the dyer is contracted to return.
@@ -184,6 +185,8 @@ export interface JobWorkOrderDocData {
   buyerStyleCode: string | null;
   /** "EBWW-021 — PERI" — our Style Code (only when it differs from the Buyer Style Code) and the style name. */
   styleLine: string | null;
+  /** The garment photo (file:// URL) when the job is for ONE style that has one on disk. */
+  garmentPhoto: string | null;
   /** The dye/processing colour ("Beige") — the core instruction on a dyeing order. */
   colourLine: string | null;
   orderDate: string;
@@ -597,6 +600,7 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
     styleLine: jwo.style
       ? [styleCodeIfDifferent(jwo.style), jwo.style.styleName].filter(Boolean).join(' — ') || null
       : null,
+    garmentPhoto: garmentPhotoSrc(jwo.style),
     colourLine: colourName,
     orderDate: fmtDate(jwo.approvedAt ?? jwo.createdAt),
     approvedByName: jwo.approvedBy ? `${jwo.approvedBy.firstName} ${jwo.approvedBy.lastName}`.trim() : null,

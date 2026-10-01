@@ -361,6 +361,8 @@ export default function QuotationDetail() {
                           name={item.style?.styleName}
                           layout="stacked"
                           showStyleCode={false}
+                          imageUrl={item.style?.imageUrl}
+                          showImage={!!item.style}
                         />
                         {item.description && <div className="text-xs text-muted-foreground">{item.description}</div>}
                         {item.remarks && <div className="text-xs text-muted-foreground italic">{item.remarks}</div>}

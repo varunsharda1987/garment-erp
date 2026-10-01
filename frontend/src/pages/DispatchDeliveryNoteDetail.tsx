@@ -385,6 +385,8 @@ export default function DispatchDeliveryNoteDetail() {
                         layout="stacked"
                         showStyleCode={false}
                         fallback="-"
+                        imageUrl={item.style?.imageUrl}
+                        showImage
                       />
                     </TableCell>
                     <TableCell className="text-sm">{ourStyleCode(item.style, '-')}</TableCell>
@@ -480,7 +482,7 @@ export default function DispatchDeliveryNoteDetail() {
                   {billable.map(({ item, qty }) => (
                     <TableRow key={item.id}>
                       <TableCell>
-                        <StyleIdentity style={item.style} fallback="-" />
+                        <StyleIdentity style={item.style} fallback="-" imageUrl={item.style?.imageUrl} showImage={!!item.style} />
                       </TableCell>
                       <TableCell>{item.color?.colorName || '-'}</TableCell>
                       <TableCell>{item.size?.sizeName || '-'}</TableCell>

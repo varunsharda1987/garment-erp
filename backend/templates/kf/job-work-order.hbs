@@ -43,6 +43,7 @@
   <!-- 01 ───────────────────────────────────────────── -->
   <div class="sec">
     <div class="sec-h"><span>01 &mdash; Order &amp; Job Worker</span><b>{{../processBanner}}</b></div>
+    <div class="with-photo">
     <div class="kv">
       <div>
         <div class="row"><span class="k">Job Worker</span><span class="v">{{../jobWorkerName}}</span></div>
@@ -61,6 +62,8 @@
         <div class="row"><span class="k">Statutory Due</span><span class="v">{{../statutoryDue}} <span class="muted">&mdash; Sec 143, 1 yr</span></span></div>
         {{/unless}}
       </div>
+    </div>
+    {{#if ../garmentPhoto}}<img class="garment sm" src="{{../garmentPhoto}}" alt="{{../buyerStyleCode}}">{{/if}}
     </div>
   </div>
 

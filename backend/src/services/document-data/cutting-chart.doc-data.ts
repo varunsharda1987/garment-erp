@@ -37,6 +37,7 @@ import {
   Decimal,
 } from '../../utils/currency';
 import { styleCodeLabel } from '../../utils/style-code';
+import { garmentPhotoSrc } from './style-doc-common';
 import { countsForPurposeAverage } from '../helpers/cad-status.helper';
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtPct, fmtQty } from './format';
@@ -70,6 +71,8 @@ const cuttingChartInclude = {
       styleName: true,
       buyerStyleRef: true,
       brandName: true,
+      imageUrl: true,
+      image: true,
       size_options: { select: { id: true, sizeName: true, sortOrder: true }, orderBy: { sortOrder: 'asc' } },
       style_components: {
         orderBy: { sortOrder: 'asc' },
@@ -246,6 +249,8 @@ export interface CuttingChartDocData {
   brand: string | null;
   styleLabel: string;
   styleName: string | null;
+  /** The garment photo as a file:// URL, or null when the style has none on disk. */
+  garmentPhoto: string | null;
   orderRef: string | null;
   deliveryDate: string | null;
   plannedStart: string;
@@ -784,6 +789,7 @@ export function transformCuttingChart(
     styleLabel: styleCodeLabel(style),
     // Many styles are named after their own code — printing "LNG211 · LNG211" says nothing.
     styleName: style.styleName === style.styleCode ? null : style.styleName,
+    garmentPhoto: garmentPhotoSrc(style),
     orderRef: workOrder.orders?.orderNumber ?? null,
     deliveryDate: workOrder.orders?.expectedDeliveryDate ? fmtDate(workOrder.orders.expectedDeliveryDate) : null,
     plannedStart: fmtDate(workOrder.plannedStartDate),

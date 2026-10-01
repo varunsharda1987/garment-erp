@@ -291,7 +291,11 @@ const CostSheetDetail = () => {
             <div>
               <div className="flex items-center gap-3 mb-2">
                 <h2 className="text-2xl font-display font-medium">
-                  {costSheet.style ? <StyleIdentity style={costSheet.style} /> : 'N/A'}
+                  {costSheet.style ? (
+                    <StyleIdentity style={costSheet.style} imageUrl={costSheet.style.imageUrl} showImage imageSize="sm" />
+                  ) : (
+                    'N/A'
+                  )}
                 </h2>
                 <Badge variant="outline" className="text-sm">
                   <GitBranch className="w-3 h-3 mr-1" />v{costSheet.version || 1}

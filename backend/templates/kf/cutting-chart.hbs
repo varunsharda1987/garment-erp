@@ -29,6 +29,7 @@
   <!-- 01 ───────────────────────────────────────────── -->
   <div class="sec">
     <div class="sec-h"><span>01 &mdash; Style &amp; Work Order</span><b>{{cutQtyLabel}} pcs to cut</b></div>
+    <div class="with-photo">
     <div class="kv">
       <div>
         <div class="row"><span class="k">Style</span><span class="v">{{styleLabel}}{{#if styleName}} &middot; <span class="muted">{{styleName}}</span>{{/if}}</span></div>
@@ -43,6 +44,8 @@
         <div class="row"><span class="k">Max Allowed</span><span class="v">{{maxAllowedLabel}} pcs <span class="muted">&mdash; order + {{allowancePctLabel}}</span></span></div>
         <div class="row"><span class="k">Max by Fabric</span><span class="v">{{#if maxFabricLabel}}{{maxFabricLabel}} pcs{{#if fabricLimitPart}} <span class="muted">&mdash; {{fabricLimitPart}}</span>{{/if}}{{else}}<span class="muted">Not computable &mdash; no CAD average against fabric in hand</span>{{/if}}</span></div>
       </div>
+    </div>
+    {{#if garmentPhoto}}<img class="garment" src="{{garmentPhoto}}" alt="{{styleLabel}}">{{/if}}
     </div>
   </div>
 

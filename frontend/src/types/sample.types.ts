@@ -46,6 +46,7 @@ export interface SampleStyle {
   styleCode: string;
   styleName: string;
   buyerStyleRef?: string | null;
+  imageUrl?: string | null; // the garment photo (styles.imageUrl)
   customerName?: string;
   /** The style's Primary Color (color_master) — a sample records no colour of its own */
   color?: { id: string; colorCode: string; colorName: string; hexCode?: string | null } | null;

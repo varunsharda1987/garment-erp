@@ -58,6 +58,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { StyleThumbnail } from '@/components/StyleThumbnail';
 
 export default function SampleDetail() {
   const { id } = useParams<{ id: string }>();
@@ -189,7 +190,11 @@ export default function SampleDetail() {
             Back
           </Button>
           <div className="flex items-center gap-3">
-            <TestTube className="h-8 w-8 text-primary" />
+            {sample.style?.imageUrl ? (
+              <StyleThumbnail imageUrl={sample.style.imageUrl} alt={buyerStyleCode(sample.style)} size="md" />
+            ) : (
+              <TestTube className="h-8 w-8 text-primary" />
+            )}
             <div>
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-display font-medium text-foreground">{sample.sampleNumber}</h1>

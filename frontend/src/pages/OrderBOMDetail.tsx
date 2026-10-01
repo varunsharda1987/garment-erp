@@ -496,7 +496,7 @@ const OrderBOMDetail = () => {
                 </span>
               </div>
               <p className="text-muted-foreground text-lg">
-                <StyleIdentity style={bom.style} name={bom.style?.styleName} />
+                <StyleIdentity style={bom.style} name={bom.style?.styleName} imageUrl={bom.style?.imageUrl} showImage={!!bom.style} imageSize="sm" />
               </p>
               <div className="mt-3 text-sm text-muted-foreground space-y-1">
                 <div>

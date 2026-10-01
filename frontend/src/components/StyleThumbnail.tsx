@@ -33,6 +33,12 @@ const ICON_SIZES = {
 
 export type StyleThumbnailSize = keyof typeof SIZES;
 
+/** Only stored style photos have thumbnails; anything else (a full external URL) is left alone. */
+function withThumb(url: string): string {
+  if (!url.includes('/uploads/styles/')) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}thumb=1`;
+}
+
 interface StyleThumbnailProps {
   /** `styles.imageUrl` — a stored `/uploads/...` path or a full URL. */
   imageUrl?: string | null;
@@ -56,9 +62,12 @@ export function StyleThumbnail({
 }: StyleThumbnailProps) {
   const [open, setOpen] = useState(false);
   const [broken, setBroken] = useState(false);
-  const src = imageUrl && !broken ? getUploadUrl(imageUrl) : '';
+  const full = imageUrl && !broken ? getUploadUrl(imageUrl) : '';
+  // Small sizes load the server's ~240px WebP (`?thumb=1`, style-thumbnail.middleware), which falls
+  // back to the original by itself; the lg header and the dialog use the original.
+  const src = full && size !== 'lg' ? withThumb(full) : full;
 
-  if (!src) {
+  if (!full) {
     if (hideWhenEmpty) return null;
     return (
       <span
@@ -105,7 +114,7 @@ export function StyleThumbnail({
           <DialogHeader>
             <DialogTitle>{alt}</DialogTitle>
           </DialogHeader>
-          <img src={src} alt={alt} className="max-h-[75vh] w-full rounded-md object-contain" />
+          <img src={full} alt={alt} className="max-h-[75vh] w-full rounded-md object-contain" />
         </DialogContent>
       </Dialog>
     </span>

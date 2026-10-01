@@ -80,6 +80,7 @@ const transformDeliveryNote = ({ users, ...note }: any) => ({
           // The sale-order line's snapshot (the code as at the day the line was taken), else the style's
           buyerStyleRef: lineBuyerStyleRef(soLine?.buyerStyleRef, item.styles.buyerStyleRef),
           styleName: item.styles.styleName,
+          imageUrl: item.styles.imageUrl ?? null, // the garment photo
         }
       : null,
     color: item.color_options

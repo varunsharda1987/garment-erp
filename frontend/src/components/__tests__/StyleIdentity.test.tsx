@@ -40,7 +40,7 @@ describe('StyleIdentity', () => {
       <StyleIdentity style={EBWW} name="GEMINI" layout="stacked" showStyleCode={false} imageUrl="/uploads/styles/a.jpg" showImage />
     );
     const img = container.querySelector('img');
-    expect(img?.getAttribute('src')).toMatch(/\/uploads\/styles\/a\.jpg$/);
+    expect(img?.getAttribute('src')).toMatch(/\/uploads\/styles\/a\.jpg\?thumb=1$/);
     expect(img?.getAttribute('alt')).toBe('SP27DR27 — GEMINI');
     expect(container.textContent).toContain('SP27DR27GEMINI');
   });

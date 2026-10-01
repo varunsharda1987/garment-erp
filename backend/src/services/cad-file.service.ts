@@ -531,10 +531,9 @@ class CadFileService {
     // A read that did not happen — the reader busy, timed out, switched off, or installed but broken (it then
     // answers UNREADABLE with the error) — never replaces a read that did (READ, PARTIAL, or a clean UNREADABLE):
     // the row's reason was given for that one
+    // (nor an earlier failed one: a reason given for "the reader could not run" stays with that reading)
     const readFailed = reading.status === 'READER_UNAVAILABLE' || (reading.status === 'UNREADABLE' && !!reading.error);
-    const hadRead =
-      current.readStatus === 'READ' || current.readStatus === 'PARTIAL' || current.readStatus === 'UNREADABLE';
-    if (readFailed && hadRead) {
+    if (readFailed && current.readStatus !== null) {
       throw new BusinessError(
         `The marker reader could not read the image just now (${reading.error ?? 'it did not answer'}) — the ` +
           'earlier reading is kept. Try again in a minute.'

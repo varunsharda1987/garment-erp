@@ -188,7 +188,14 @@ export function CADSpreadsheetTable({
 }: CADSpreadsheetTableProps) {
   const [editingRow, setEditingRow] = useState<string | null>(null);
   // Rows whose pending width was filled by a greige change, not typed (handleFieldChange)
-  const autoFilledWidth = useRef(new Set<string>());
+  const [autoFilledWidth, setAutoFilledWidth] = useState<Record<string, true>>({});
+  const markWidthAutoFilled = (rowId: string, filled: boolean) =>
+    setAutoFilledWidth((prev) => {
+      if (!!prev[rowId] === filled) return prev;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { [rowId]: _, ...rest } = prev;
+      return filled ? { ...rest, [rowId]: true } : rest;
+    });
   // Another row was asked for while this one has unsaved changes (withEditOf): save / discard them, then go on
   const [switchRowPrompt, setSwitchRowPrompt] = useState<{ from: string; then: () => void } | null>(null);
   // The row whose Delete was clicked, waiting for the confirmation
@@ -585,44 +592,36 @@ export function CADSpreadsheetTable({
     field: keyof UpdateCADRowRequest,
     value: UpdateCADRowRequest[keyof UpdateCADRowRequest]
   ) => {
-    setPendingChanges((prev) => {
-      const newChanges = {
-        ...prev,
-        [rowId]: {
-          ...prev[rowId],
-          [field]: value,
-        },
-      };
+    // A width typed by the user is theirs from now on (a later greige change leaves it alone)
+    if (field === 'cutableWidth') markWidthAutoFilled(rowId, false);
 
-      // A width typed by the user is theirs from now on (a later greige change leaves it alone)
-      if (field === 'cutableWidth') autoFilledWidth.current.delete(rowId);
-
-      // A greige change with no width TYPED in this edit: the server stores that greige's default width (63" → 52",
-      // 48" → 40", else its minimum finished width), replacing the row's — so show it in the row now instead of a
-      // width that will not be saved. Each greige change refills a width this code filled; going back to the row's
-      // own greige drops it. A row with no width yet takes a received lot's width, as before (else the default stays
-      // its placeholder).
-      if (field === 'greigeId' && value) {
-        const row = rows.find((r) => r.id === rowId);
-        const pendingWidth = prev[rowId]?.cutableWidth;
-        const typed = pendingWidth !== undefined && pendingWidth !== null && !autoFilledWidth.current.has(rowId);
-        if (row && !typed) {
-          const fromStock = row.stockWidths && row.stockWidths.length > 0 ? row.stockWidths[0] : null;
-          const width =
-            value === row.greigeId ? null : row.cutableWidth ? getDefaultCutableWidth(value as string) : fromStock;
-          if (width !== null) {
-            newChanges[rowId] = { ...newChanges[rowId], cutableWidth: width };
-            autoFilledWidth.current.add(rowId);
-          } else if (autoFilledWidth.current.has(rowId)) {
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { cutableWidth: _w, ...rest } = newChanges[rowId];
-            newChanges[rowId] = rest;
-            autoFilledWidth.current.delete(rowId);
-          }
+    // A greige change with no width TYPED in this edit: the server stores that greige's default width (63" → 52",
+    // 48" → 40", else its minimum finished width), replacing the row's — so show it in the row now instead of a
+    // width that will not be saved. Each greige change refills a width this code filled; going back to the row's
+    // own greige drops it. A row with no width yet keeps the default as its placeholder (nothing is sent, the
+    // server applies it). Decided here, outside the state updater, which must stay pure (StrictMode runs it twice).
+    let widthPatch: { set: number } | { drop: true } | null = null;
+    if (field === 'greigeId' && value) {
+      const row = rows.find((r) => r.id === rowId);
+      const pendingWidth = pendingChanges[rowId]?.cutableWidth;
+      const typed = pendingWidth !== undefined && pendingWidth !== null && !autoFilledWidth[rowId];
+      if (row && !typed) {
+        const width = value !== row.greigeId && row.cutableWidth ? getDefaultCutableWidth(value as string) : null;
+        if (width !== null) {
+          widthPatch = { set: width };
+          markWidthAutoFilled(rowId, true);
+        } else if (autoFilledWidth[rowId]) {
+          widthPatch = { drop: true };
+          markWidthAutoFilled(rowId, false);
         }
       }
+    }
 
-      return newChanges;
+    setPendingChanges((prev) => {
+      const next: Partial<UpdateCADRowRequest> = { ...prev[rowId], [field]: value };
+      if (widthPatch && 'set' in widthPatch) next.cutableWidth = widthPatch.set;
+      if (widthPatch && 'drop' in widthPatch) delete next.cutableWidth;
+      return { ...prev, [rowId]: next };
     });
   };
 
@@ -729,7 +728,7 @@ export function CADSpreadsheetTable({
         return rest;
       });
       setEditingRow(null);
-      autoFilledWidth.current.delete(rowId);
+      markWidthAutoFilled(rowId, false);
       notify.success('CAD row updated successfully');
       onSaved?.();
       return true;
@@ -758,7 +757,7 @@ export function CADSpreadsheetTable({
   // Save button, and came back into the next save of that row.
   const hasPendingChanges = (rowId: string) => !!pendingChanges[rowId] && Object.keys(pendingChanges[rowId]).length > 0;
   const discardPendingChanges = (rowId: string) => {
-    autoFilledWidth.current.delete(rowId);
+    markWidthAutoFilled(rowId, false);
     setPendingChanges((prev) => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { [rowId]: _, ...rest } = prev;
@@ -808,6 +807,12 @@ export function CADSpreadsheetTable({
   // `fabricIds` = the ticks as they are about to be (a tick change reloads the lots before its state settles)
   // Only the LATEST lot request may fill the list: ticks change faster than the lots come back
   const productionStockRequest = useRef(0);
+  // Empty the lot list — and drop any request still on its way, so its reply cannot refill it
+  const clearProductionStock = () => {
+    productionStockRequest.current += 1;
+    setProductionStockOptions([]);
+    setLoadingProductionStock(false);
+  };
   const loadProductionStock = async (fabricIds: string[] = selectedStyleFabrics) => {
     if (fabricIds.length === 0) return;
     const request = ++productionStockRequest.current;
@@ -843,7 +848,7 @@ export function CADSpreadsheetTable({
     if (selectedPurpose === 'PRODUCTION') {
       setSelectedStockForProduction(null);
       if (next.length > 0) void loadProductionStock(next);
-      else setProductionStockOptions([]);
+      else clearProductionStock();
     }
   };
 
@@ -913,7 +918,7 @@ export function CADSpreadsheetTable({
     setSelectAllStyleFabrics(false);
     // Keep selectedPurpose - don't reset it so user can continue adding rows with same purpose
     setSelectedStockForProduction(null);
-    setProductionStockOptions([]);
+    clearProductionStock();
   };
 
   // Handle combined CAD row creation
@@ -984,16 +989,10 @@ export function CADSpreadsheetTable({
   const handleSaveWithMarkerReason = async () => {
     if (!markerReasonPrompt) return;
     const { rowId, onSaved } = markerReasonPrompt;
-    let changes: Partial<UpdateCADRowRequest> = pendingChanges[rowId] ?? {};
-    if (Object.keys(changes).length === 0) {
-      // Nothing typed (a reason for values the row already holds): the reason is checked and kept only with a CAD
-      // value, so the row's own values go with it, unchanged — its sizes, else its layer length (a layer length
-      // would also reset a custom margin to the rule's)
-      const row = rows.find((r) => r.id === rowId);
-      changes = row?.sizeBreakdowns?.length
-        ? { sizeBreakdowns: row.sizeBreakdowns }
-        : { layerLengthMeters: row?.layerLengthMeters ?? null };
-    }
+    const changes: Partial<UpdateCADRowRequest> = pendingChanges[rowId] ?? {};
+    // Nothing typed (a reason for the values the row already holds): the reason goes alone — the server checks it
+    // against the row's stored values. Resending the sizes re-ran the Production variance check (resetting an
+    // admin's variance approval) and resending the length reset a custom margin.
     setSavingRow(rowId);
     try {
       await onUpdateRow(rowId, { ...changes, markerOverrideReason: markerReason.trim() });
@@ -1003,7 +1002,7 @@ export function CADSpreadsheetTable({
         return rest;
       });
       setEditingRow(null);
-      autoFilledWidth.current.delete(rowId);
+      markWidthAutoFilled(rowId, false);
       setMarkerReasonPrompt(null);
       setMarkerReason('');
       notify.success('CAD row saved with your reason');
@@ -1048,7 +1047,8 @@ export function CADSpreadsheetTable({
       const currentRow = rows.find((r) => r.id === rowId);
 
       // Filter stock based on embroidery status:
-      // - If CAD row is for embroidery (isEmbroidery=true), show only embroidered stock
+      // - If CAD row is for embroidery (isEmbroidery=true), show every lot (plain ones too: panels are often
+      //   embroidered after cutting)
       // - If CAD row is for plain fabric (isEmbroidery=false), show only plain stock
       const embroideryFilter = currentRow?.isEmbroidery
         ? undefined // Every lot: embroidery is often done on cut panels, so an embroidered row's lot can be plain
@@ -2148,11 +2148,7 @@ export function CADSpreadsheetTable({
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setEditingRow(null);
-                                    setPendingChanges((prev) => {
-                                      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                      const { [row.id]: _, ...rest } = prev;
-                                      return rest;
-                                    });
+                                    discardPendingChanges(row.id);
                                   }}
                                   disabled={isSaving}
                                   title="Cancel"
@@ -2373,7 +2369,7 @@ export function CADSpreadsheetTable({
                   setSelectedPurpose(value);
                   // Reset stock selection when purpose changes
                   setSelectedStockForProduction(null);
-                  setProductionStockOptions([]);
+                  clearProductionStock();
                   // Load stock if switching to PRODUCTION and fabrics are selected
                   if (value === 'PRODUCTION' && selectedStyleFabrics.length > 0) {
                     loadProductionStock();
@@ -2695,11 +2691,11 @@ export function CADSpreadsheetTable({
                   return (
                     <>
                       <p className="text-muted-foreground">
-                        No available {isEmbroideryRow ? 'embroidered' : 'plain'} fabric stock found for this style.
+                        No available {isEmbroideryRow ? '' : 'plain '}fabric stock found for this style.
                       </p>
                       <p className="text-sm text-muted-foreground mt-2">
                         {isEmbroideryRow
-                          ? 'Please ensure embroidered fabric has been received from the embroidery vendor.'
+                          ? 'Please ensure the fabric (plain, or embroidered by the vendor) has been received and entered into stock.'
                           : 'Please ensure fabric has been received and entered into stock.'}
                       </p>
                     </>

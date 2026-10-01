@@ -2637,8 +2637,20 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     // pending TWIN of an approved row (same part, fabric, width and purpose — a Fabric Costing clone for another
     // processor or quantity) is left pending too: two APPROVED rows on that key break the row's unique index, and
     // the clone is a costing option of geometry already approved.
-    const twinKey = (c: (typeof cadRecords)[number]) =>
-      [c.costingStyleId, c.componentName, c.styleFabricId, Number(c.cutableWidth), c.purpose].join('|');
+    // The unique index's own columns. A NULL in any of them never collides (Postgres: NULLs are distinct), and
+    // most rows have componentName NULL (picking a part in the table clears it) — so only a key with every column
+    // set can have a twin; joining NULLs as '' made the rows of DIFFERENT parts "twins" and left them pending.
+    type KeyCols = {
+      costingStyleId: string | null;
+      componentName: string | null;
+      styleFabricId: string | null;
+      cutableWidth: unknown;
+      purpose: string | null;
+    };
+    const twinKey = (c: KeyCols) =>
+      c.costingStyleId && c.componentName && c.styleFabricId && c.purpose
+        ? [c.costingStyleId, c.componentName, c.styleFabricId, Number(c.cutableWidth), c.purpose].join('|')
+        : null;
     const approvedKeys = new Set(
       (
         await this.prisma.fabric_width_cad.findMany({
@@ -2652,13 +2664,18 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
             purpose: true,
           },
         })
-      ).map((c) => [c.costingStyleId, c.componentName, c.styleFabricId, Number(c.cutableWidth), c.purpose].join('|'))
+      )
+        .map(twinKey)
+        .filter((k): k is string => k !== null)
     );
     const toApprove: typeof cadRecords = [];
     for (const c of cadRecords) {
       if (c.approvalStatus === 'APPROVED') continue; // allow-cad-approval: already approved
-      if (approvedKeys.has(twinKey(c))) continue;
-      approvedKeys.add(twinKey(c));
+      const key = twinKey(c);
+      if (key !== null) {
+        if (approvedKeys.has(key)) continue;
+        approvedKeys.add(key);
+      }
       toApprove.push(c);
     }
 

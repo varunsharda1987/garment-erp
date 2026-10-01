@@ -749,7 +749,9 @@ export async function linkCADToStock(req: Request, res: Response) {
   // only a MARKER's width is kept: a row with no layer length yet holds a planning default (52", 40"…), not a
   // marker, and takes the lot's width
   const keepsOwnWidth =
-    cadRecord.cadMeters != null && rowWidth > 0 && markerFitsLot(rowWidth, Number(fabricStock.cutableWidth)).fits;
+    Number(cadRecord.cadMeters ?? 0) > 0 &&
+    rowWidth > 0 &&
+    markerFitsLot(rowWidth, Number(fabricStock.cutableWidth)).fits;
   if (!keepsOwnWidth && cadRecord.cadMeters != null) {
     await assertMarkerFitsLot(prisma, rowWidth, fabricStockId, cadId);
   }
@@ -789,11 +791,13 @@ export async function linkCADToStock(req: Request, res: Response) {
     action: 'UPDATE',
     oldValues: {
       fabricStockId: cadRecord.fabricStockId,
+      styleFabricId: cadRecord.styleFabricId,
       cutableWidth: Number(cadRecord.cutableWidth),
       greigeId: cadRecord.greigeId,
     },
     newValues: {
       fabricStockId,
+      styleFabricId: updated.styleFabricId,
       cutableWidth: Number(updated.cutableWidth),
       greigeId: updated.greigeId,
     },

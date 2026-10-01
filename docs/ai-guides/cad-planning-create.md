@@ -151,6 +151,10 @@ keywords:
   - 2XL और XXL साइज
 sources:
   - frontend/src/utils/sku-generator.ts
+  - backend/src/utils/sku-generator.ts
+  - backend/src/services/style.service.ts
+  - backend/src/services/helpers/cad-marker.helper.ts
+  - backend/src/services/cad-file.service.ts
   - backend/src/controllers/cad-approval.controller.ts
   - frontend/src/config/navigation.ts
   - frontend/src/pages/CADPlanningPage.tsx

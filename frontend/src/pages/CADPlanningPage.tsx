@@ -146,13 +146,13 @@ interface StyleInfo {
  */
 function planRowsOf(data: CADTableData | null | undefined) {
   const rows = (data?.cadRows ?? []).filter((row) => row.purpose !== 'PRODUCTION' && row.approvalStatus !== 'REJECTED');
-  // A pending TWIN of an approved row (same fabric, part, width and purpose — a Fabric Costing clone for another
-  // processor or quantity) is a costing option of approved geometry: the server leaves it pending (two approved
-  // rows on that key break the row's unique index), so it is not part of the plan either
+  // A Fabric Costing clone (approval status never set — table rows start PENDING) that twins an approved row (same
+  // fabric, part, width and purpose) is a costing option of approved geometry: the server may leave it pending (two
+  // approved rows on one key break the row's unique index), so it is not part of the plan either
   const twin = (row: (typeof rows)[number]) =>
     [row.styleFabricId, row.partId ?? row.partCode, Number(row.cutableWidth), row.purpose].join('|');
   const approved = new Set(rows.filter((row) => row.approvalStatus === 'APPROVED').map(twin));
-  return rows.filter((row) => row.approvalStatus === 'APPROVED' || !approved.has(twin(row)));
+  return rows.filter((row) => row.approvalStatus || !approved.has(twin(row)));
 }
 
 export default function CADPlanningPage() {
@@ -212,6 +212,10 @@ export default function CADPlanningPage() {
   // refreshes in place: swapping the table out unmounted it, and with it the unsaved edits of any other row and
   // the follow-up a "Save changes" prompt was about to run
   const tableLoadedRef = useRef(false);
+  // another style opened in the same page (the route id changed): its first load shows the spinner again
+  useEffect(() => {
+    tableLoadedRef.current = false;
+  }, [id]);
   const loadCADTableData = useCallback(async () => {
     if (!id) return;
     try {

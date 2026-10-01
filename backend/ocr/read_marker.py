@@ -55,7 +55,7 @@ PLACED_RE = re.compile(r"Placed\s*:?\s*(\d+)\s*/\s*(\d+)", re.I)
 
 # One size token of a marker title, optionally repeated: S, XL, 3XL, XXXL, 2XS, 8, 28, 100, FREE SIZE, "L(x2)"
 SIZE_TOKEN_RE = re.compile(
-    r"^(XXXS|XXS|XS|S|M|L|XL|XXL|XXXL|XXXXL|[2-6]XL|[2-4]XS|\d{1,3}|FREESIZE|FREE|FS)(?:\(X(\d+)\))?$", re.I
+    r"^(XXXS|XXS|XS|S|M|L|XL|XXL|XXXL|XXXXL|[2-6]XL|[2-4]XS|0|[1-9]\d{0,2}|FREESIZE|FREE|FS)(?:\(X(\d+)\))?$", re.I
 )
 # A token that looks like a size this reader does not know (7XL, XXXXXL, 5XS): a list cut there is not the whole
 # list, so the title gives no sizes rather than its tail
@@ -102,14 +102,16 @@ def parse_sizes(title_line):
             m = None
             bounded = True
             break
-        # Number sizes run up in small steps (8-10-12, 28-30-32, 90-100-110): a number that is not below the size
-        # after it, or less than half of it, is the style's part or the marker's width, not a size
-        # ("PANT - 2 - 28-30-32" is 28, 30, 32; "X - 100 - 28-30" is 28, 30)
+        # Number sizes of one marker sit close together (8-10-12, 28-30-32, 32-30-28, 90-100-110). A number far from
+        # the size next to it ("PANT - 2 - 28-30-32", "8-18", "0-2-4") or repeating it cannot be told apart from a
+        # part number or a width in front of the list: the title gives no sizes ("not checked"), never the tail
+        # of the list as if it were all of it. (A number with a leading zero — a style code's "021" — is not a size
+        # at all: the walk stops there and the list after it stands.)
         if m and sizes and _size_kind(m.group(1)) == "number":
             n, after = int(m.group(1)), int(sizes[-1]["sizeName"])
-            if not (n < after <= 2 * n):
-                bounded = True
-                break
+            low, high = min(n, after), max(n, after)
+            if n == after or low == 0 or high > 2 * low:
+                return []
         if not m:
             # Stopped on something that looks like a size: the list goes on past what this reader knows, so its
             # tail is not the marker's sizes ("2XS-XS-S-M" read XS, S, M until 2026-10-01; "8-10-12-14" read 10..14)
@@ -593,9 +595,15 @@ TITLE_CASES = [
     ("Nest EXPERT - IP00138 - 02 - S-M-L*", "S M L"),  # a number before letter sizes is not a size
     ("Nest EXPERT - ESSKY082LS - 52 - S-M-L(x2)-XL*", "S M L L XL"),  # nor a width (read "52" as a size)
     ("Nest EXPERT - X - 28-30-32*", "28 30 32"),
-    ("Nest EXPERT - PANT - 2 - 28-30-32*", "28 30 32"),  # a part number in front of number sizes
-    ("Nest EXPERT - X - 100 - 28-30*", "28 30"),
-    ("Nest EXPERT - IP00138 - 9 - 28-30*", "28 30"),
+    ("Nest EXPERT - PANT - 2 - 28-30-32*", ""),  # a number far from the sizes: not checked, never a tail
+    ("Nest EXPERT - X - 100 - 28-30*", ""),
+    ("Nest EXPERT - IP00138 - 9 - 28-30*", ""),
+    ("Nest EXPERT - EBWW-021 - 28-30-32*", "28 30 32"),  # a style code's "021" is not a size
+    ("Nest EXPERT - X - 32-30-28*", "32 30 28"),  # descending
+    ("Nest EXPERT - X - 30-32-28(x2)*", "30 32 28 28"),
+    ("Nest EXPERT - IP - 8-18*", ""),  # sizes far apart: not checked, never just "18"
+    ("Nest EXPERT - X - 0-2-4*", ""),
+    ("Nest EXPERT - X - 28-28-30*", ""),
     ("Nest EXPERT - KIDS - 2-4-6-8*", "2 4 6 8"),
     ("Nest EXPERT - X - 90-100-110*", "90 100 110"),
     ("Nest EXPERT - DUPATTA - FREE SIZE*", "FREESIZE"),

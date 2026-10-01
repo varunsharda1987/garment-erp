@@ -3336,7 +3336,9 @@ export async function updateCADTableRow(req: Request, res: Response) {
         : {}),
     },
     purpose: purpose !== undefined ? purpose : undefined,
+    // a reason alone (the row's values already right — e.g. no marker image to give) is checked and kept too
     triggered:
+      (typeof markerOverrideReason === 'string' && markerOverrideReason.trim().length > 0) ||
       effectiveLayerLength !== undefined ||
       validatedWidth !== undefined ||
       sizeBreakdowns !== undefined ||

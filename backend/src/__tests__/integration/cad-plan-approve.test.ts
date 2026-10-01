@@ -168,6 +168,22 @@ describe('Approve CAD Plan leaves approved rows and their twins as they are', ()
     expect(c?.approvalStatus).toBeNull();
     expect(sf?.fabricCADId).not.toBe(clone.id);
   });
+
+  it('rows of DIFFERENT parts at one width (part picked, componentName empty) are all approved — not twins', async () => {
+    const parts = await prisma.pattern_part_master.findMany({ take: 2, select: { id: true } });
+    if (parts.length < 2) throw new Error('The test database needs two pattern parts');
+    const front = await row({ cutableWidth: 42, componentName: null, patternPartId: parts[0].id });
+    const back = await row({ cutableWidth: 42, componentName: null, patternPartId: parts[1].id });
+    await approvePlan([
+      { fabricId: styleFabricId, fabricCADId: front.id },
+      { fabricId: styleFabricId, fabricCADId: back.id },
+    ]).expect(200);
+    const after = await prisma.fabric_width_cad.findMany({
+      where: { id: { in: [front.id, back.id] } },
+      select: { approvalStatus: true },
+    });
+    expect(after.map((r) => r.approvalStatus)).toEqual(['APPROVED', 'APPROVED']);
+  });
 });
 
 describe('Reject CAD Plan', () => {

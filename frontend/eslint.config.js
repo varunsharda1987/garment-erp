@@ -21,5 +21,30 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // React Compiler rules (react-hooks v7) that flag a working pattern used across ~125 pages
+      // rather than a defect: a load function declared below the effect that calls it
+      // (immutability, 192) and setState inside a load effect (set-state-in-effect, 183). Kept
+      // visible as warnings — clean them up file by file when a page is touched (declare the
+      // loader above the effect / useCallback; prefer React Query for loads). The other compiler
+      // rules (refs, purity, static-components, …) stay errors.
+      'react-hooks/immutability': 'warn',
+      'react-hooks/set-state-in-effect': 'warn',
+    },
+  },
+  {
+    // Playwright E2E (frontend/tests): Node, not React. Fixtures call Playwright's `use()`, which
+    // react-hooks mistakes for React's `use` hook, and a fixture that needs no other fixture must
+    // be written `async ({}, use) =>` (Playwright requires the object pattern).
+    files: ['tests/**/*.ts'],
+    languageOptions: {
+      globals: globals.node,
+    },
+    rules: {
+      'react-hooks/rules-of-hooks': 'off',
+      'no-empty-pattern': 'off',
+      // Test helpers wrap loosely typed API payloads; keep `any` visible but non-blocking there.
+      '@typescript-eslint/no-explicit-any': 'warn',
+    },
   },
 ])

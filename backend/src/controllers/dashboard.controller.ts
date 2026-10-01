@@ -237,7 +237,7 @@ export const getStylesByStage = async (req: Request, res: Response): Promise<voi
     status: { notIn: ['COMPLETED' as const, 'CANCELLED' as const, 'DISPATCHED' as const] },
   };
 
-  let styles: unknown[] = [];
+  let styles: unknown[];
 
   switch (stage as ProductionStage) {
     case ProductionStage.ORDER_RECEIVED: {

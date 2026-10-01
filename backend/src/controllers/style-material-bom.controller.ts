@@ -30,10 +30,10 @@ export const searchMaterials = async (req: Request, res: Response): Promise<void
   logDebug(`Searching materials: type=${type}, query=${searchQuery}`);
 
   // Build search based on material type
-  let materials: any[] = [];
+  let materials: any[];
 
   switch (materialType) {
-    case 'LACE':
+    case 'LACE': {
       const laces = await prisma.lace_master.findMany({
         where: {
           isActive: true,
@@ -70,8 +70,9 @@ export const searchMaterials = async (req: Request, res: Response): Promise<void
         isActive: lace.isActive,
       }));
       break;
+    }
 
-    case 'BUTTON':
+    case 'BUTTON': {
       const buttons = await prisma.button_master.findMany({
         where: {
           isActive: true,
@@ -110,8 +111,9 @@ export const searchMaterials = async (req: Request, res: Response): Promise<void
         isActive: button.isActive,
       }));
       break;
+    }
 
-    case 'THREAD':
+    case 'THREAD': {
       const threads = await prisma.thread_master.findMany({
         where: {
           isActive: true,
@@ -151,8 +153,9 @@ export const searchMaterials = async (req: Request, res: Response): Promise<void
         isActive: thread.isActive,
       }));
       break;
+    }
 
-    case 'ZIPPER':
+    case 'ZIPPER': {
       const zippers = await prisma.zipper_master.findMany({
         where: {
           isActive: true,
@@ -191,8 +194,9 @@ export const searchMaterials = async (req: Request, res: Response): Promise<void
         isActive: zipper.isActive,
       }));
       break;
+    }
 
-    case 'ELASTIC':
+    case 'ELASTIC': {
       const elastics = await prisma.elastic_master.findMany({
         where: {
           isActive: true,
@@ -230,8 +234,9 @@ export const searchMaterials = async (req: Request, res: Response): Promise<void
         isActive: elastic.isActive,
       }));
       break;
+    }
 
-    case 'LABEL':
+    case 'LABEL': {
       const labels = await prisma.label_master.findMany({
         where: {
           isActive: true,
@@ -271,8 +276,9 @@ export const searchMaterials = async (req: Request, res: Response): Promise<void
         isActive: label.isActive,
       }));
       break;
+    }
 
-    case 'PACKAGING':
+    case 'PACKAGING': {
       const packaging = await prisma.packaging_master.findMany({
         where: {
           isActive: true,
@@ -311,6 +317,7 @@ export const searchMaterials = async (req: Request, res: Response): Promise<void
         isActive: pkg.isActive,
       }));
       break;
+    }
 
     default:
       throw new ValidationError(`Material type ${materialType} is not supported for BOM`);
@@ -752,7 +759,7 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
   let materialId: string | undefined;
   let masterRecordId: string | undefined;
   let materialType: MaterialType | undefined;
-  let unitPrice: number = 0;
+  let unitPrice: number;
 
   // Determine material type and fetch details
   if (materialCode.startsWith('LACE-')) {

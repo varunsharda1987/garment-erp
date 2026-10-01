@@ -117,7 +117,7 @@ export async function resolveEntity(
   const { listPath, search, entityLabel, codeField = 'code', nameFields = ['name'] } = opts;
   const lowerLabel = entityLabel.toLowerCase();
 
-  let rows: Array<Record<string, unknown>> = [];
+  let rows: Array<Record<string, unknown>>;
   try {
     const { ok, body } = await internalFetch(
       `${listPath}?search=${encodeURIComponent(search)}&limit=10`,

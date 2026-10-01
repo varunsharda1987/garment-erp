@@ -162,7 +162,6 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
   protected readonly modelName = 'order_bom';
   protected readonly entityName = 'Order BOM';
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected get model(): any {
     return this.prisma.order_bom;
   }
@@ -750,7 +749,6 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     });
 
     // Build BOM items from style material BOM + cost sheet prices
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const bomItems: any[] = [];
 
     // Consumption tracking pairs cost sheet entries 1:1 with style BOM rows;
@@ -1554,7 +1552,6 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     const nextVersion = latestBOM ? latestBOM.version + 1 : 1;
 
     // Recalculate items with new order quantity
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const newItems = sourceBOM.items.map((item: any) => {
       const quantityPerGarment = Number(item.quantityPerGarment);
       const totalQuantity = quantityPerGarment * newOrderQuantity;
@@ -1618,7 +1615,6 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     );
     for (const item of newItems) item.previousItemId = copyPreviousItemIds.get(item.id) ?? null;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const totalMaterialCost = newItems.reduce((sum: number, item: any) => sum + item.totalCost, 0);
 
     // Create in transaction
@@ -1745,7 +1741,6 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     const nextVersion = (latestBOM?.version || currentBOM.version) + 1;
 
     // Build new items
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const newItems: any[] = currentBOM.items.map((item: any) => {
       const newCadId = changeMap.get(item.id);
 
@@ -1931,7 +1926,6 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
    * caller to write onto the NEW order-scoped items.
    */
   private async checkCopiedItemsRateDrift(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     sourceItems: any[],
     targetOrderQuantity: number,
     accepted: boolean,
@@ -2054,7 +2048,6 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
    * Get Order BOM by order ID
    */
   async getByOrderId(orderId: string, styleId?: string): Promise<order_bom | null> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {
       orderId,
       isActive: true,
@@ -2080,7 +2073,6 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     const { page = 1, limit = 20, search, sortBy, sortOrder, ...filters } = options;
     const skip = (page - 1) * limit;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
 
     if (filters.orderId) {
@@ -2111,7 +2103,6 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     ]);
 
     return {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data: boms.map((bom: any) => this.transformBOM(bom)),
       pagination: {
         page,
@@ -2525,7 +2516,6 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       throw new NotFoundError('Order BOM', id);
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const requirements: OrderBOMMaterialRequirement[] = bom.items.map((item: any) => {
       const quantityPerGarment = Number(item.quantityPerGarment);
       const orderQuantity = item.orderQuantity;
@@ -2559,10 +2549,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     const byCategory: { [category: string]: { itemCount: number; totalCost: number } } = {};
     for (const req of requirements) {
       const category =
-        bom.items.find(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (i: any) => this.getMaterialInfo(i).code === req.materialCode
-        )?.usageCategory || 'OTHER';
+        bom.items.find((i: any) => this.getMaterialInfo(i).code === req.materialCode)?.usageCategory || 'OTHER';
 
       if (!byCategory[category]) {
         byCategory[category] = { itemCount: 0, totalCost: 0 };
@@ -2768,7 +2755,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     label_master?: { labelName?: string } | null;
     packaging_master?: { packagingName?: string } | null;
   }): string | null {
-    let masterName: string | null = null;
+    let masterName: string | null;
     switch (material.materialType) {
       case 'LACE':
         masterName = material.lace_master?.laceName || null;
@@ -2850,7 +2837,6 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
    * preferred so duplicate names pair 1:1; leftovers are appended by the caller.
    */
   private matchTrimDetail(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     material: any,
     trims: CostSheetTrimDetail[],
     consumed: Set<CostSheetTrimDetail>
@@ -2890,7 +2876,6 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
   }
 
   private matchAccessoryDetail(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     material: any,
     accessories: CostSheetAccessoryDetail[],
     consumed: Set<CostSheetAccessoryDetail>
@@ -3145,7 +3130,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       );
 
       if (!hasMaterial && !hasFabric && !hasLace && !hasGreige && !hasTrimMaster) {
-        let issue = '';
+        let issue: string;
         switch (item.materialType) {
           case 'THREAD':
             issue = `"${item.componentName}" has no thread_master linked. Select a Thread Master in the cost sheet trims section.`;

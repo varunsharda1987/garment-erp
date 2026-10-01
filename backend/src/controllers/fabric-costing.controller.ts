@@ -779,7 +779,7 @@ export async function saveFabricCosting(req: Request, res: Response) {
     }
 
     for (const field of COSTING_APPROVAL_FIELDS) {
-      if (costing.hasOwnProperty(field) && costing[field] !== undefined) {
+      if (Object.hasOwn(costing, field) && costing[field] !== undefined) {
         throw new ForbiddenError(
           `Field '${field}' can only be changed via the approve/unapprove endpoints, not via save.`
         );
@@ -788,7 +788,7 @@ export async function saveFabricCosting(req: Request, res: Response) {
 
     // NEW: Validate that no CAD-owned fields are being modified
     for (const field of CAD_OWNED_FIELDS) {
-      if (costing.hasOwnProperty(field) && costing[field] !== undefined) {
+      if (Object.hasOwn(costing, field) && costing[field] !== undefined) {
         // Exception: Allow reading these fields, but not changing them
         // If fabricWidthCadId exists, check if value is being changed
         if (costing.fabricWidthCadId) {

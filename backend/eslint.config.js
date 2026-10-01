@@ -54,14 +54,13 @@ module.exports = [
     },
   },
   {
-    // tsc resolves identifiers in TS files (and blocks CI). ESLint's no-undef cannot see
-    // type-only namespaces — Express.Multer.File, PDFKit.PDFDocument, NodeJS.Timeout,
-    // RequestInit — and reported 57 of them; typescript-eslint recommends it off for TS.
-    // It stays on for the plain .js scripts under src/scripts.
+    // typescript-eslint's own overrides for TS files: turns off the core rules tsc already
+    // checks (and blocks CI on), which misfire on TS — no-undef cannot see type-only namespaces
+    // (Express.Multer.File, PDFKit.PDFDocument, NodeJS.Timeout, RequestInit: 57 false reports),
+    // no-redeclare flags the `const X = {…} as const` + `type X` enum-mirror pattern — and turns
+    // on no-var / prefer-const. The plain .js scripts under src/scripts keep the core rules.
+    ...tsPlugin.configs['flat/eslint-recommended'],
     files: ['src/**/*.ts'],
-    rules: {
-      'no-undef': 'off',
-    },
   },
   {
     linterOptions: {

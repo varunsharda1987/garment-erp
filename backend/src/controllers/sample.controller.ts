@@ -182,11 +182,10 @@ export const createSample = async (req: Request, res: Response) => {
   }
 
   // Validate style if provided
-  let style = null;
   if (styleId) {
-    style = await prisma.styles.findUnique({
+    const style = await prisma.styles.findUnique({
       where: { id: styleId },
-      select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true },
+      select: { id: true },
     });
     if (!style) {
       throw new NotFoundError('Style', styleId);

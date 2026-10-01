@@ -1096,7 +1096,8 @@ export const bulkImportFabricMasters = async (req: Request, res: Response) => {
           logError('Failed to auto-create materials record for bulk-imported fabric', err);
           await prisma.fabric_master.delete({ where: { id: created.id } });
           throw new Error(
-            `Failed to create materials record for fabric ${fabricCode}: ${err instanceof Error ? err.message : 'Unknown error'}`
+            `Failed to create materials record for fabric ${fabricCode}: ${err instanceof Error ? err.message : 'Unknown error'}`,
+            { cause: err }
           );
         }
 

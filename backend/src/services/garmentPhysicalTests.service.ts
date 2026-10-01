@@ -372,7 +372,7 @@ class GarmentPhysicalTestsService {
       }
 
       // Auto-calculate shrinkage percentages if measurements are provided
-      let calculatedData: any = { ...data };
+      const calculatedData: any = { ...data };
 
       if (data.prewashLength && data.postwashLength) {
         calculatedData.lengthShrinkage = ((data.prewashLength - data.postwashLength) / data.prewashLength) * 100;

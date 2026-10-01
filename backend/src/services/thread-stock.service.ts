@@ -181,7 +181,9 @@ class ThreadStockService {
       return data.tx ? await run(data.tx) : await prisma.$transaction(run);
     } catch (error: unknown) {
       logError('Error creating thread stock:', error);
-      throw new Error(`Failed to create thread stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to create thread stock: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 

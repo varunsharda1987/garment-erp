@@ -56,7 +56,9 @@ export class OpenAIProvider implements IAIProvider {
         },
       };
     } catch (error: unknown) {
-      throw new Error(`OpenAI generateText failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`OpenAI generateText failed: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -75,7 +77,9 @@ export class OpenAIProvider implements IAIProvider {
         dimensions: embedding.data[0].embedding.length,
       };
     } catch (error: unknown) {
-      throw new Error(`OpenAI generateEmbedding failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`OpenAI generateEmbedding failed: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -107,7 +111,9 @@ export class OpenAIProvider implements IAIProvider {
         },
       };
     } catch (error: unknown) {
-      throw new Error(`OpenAI analyzeImage failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`OpenAI analyzeImage failed: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -135,7 +141,8 @@ export class OpenAIProvider implements IAIProvider {
       };
     } catch (error: unknown) {
       throw new Error(
-        `OpenAI extractStructuredData failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `OpenAI extractStructuredData failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }
@@ -165,7 +172,9 @@ export class OpenAIProvider implements IAIProvider {
         }
       }
     } catch (error: unknown) {
-      throw new Error(`OpenAI generateTextStream failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`OpenAI generateTextStream failed: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 

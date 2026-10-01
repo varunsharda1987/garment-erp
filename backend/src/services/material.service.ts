@@ -90,7 +90,6 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
   protected readonly modelName = 'materials';
   protected readonly entityName = 'Material';
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected get model(): any {
     return this.prisma.materials;
   }

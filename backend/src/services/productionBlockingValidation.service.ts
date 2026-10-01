@@ -699,7 +699,7 @@ class ProductionBlockingValidationService {
       const totalRequired = Number(bom.totalWithWastage || bom.totalQuantity || 0);
       const isFabricType = FABRIC_MATERIAL_TYPES.includes(bom.materialType);
 
-      let availableStock = 0;
+      let availableStock: number;
       if (isFabricType) {
         availableStock = await availableFabricForBomLine(bom, run);
       } else {
@@ -1061,7 +1061,7 @@ class ProductionBlockingValidationService {
       const totalRequired = Number(bom.totalWithWastage || bom.totalQuantity || 0);
       const isFabricType = FABRIC_MATERIAL_TYPES.includes(bom.materialType);
 
-      let availableStock = 0;
+      let availableStock: number;
       if (isFabricType) {
         availableStock = await availableFabricForBomLine(bom, workOrder);
       } else {

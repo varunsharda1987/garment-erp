@@ -73,7 +73,6 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
   protected readonly modelName = 'quotations';
   protected readonly entityName = 'Quotation';
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected get model(): any {
     return this.prisma.quotations;
   }

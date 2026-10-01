@@ -318,8 +318,8 @@ class WarehouseService {
 
     // T2-1 Stage C: derived on-hand + valuation for this warehouse instead of hand-maintained stock_levels.stockValue.
     // BUG-WH10 FIX: Proper error handling to surface issues instead of silent failures
-    let rows: Awaited<ReturnType<typeof getDerivedValuation>>['rows'] = [];
-    let totalValue = 0;
+    let rows: Awaited<ReturnType<typeof getDerivedValuation>>['rows'];
+    let totalValue: number;
 
     try {
       const valuation = await getDerivedValuation({ warehouseId: id });
@@ -330,7 +330,8 @@ class WarehouseService {
       console.error(`[WarehouseService] Error fetching stock summary for warehouse ${id}:`, error);
       // Re-throw with context so the controller can handle it properly
       throw new Error(
-        `Failed to retrieve stock summary for warehouse ${warehouse.warehouseCode}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to retrieve stock summary for warehouse ${warehouse.warehouseCode}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
 

@@ -2268,7 +2268,7 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
       : null;
 
   // 7. Existing batches for this WO (optionally filter by color)
-  let existingBatches = workOrder.cutting_batches.map((b) => {
+  const existingBatches = workOrder.cutting_batches.map((b) => {
     const totalCut = b.skuOutputs.reduce((sum, s) => sum + s.cutQty, 0);
     return {
       id: b.id,

@@ -174,7 +174,7 @@ router.get(
       suppliers_count?: number;
       orders_count?: number;
     }
-    let databaseMetrics: { responseTime?: string; counts?: DbCountResult; error?: string } = {};
+    let databaseMetrics: { responseTime?: string; counts?: DbCountResult; error?: string };
     try {
       const dbStart = Date.now();
       const result = await prisma.$queryRaw<DbCountResult[]>`

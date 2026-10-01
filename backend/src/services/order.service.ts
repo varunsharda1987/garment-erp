@@ -90,7 +90,6 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
   protected readonly modelName = 'orders';
   protected readonly entityName = 'Order';
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected get model(): any {
     return this.prisma.orders;
   }
@@ -295,9 +294,8 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
     // 3.6 Auto-create samples for the styles in this production order (if not already created).
     // Non-blocking — failure doesn't fail the order creation.
     const styleIds = [...new Set(orderItemsData.map((i) => i.styleId))];
-    let samplesCreated: Awaited<ReturnType<typeof sampleService.autoCreateSamplesForOrder>> | null = null;
     try {
-      samplesCreated = await sampleService.autoCreateSamplesForOrder(
+      const samplesCreated = await sampleService.autoCreateSamplesForOrder(
         order.id,
         data.customerId,
         styleIds,
@@ -463,13 +461,11 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
             totalCostPerPiece: costSheet.totalCostPerPiece || costSheet.totalProductCost || 0,
             profitMargin: costSheet.profitMargin,
             sellingPricePerPiece: costSheet.sellingPricePerPiece,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             costingSnapshot: costingSnapshot as any,
             snapshotCreatedAt: new Date(),
             originalCostSheetVersion: costSheet.version,
             // The cost sheet's Total Product Cost (order-costing.helper)
             estimatedCostPerPiece: totalProductCostOf(costSheet),
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
           } as any,
         });
 

@@ -949,7 +949,8 @@ async function resolveRatedSlab(
  * processor with more bands than a greige is filled for still prices large jobs (2026-09-28).
  */
 export async function lookupRate(query: RateLookupQuery): Promise<RateLookupResult | null> {
-  let { processorId, processingType, printingType, greigeId, quantityMeters } = query;
+  const { processingType, printingType, greigeId, quantityMeters } = query;
+  let { processorId } = query;
 
   // Validate printingType for PRINTING
   if (processingType === 'PRINTING' && !printingType) {
@@ -1817,7 +1818,8 @@ export interface LaceRateLookupResult {
 }
 
 export async function lookupLaceRate(query: LaceRateLookupQuery): Promise<LaceRateLookupResult | null> {
-  let { processorId, laceId, quantityMeters } = query;
+  const { laceId, quantityMeters } = query;
+  let { processorId } = query;
 
   // If no processorId provided, use SYSTEM_DEFAULT for default rates
   if (!processorId) {

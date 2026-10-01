@@ -68,7 +68,9 @@ export class MultiProviderFallback implements IAIProvider {
       }
 
       // All providers failed
-      throw new Error(`All AI providers failed. Primary: ${primaryErrorMessage}. Check provider configurations.`);
+      throw new Error(`All AI providers failed. Primary: ${primaryErrorMessage}. Check provider configurations.`, {
+        cause: primaryError,
+      });
     }
   }
 
@@ -94,7 +96,9 @@ export class MultiProviderFallback implements IAIProvider {
         }
       }
 
-      throw new Error(`All AI providers failed for embeddings. Primary: ${primaryErrorMessage}`);
+      throw new Error(`All AI providers failed for embeddings. Primary: ${primaryErrorMessage}`, {
+        cause: primaryError,
+      });
     }
   }
 
@@ -120,7 +124,9 @@ export class MultiProviderFallback implements IAIProvider {
         }
       }
 
-      throw new Error(`All AI providers failed for image analysis. Primary: ${primaryErrorMessage}`);
+      throw new Error(`All AI providers failed for image analysis. Primary: ${primaryErrorMessage}`, {
+        cause: primaryError,
+      });
     }
   }
 

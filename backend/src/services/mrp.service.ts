@@ -1347,7 +1347,6 @@ export async function calculateRequirementsFromOrder(
         bomItem.sourcingStrategy === 'GREIGE_PROCESSED' && (bomItem as any).greigeLaceId
       );
       // Other master types - check all trim FK fields defined in TRIM_FK_FIELDS constant
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const hasSpecificMaster = TRIM_FK_FIELDS.some((field) => (bomItem as any)[field]);
 
       // Early material resolution for specific master types (trim/accessories)
@@ -1355,7 +1354,6 @@ export async function calculateRequirementsFromOrder(
       let resolvedTrimMaterialId: string | null = null;
       if (!material && hasSpecificMaster) {
         // Build trim lookups from TRIM_FK_FIELDS constant - only include fields with values
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const trimLookups = TRIM_FK_FIELDS.map((field) => ({
           field,
           value: (bomItem as any)[field] as string | null,
@@ -1391,11 +1389,9 @@ export async function calculateRequirementsFromOrder(
           else {
             // Generic fallback for all remaining trim types (hook_eye, buckle, other_fastener, ...)
             // driven by MASTER_CONFIG, so new types work without touching this file
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const setField = TRIM_FK_FIELDS.find((field) => (bomItem as any)[field]);
             if (setField) {
               try {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const materialId = await ensureMaterialRecord((bomItem as any)[setField], FK_TO_MASTER_TYPE[setField]);
                 created = { id: materialId };
               } catch (err) {
@@ -1469,7 +1465,7 @@ export async function calculateRequirementsFromOrder(
 
       // Skip if truly no material info available — but TRACK the skip for user visibility
       if (!material && !hasFabric && !hasLace && !hasGreigeProcessing && !hasLandedGreige && !hasSpecificMaster) {
-        let reason = '';
+        let reason: string;
         switch (bomItem.materialType) {
           case 'THREAD':
             reason = `No thread_master linked. Select a Thread Master in the cost sheet trims section.`;

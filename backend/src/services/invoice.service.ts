@@ -90,7 +90,6 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
   protected readonly modelName = 'invoices';
   protected readonly entityName = 'Invoice';
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected get model(): any {
     return this.prisma.invoices;
   }

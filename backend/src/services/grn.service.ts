@@ -3026,7 +3026,6 @@ class GRNService {
         // Phase 4b: mirror the MRP receipt decrement for JWO-keyed GRNs
         if (!grn.poId && grn.jobWorkOrderId) {
           const totalAccepted = (grn.grn_items || []).reduce(
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (sum: number, i: any) => sum + grnLineActualQty(i).toNumber(),
             0
           );
@@ -3561,7 +3560,6 @@ class GRNService {
    */
   private async approvePolessJwoGrnInTx(
     tx: Prisma.TransactionClient,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     grn: any,
     processingQC: ProcessingQCData | undefined,
     targetWarehouseId: string | null,
@@ -3914,7 +3912,6 @@ class GRNService {
    */
   private async approveLaceJwoGrnInTx(
     tx: Prisma.TransactionClient,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     jobWorkOrder: any,
     processingQC: ProcessingQCData | undefined,
     targetWarehouseId: string | null,

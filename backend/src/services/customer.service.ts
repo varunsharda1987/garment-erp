@@ -137,7 +137,6 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
   protected readonly modelName = 'customers';
   protected readonly entityName = 'Customer';
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected get model(): any {
     return this.prisma.customers;
   }

@@ -57,7 +57,9 @@ export class AnthropicProvider implements IAIProvider {
         },
       };
     } catch (error: unknown) {
-      throw new Error(`Anthropic generateText failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Anthropic generateText failed: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -136,7 +138,9 @@ export class AnthropicProvider implements IAIProvider {
         },
       };
     } catch (error: unknown) {
-      throw new Error(`Anthropic analyzeImage failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Anthropic analyzeImage failed: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -171,7 +175,8 @@ export class AnthropicProvider implements IAIProvider {
       };
     } catch (error: unknown) {
       throw new Error(
-        `Anthropic extractStructuredData failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Anthropic extractStructuredData failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }
@@ -199,7 +204,8 @@ export class AnthropicProvider implements IAIProvider {
       }
     } catch (error: unknown) {
       throw new Error(
-        `Anthropic generateTextStream failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Anthropic generateTextStream failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }

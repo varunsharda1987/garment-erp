@@ -79,11 +79,7 @@ import {
   attachCorrectionMarker,
   linkCorrectionMarker,
 } from '../controllers/cad-file.controller';
-import {
-  authenticateToken as authenticate,
-  requirePermissionForWrites,
-  requireAdmin,
-} from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites, requireAdmin } from '../middleware/auth.middleware';
 import { uploadCadFile } from '../middleware/upload.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams, validateQuery } from '../middleware/validation.middleware';
@@ -133,7 +129,7 @@ import {
 const router = Router();
 
 // All routes require authentication
-router.use(authenticate);
+router.use(authenticateToken);
 router.use(requirePermissionForWrites('cadPlanning'));
 
 // ============================================

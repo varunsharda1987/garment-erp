@@ -107,7 +107,7 @@ export const createLookup = async (req: Request, res: Response) => {
   const lookup = await prisma.lookup_values.create({
     data: {
       category: normalizedCategory,
-      code: code || trimmedValue.toUpperCase().replace(/[\s\/]+/g, '_'),
+      code: code || trimmedValue.toUpperCase().replace(/[\s/]+/g, '_'),
       value: trimmedValue,
       description: description || null,
       sortOrder: sortOrder || 0,
@@ -203,8 +203,8 @@ export const bulkCreateLookups = async (req: Request, res: Response) => {
     const value = typeof item === 'string' ? item : item.value;
     const code =
       typeof item === 'string'
-        ? value.toUpperCase().replace(/[\s\/]+/g, '_')
-        : item.code || value.toUpperCase().replace(/[\s\/]+/g, '_');
+        ? value.toUpperCase().replace(/[\s/]+/g, '_')
+        : item.code || value.toUpperCase().replace(/[\s/]+/g, '_');
 
     try {
       const lookup = await prisma.lookup_values.upsert({

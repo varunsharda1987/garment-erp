@@ -94,7 +94,6 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
   protected readonly modelName = 'style_costing';
   protected readonly entityName = 'Cost Sheet';
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected get model(): any {
     return this.prisma.style_costing;
   }
@@ -512,7 +511,7 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
     // Calculate fabric budget from CAD data
     // BUG-COST6 fix: use decimal.js for aggregation
     let fabricBudgetDec = new Decimal(0);
-    let fabricSource = 'No CAD data available';
+    let fabricSource: string;
     const cadRows = await this.prisma.fabric_width_cad.findMany({
       where: {
         costingStyleId: styleId,

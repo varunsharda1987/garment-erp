@@ -92,7 +92,8 @@ async function postNow(settings: TallySettings, xml: string, timeoutMs = POST_TI
   } catch (err) {
     throw new Error(
       `Could not reach Tally at ${settings.tallyHost}:${settings.tallyPort}. ` +
-        'Check that TallyPrime is running with "acts as Server" enabled and the PC is reachable.'
+        'Check that TallyPrime is running with "acts as Server" enabled and the PC is reachable.',
+      { cause: err }
     );
   }
   if (!res.ok) {

@@ -1237,7 +1237,7 @@ export async function getCADGroupDetails(req: Request, res: Response) {
   const averagingMode = firstFabric?.averagingMode || 'COMBINED';
 
   // Get fabric_master and CAD options
-  let fabricMaster = null;
+  let fabricMaster;
   let cadOptions: any[] = [];
 
   if (selectedGreigeId) {
@@ -1898,7 +1898,7 @@ export async function getCADTableData(req: Request, res: Response) {
     });
   });
 
-  let fabricStock = [...initialFabricStock];
+  const fabricStock = [...initialFabricStock];
   if (styleFabricIds.size > 0) {
     const existingStockIds = new Set(initialFabricStock.map((s) => s.id));
     const fabricIdStock = await prisma.fabric_stock.findMany({
@@ -2367,7 +2367,7 @@ export async function getCADTableData(req: Request, res: Response) {
 
       // Find the matching component and style fabric for display info
       let componentName = cad.componentName || 'Unknown';
-      let componentId = match?.componentId || '';
+      const componentId = match?.componentId || '';
       let fabricFinishType: string | null = null;
       let designName: string | null = null;
       let genericGreigeName: string | null = null;
@@ -3436,7 +3436,7 @@ export async function updateCADTableRow(req: Request, res: Response) {
   });
 
   // Update cad_pattern_parts if partIds array is provided (multi-part selection)
-  let updatedParts: { id: string; code: string; name: string; goesToEmbroidery: boolean }[] = [];
+  let updatedParts: { id: string; code: string; name: string; goesToEmbroidery: boolean }[];
   if (partIds !== undefined && Array.isArray(partIds)) {
     // Delete existing cad_pattern_parts entries
     await prisma.cad_pattern_parts.deleteMany({

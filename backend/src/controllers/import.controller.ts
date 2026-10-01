@@ -88,7 +88,7 @@ function mapSupplierCategory(value: string): string {
   const normalized = value
     .toLowerCase()
     .trim()
-    .replace(/[\s\/]+/g, ' ')
+    .replace(/[\s/]+/g, ' ')
     .trim();
 
   // Check the map first
@@ -105,7 +105,7 @@ function mapSupplierCategory(value: string): string {
   // Fallback: convert to enum format (uppercase with underscores)
   return value
     .toUpperCase()
-    .replace(/[\s\/\-&]+/g, '_')
+    .replace(/[\s/\-&]+/g, '_')
     .replace(/_+/g, '_');
 }
 

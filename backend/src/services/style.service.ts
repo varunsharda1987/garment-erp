@@ -163,7 +163,6 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     'product_category.name',
   ] as const;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected get model(): any {
     return this.prisma.styles;
   }

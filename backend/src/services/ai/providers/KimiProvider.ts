@@ -97,7 +97,7 @@ export class KimiProvider implements IAIProvider {
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logError(`[KimiProvider] generateText failed: ${errorMessage}`);
-      throw new Error(`Kimi generateText failed: ${errorMessage}`);
+      throw new Error(`Kimi generateText failed: ${errorMessage}`, { cause: error });
     }
   }
 
@@ -153,7 +153,7 @@ export class KimiProvider implements IAIProvider {
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logError(`[KimiProvider] extractStructuredData failed: ${errorMessage}`);
-      throw new Error(`Kimi extractStructuredData failed: ${errorMessage}`);
+      throw new Error(`Kimi extractStructuredData failed: ${errorMessage}`, { cause: error });
     }
   }
 
@@ -184,7 +184,7 @@ export class KimiProvider implements IAIProvider {
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logError(`[KimiProvider] generateTextStream failed: ${errorMessage}`);
-      throw new Error(`Kimi generateTextStream failed: ${errorMessage}`);
+      throw new Error(`Kimi generateTextStream failed: ${errorMessage}`, { cause: error });
     }
   }
 

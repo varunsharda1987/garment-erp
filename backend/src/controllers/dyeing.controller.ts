@@ -1517,7 +1517,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
   }
 
   // Validate stock source (greige_stock preferred, fabric_stock as fallback)
-  let validatedFabricStockLotId = fabricStockLotId;
+  const validatedFabricStockLotId = fabricStockLotId;
   let sourceGreigeId: string | null = null;
 
   if (greigeStockLotId) {
@@ -1857,7 +1857,6 @@ export const sendProcessPO = async (req: Request, res: Response, _next: NextFunc
   if (!jwo) {
     throw new NotFoundError('Process PO', id);
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const job = jwo as any;
 
   // Same retired-column bug as return-unprocessed: `status` is gone, so this read `undefined`,
@@ -1953,7 +1952,6 @@ export const receiveProcessPO = async (req: Request, res: Response, _next: NextF
   if (!jwo) {
     throw new NotFoundError('Process PO', id);
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const job = jwo as any;
 
   // Conflict guard: already received via GRN — by JWO link OR legacy PO link
@@ -2092,7 +2090,6 @@ export const qualityCheckProcessPO = async (req: Request, res: Response, _next: 
   if (!jwo) {
     throw new NotFoundError('Process PO', id);
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const job = jwo as any;
 
   if (!job.receivedDate) {
@@ -2139,7 +2136,6 @@ export const updateStockProcessPO = async (req: Request, res: Response, _next: N
   if (!jwo) {
     throw new NotFoundError('Process PO', id);
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const job = jwo as any;
 
   if (job.status !== 'QUALITY_CHECKED') {
@@ -2293,7 +2289,6 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, _n
   if (!jwo) {
     throw new NotFoundError('Process PO', id);
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const job = jwo as any;
 
   // Every guard, the stock credit, the inward challan and the job close live in ONE writer, so

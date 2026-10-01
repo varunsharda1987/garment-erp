@@ -321,13 +321,13 @@ async function getReadyFabricCost(fabricId: string, quantityNeeded: number, fabr
     take: 1,
   });
 
-  let cost: number | null = null;
+  let cost: number;
   let procurementId: string | null = null;
   let supplierName: string | null = null;
-  let details = '';
-  let rateSource: 'PROCUREMENT' | 'FABRIC_MASTER' | null = null;
+  let details: string;
+  let rateSource: 'PROCUREMENT' | 'FABRIC_MASTER';
   let procurementDate: string | null = null;
-  let lastUpdated: string | null = null;
+  let lastUpdated: string | null;
 
   if (latestProcurement) {
     cost = Number(latestProcurement.ratePerUnit);

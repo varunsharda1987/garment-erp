@@ -285,7 +285,9 @@ class GreigeStockService {
       return greigeStock;
     } catch (error: unknown) {
       logError('Error creating greige stock:', error);
-      throw new Error(`Failed to create greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to create greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -439,7 +441,9 @@ class GreigeStockService {
       });
     } catch (error: unknown) {
       logError('Error getting greige stock:', error);
-      throw new Error(`Failed to get greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to get greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -556,7 +560,8 @@ class GreigeStockService {
     } catch (error: unknown) {
       logError('Error getting greige stock summary:', error);
       throw new Error(
-        `Failed to get greige stock summary: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to get greige stock summary: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }
@@ -607,7 +612,9 @@ class GreigeStockService {
       return updatedStock;
     } catch (error: unknown) {
       logError('Error reserving greige stock:', error);
-      throw new Error(`Failed to reserve greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to reserve greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -747,7 +754,9 @@ class GreigeStockService {
       return updatedStock;
     } catch (error: unknown) {
       logError('Error consuming greige stock:', error);
-      throw new Error(`Failed to consume greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to consume greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -836,7 +845,9 @@ class GreigeStockService {
       return updatedStock;
     } catch (error: unknown) {
       logError('Error returning greige stock:', error);
-      throw new Error(`Failed to return greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to return greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -931,7 +942,8 @@ class GreigeStockService {
     } catch (error: unknown) {
       logError('Error consuming greige stock with details:', error);
       throw new Error(
-        `Failed to consume greige stock with details: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to consume greige stock with details: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }
@@ -1257,7 +1269,9 @@ class GreigeStockService {
       };
     } catch (error: unknown) {
       logError('Error getting greige stock by ID:', error);
-      throw new Error(`Failed to get greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to get greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -1374,7 +1388,8 @@ class GreigeStockService {
     } catch (error: unknown) {
       logError('Error getting greige stock details:', error);
       throw new Error(
-        `Failed to get greige stock details: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to get greige stock details: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }
@@ -1403,7 +1418,9 @@ class GreigeStockService {
       logDebug(`Updated aging days for ${stocks.length} greige stock records`);
     } catch (error: unknown) {
       logError('Error updating aging days:', error);
-      throw new Error(`Failed to update aging days: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to update aging days: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -1631,7 +1648,8 @@ class GreigeStockService {
     } catch (error: unknown) {
       logError('Error getting processors with greige stock:', error);
       throw new Error(
-        `Failed to get processors with greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to get processors with greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }

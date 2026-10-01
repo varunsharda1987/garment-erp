@@ -1010,7 +1010,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
 📞 ${c?.phone ?? COMPANY_CONFIG.phone}`;
 
     // Clean phone number (remove spaces, dashes, add country code if missing)
-    let cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
+    let cleanPhone = phone.replace(/[\s\-()]/g, '');
     if (!cleanPhone.startsWith('+') && !cleanPhone.startsWith('91')) {
       cleanPhone = '91' + cleanPhone;
     }
@@ -1188,7 +1188,6 @@ From ${c?.name ?? COMPANY_CONFIG.name}
     doc.text('This is a quotation and not a tax invoice. Prices are subject to change.', marginLeft, y, {
       width: pageWidth - 60,
     });
-    y += 20;
 
     // ── Footer ──
     doc
@@ -1581,7 +1580,6 @@ From ${c?.name ?? COMPANY_CONFIG.name}
       doc.text('Remarks:', marginLeft, y);
       y += 12;
       doc.text(order.remarks, marginLeft, y, { width: pageWidth - 60 });
-      y += 20;
     }
 
     // ── Footer ──
@@ -2543,7 +2541,6 @@ From ${c?.name ?? COMPANY_CONFIG.name}
               .fontSize(9)
               .fillColor('#666')
               .text(`MRP: ₹${Number(style.sellingPrice).toLocaleString('en-IN')}`, infoX, infoY);
-            infoY += 14;
           }
 
           // Colors available

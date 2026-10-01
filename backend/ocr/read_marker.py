@@ -102,6 +102,14 @@ def parse_sizes(title_line):
             m = None
             bounded = True
             break
+        # Number sizes run up in small steps (8-10-12, 28-30-32, 90-100-110): a number that is not below the size
+        # after it, or less than half of it, is the style's part or the marker's width, not a size
+        # ("PANT - 2 - 28-30-32" is 28, 30, 32; "X - 100 - 28-30" is 28, 30)
+        if m and sizes and _size_kind(m.group(1)) == "number":
+            n, after = int(m.group(1)), int(sizes[-1]["sizeName"])
+            if not (n < after <= 2 * n):
+                bounded = True
+                break
         if not m:
             # Stopped on something that looks like a size: the list goes on past what this reader knows, so its
             # tail is not the marker's sizes ("2XS-XS-S-M" read XS, S, M until 2026-10-01; "8-10-12-14" read 10..14)
@@ -159,7 +167,8 @@ def classify(reading):
 # The piece table: the sizes when the title bar is not in the screenshot
 # ---------------------------------------------------------------------------
 
-PIECE_SIZE_RE = re.compile(r"^(XXXXL|XXXL|XXL|XXXS|XXS|XS|XL|[2-6]XL|[2-4]XS|S|M|L|FREESIZE|FREE|FS|\d{1,3})$")
+# Numbers of 2-3 digits only: a lone digit in a piece cell is far more often a misread letter (S→5, L→1) than a size
+PIECE_SIZE_RE = re.compile(r"^(XXXXL|XXXL|XXL|XXXS|XXS|XS|XL|[2-6]XL|[2-4]XS|S|M|L|FREESIZE|FREE|FS|\d{2,3})$")
 PIECE_COUNT_RE = re.compile(r"^(\d{1,3})/(\d{1,3})$")
 GROUP_LABEL_RE = re.compile(r"^\s*GROUP\s*[0-9OIl]+\s*$", re.I)  # OCR reads "Group 0" as "Group o"
 CUT_ONE_LABEL_RE = re.compile(r"CUT\s*-?\s*1(?!\d)", re.I)
@@ -223,6 +232,8 @@ def decide_piece_sizes(columns, total):
         names.append(name)
     if len(set(names)) != len(names):
         return None, f"a size is listed twice: {names}"
+    if len({_size_kind(n) for n in names}) > 1:
+        return None, f"letter and number sizes in one list: {names}"
 
     required = []
     for c in cols:
@@ -582,6 +593,11 @@ TITLE_CASES = [
     ("Nest EXPERT - IP00138 - 02 - S-M-L*", "S M L"),  # a number before letter sizes is not a size
     ("Nest EXPERT - ESSKY082LS - 52 - S-M-L(x2)-XL*", "S M L L XL"),  # nor a width (read "52" as a size)
     ("Nest EXPERT - X - 28-30-32*", "28 30 32"),
+    ("Nest EXPERT - PANT - 2 - 28-30-32*", "28 30 32"),  # a part number in front of number sizes
+    ("Nest EXPERT - X - 100 - 28-30*", "28 30"),
+    ("Nest EXPERT - IP00138 - 9 - 28-30*", "28 30"),
+    ("Nest EXPERT - KIDS - 2-4-6-8*", "2 4 6 8"),
+    ("Nest EXPERT - X - 90-100-110*", "90 100 110"),
     ("Nest EXPERT - DUPATTA - FREE SIZE*", "FREESIZE"),
     ("Nest EXPERT - X - S-M-L-XL-XXL-3XL*", "S M L XL XXL 3XL"),
     ("", ""),
@@ -605,7 +621,8 @@ ROW_CASES = [
     (("功", "2/1"), (None, None)),  # placed above required is not a count
     (("2XS", "1/1"), ("2XS", (1, 1))),
     (("Free Size", "1/1"), ("FREESIZE", (1, 1))),
-    (("8", "1/1"), ("8", (1, 1))),
+    (("8", "1/1"), (None, (1, 1))),  # a lone digit is not read as a size in the piece table
+    (("28", "1/1"), ("28", (1, 1))),
 ]
 
 
@@ -642,7 +659,11 @@ def _table_case_extra():
     cols3 = _cols([("BACK CUT 1", 1)] * 12, FIVE)
     cols3[5]["rows"][0] = (None, 1)  # one name not read: still a clear majority
     one_blank = ("one name not read", cols3, 60, "S M L XL XXL")
-    return [missing, rival, one_blank]
+    cols4 = _cols([("BACK CUT 1", 1)] * 12, FIVE)
+    for c in cols4:
+        c["rows"][0] = ("50", 1)  # one row misread as a number in every column: never a mixed list
+    mixed = ("letter and number sizes", cols4, 60, "")
+    return [missing, rival, one_blank, mixed]
 
 
 def _flat(sizes):

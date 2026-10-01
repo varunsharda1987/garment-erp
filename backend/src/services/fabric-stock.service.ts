@@ -1,10 +1,10 @@
 // Fabric Stock Service - Manage fabric stock with style associations
 import { Prisma } from '@prisma/client';
 import prisma from '../config/database';
-import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+import { logInfo, logError } from '../utils/logger';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
 // BUG-GR9 fix: Use centralized quality grade default instead of hardcoding 'A'
-import { DEFAULT_QUALITY_GRADE, getQualityGradeOrDefault } from '../constants/stock.constants';
+import { getQualityGradeOrDefault } from '../constants/stock.constants';
 import { systemSettingsService } from './system-settings.service';
 // BUG-FAB5 fix: Use decimal.js for precise valuation calculations
 import { toCurrency, multiplyCurrency, roundToCent, toNumber, Decimal } from '../utils/currency';

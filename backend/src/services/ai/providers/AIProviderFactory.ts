@@ -17,7 +17,7 @@ import { GeminiProvider } from './GeminiProvider';
 import { OllamaProvider } from './OllamaProvider';
 import { KimiProvider } from './KimiProvider';
 import { DeepSeekProvider } from './DeepSeekProvider';
-import { logInfo, logError, logWarn, logDebug } from '../../../utils/logger';
+import { logInfo, logError } from '../../../utils/logger';
 
 export type AIProviderType = 'openai' | 'anthropic' | 'google' | 'ollama' | 'kimi' | 'deepseek';
 

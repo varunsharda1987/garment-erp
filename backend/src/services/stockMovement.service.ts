@@ -1,11 +1,6 @@
 // Stock Movement Service - Handle all stock movements and integrate with stock levels
-import { MovementType, StockTransactionType, Unit, Prisma } from '@prisma/client';
-import {
-  JWO_ACTIVE_FILTER,
-  JWO_PRE_ISSUE_STATUSES,
-  JWO_AT_PROCESSOR_STATUSES,
-  JWO_RECEIVED_STATUSES,
-} from './helpers/jwo-status.helper';
+import { MovementType, Unit, Prisma } from '@prisma/client';
+import { JWO_PRE_ISSUE_STATUSES, JWO_AT_PROCESSOR_STATUSES, JWO_RECEIVED_STATUSES } from './helpers/jwo-status.helper';
 import { Decimal } from '@prisma/client/runtime/library';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';

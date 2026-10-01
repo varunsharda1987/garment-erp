@@ -5,7 +5,7 @@
 
 import prisma from '../config/database';
 import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from './base.service';
-import { NotFoundError, ConflictError } from '../errors';
+import { NotFoundError } from '../errors';
 import { logError, logInfo, logDebug } from '../utils/logger';
 import { SearchFilter, OrderByClause } from '../types/prisma.types';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';

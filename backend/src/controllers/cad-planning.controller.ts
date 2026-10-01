@@ -20,7 +20,6 @@ import {
   StyleCADSummary,
   ComponentCADSummary,
   FabricCADSummary,
-  CADOption,
   CADCostResult,
 } from './cad-planning.utils';
 import { syncBomFabricId } from '../services/order-bom.service';
@@ -192,7 +191,6 @@ export async function calculateCADCost(req: Request, res: Response) {
  */
 export async function updateCADValues(req: Request, res: Response) {
   const { cadId } = req.params;
-  const parsedCadId = parseInt(cadId, 10);
 
   // Validate that approved CAD cannot be updated
   await validateCADModification(cadId, 'update');
@@ -1123,7 +1121,6 @@ export async function addCADWidth(req: Request, res: Response) {
  */
 export async function deleteCADWidth(req: Request, res: Response) {
   const { cadId } = req.params;
-  const parsedCadId = parseInt(cadId, 10);
 
   // Validate that approved CAD cannot be deleted
   await validateCADModification(cadId, 'delete');
@@ -1409,7 +1406,6 @@ export async function getCADGroupDetails(req: Request, res: Response) {
  */
 export async function updateCADValuesWithBreakdown(req: Request, res: Response) {
   const { cadId } = req.params;
-  const parsedCadId = parseInt(cadId, 10);
 
   // Validate that approved CAD cannot be updated
   await validateCADModification(cadId, 'update');
@@ -1498,7 +1494,7 @@ export async function updateCADValuesWithBreakdown(req: Request, res: Response) 
   }
 
   // Update CAD record
-  const updated = await prisma.fabric_width_cad.update({
+  await prisma.fabric_width_cad.update({
     where: { id: cadId },
     data: updateData,
   });
@@ -3193,7 +3189,6 @@ export async function addCombinedCADRow(req: Request, res: Response) {
  */
 export async function updateCADTableRow(req: Request, res: Response) {
   const { styleId, rowId } = req.params;
-  const parsedRowId = parseInt(rowId, 10);
 
   // Validate that approved CAD cannot be updated
   await validateCADModification(rowId, 'update');
@@ -3810,7 +3805,6 @@ export async function getCADRowHistory(req: Request, res: Response) {
  */
 export async function deleteCADTableRow(req: Request, res: Response) {
   const { styleId, rowId } = req.params;
-  const parsedRowId = parseInt(rowId, 10);
 
   // Validate that approved CAD cannot be deleted
   await validateCADModification(rowId, 'delete');

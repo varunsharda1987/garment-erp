@@ -26,13 +26,7 @@ import greigeStockService from '../greige-stock.service';
 import { systemSettingsService } from '../system-settings.service';
 import { loadDeliveryProgress } from './po-delivery-plan.helper';
 import { listStateOf } from './lot-pieces.helper';
-import {
-  CLAIMED_TRANSIT_WHERE,
-  OPEN_TRANSIT_WHERE,
-  PENDING_TRANSIT_WHERE,
-  istDay,
-  yearAfter,
-} from './transit-challan-state';
+import { CLAIMED_TRANSIT_WHERE, OPEN_TRANSIT_WHERE, istDay, yearAfter } from './transit-challan-state';
 
 type Tx = Prisma.TransactionClient;
 

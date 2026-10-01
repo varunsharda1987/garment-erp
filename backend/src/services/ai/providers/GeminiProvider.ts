@@ -6,7 +6,7 @@
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { logInfo, logError, logWarn, logDebug } from '../../../utils/logger';
+import { logError } from '../../../utils/logger';
 import {
   IAIProvider,
   AITextRequest,

@@ -762,7 +762,6 @@ export async function copyMarkerImage(
 ): Promise<void> {
   const file = await currentMarkerFile(tx, sourceCadId);
   if (!file) return;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { id, cadId, replacedAt, createdAt, readSizes, ...rest } = file;
   await tx.cad_purpose_files.create({
     data: {

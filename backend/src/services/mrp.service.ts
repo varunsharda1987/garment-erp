@@ -58,7 +58,7 @@ import { resolveJwoRate, jwoRateProvenance, JwoRateResolution } from './helpers/
 import logger, { logWarn } from '../utils/logger';
 import { BusinessError, ConflictError, NotFoundError } from '../errors';
 import { applyDeliveryPlan, MAX_DELIVERY_POINTS, type DeliveryPlanPointInput } from './helpers/po-delivery-plan.helper';
-import { QTY_EPSILON, isQtyZero, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit, toQty } from '../utils/quantity';
+import { QTY_EPSILON, isQtyZero, qtyExceeds, qtyRemaining, snapToLimit } from '../utils/quantity';
 import {
   reserveOnLots,
   releaseReservations,
@@ -5102,7 +5102,7 @@ export async function updateRequirementStatus(
 /**
  * Cancel a requirement
  */
-export async function cancelRequirement(id: string, userId: string): Promise<MaterialRequirementResponse> {
+export async function cancelRequirement(id: string, _userId: string): Promise<MaterialRequirementResponse> {
   // MRP-24: refuse to cancel something that has already been received, or that still carries a
   // live PO/JWO — cancelling those silently detaches real goods and real commitments from the plan.
   const current = await prisma.material_requirements.findUnique({

@@ -9,7 +9,6 @@
  */
 
 import prisma from '../config/database';
-import { Decimal } from '@prisma/client/runtime/library';
 import { applyShrinkageLoss, multiplyCurrency, roundToCent, toNumber } from '../utils/currency';
 import { companyProfileService } from './company-profile.service';
 import { JWO_RECEIVED_STATUSES } from './helpers/jwo-status.helper';

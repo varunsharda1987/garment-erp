@@ -18,7 +18,7 @@ import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import prisma from '../config/database';
 import WeightedAverageCostService from '../services/WeightedAverageCostService';
-import { logInfo, logWarn, logDebug } from '../utils/logger';
+import { logInfo, logWarn } from '../utils/logger';
 import { NotFoundError, ValidationError } from '../errors';
 import { syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
 import { systemSettingsService } from '../services/system-settings.service';

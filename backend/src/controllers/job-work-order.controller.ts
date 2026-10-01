@@ -34,16 +34,11 @@ import {
 } from '../services/job-work-issuance.service';
 import greigeStockService from '../services/greige-stock.service';
 import { Prisma } from '@prisma/client';
-import {
-  ensureMaterialRecord,
-  syncMasterToMaterials,
-  syncStockLevelQuantity,
-} from '../services/helpers/material-sync.helper';
+import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 import {
   setJwoStatus,
   isJwoDead,
   lockJobWorkOrder,
-  JWO_ACTIVE_FILTER,
   JWO_PRE_ISSUE_STATUSES,
   JWO_AT_PROCESSOR_STATUSES,
   JWO_RECEIVED_STATUSES,
@@ -1058,7 +1053,6 @@ class JobWorkOrderController {
         page = '1',
         limit = '20',
         search,
-        status,
         jwoStatus,
         processType,
         processorId,
@@ -2011,7 +2005,7 @@ class JobWorkOrderController {
         });
       }
 
-      const updated = await jobWorkOrderService.approve(id, userId);
+      await jobWorkOrderService.approve(id, userId);
 
       // Update status (both columns via the helper)
       await setJwoStatus(prisma, id, 'APPROVED');

@@ -5,7 +5,7 @@
 
 import prisma from '../config/database';
 import { Prisma, order_item_costing } from '@prisma/client';
-import { NotFoundError, ValidationError, BusinessError, InternalError } from '../errors';
+import { NotFoundError, BusinessError, InternalError } from '../errors';
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
 import { addCurrency, roundToCent } from '../utils/currency';
 
@@ -32,35 +32,6 @@ export interface OrderCostingResult {
   profitMargin: number | null;
   baseCostingId: string | null;
   isRecalculated: boolean;
-}
-
-interface FabricDetail {
-  fabricName: string;
-  fabricWidth: number;
-  fabricAverage: number;
-  fabricRate: number;
-  fabricTotal: number;
-}
-
-interface TrimDetail {
-  trimName: string;
-  trimQuantity: number;
-  trimRate: number;
-  trimTotal: number;
-}
-
-interface EmbroideryDetail {
-  embroideryName: string;
-  embroideryAverage: number;
-  embroideryRate: number;
-  embroideryTotal: number;
-}
-
-interface AccessoryDetail {
-  accessoryName: string;
-  accessoryQuantity: number;
-  accessoryRate: number;
-  accessoryTotal: number;
 }
 
 class OrderCostingServiceClass {
@@ -217,7 +188,7 @@ class OrderCostingServiceClass {
       }
 
       // Upsert order item costing
-      const upsertedCosting = await db.order_item_costing.upsert({
+      await db.order_item_costing.upsert({
         where: { orderItemId: data.orderItemId },
         create: {
           orderItemId: data.orderItemId,

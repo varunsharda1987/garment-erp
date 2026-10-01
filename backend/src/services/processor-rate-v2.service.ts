@@ -14,20 +14,16 @@ import prisma from '../config/database';
 import {
   ProcessingTypeV2,
   PrintingTypeV2,
-  PRINTING_TYPES,
   ProcessorInfo,
   SlabDefinition,
   SlabInput,
   GreigeForRateCard,
-  RateEntry,
   GreigeRow,
-  GreigeRateEntry,
   ProcessorRateMatrix,
   CopyRatesInput,
   RateLookupQuery,
   RateLookupResult,
   SaveMatrixRequest,
-  ShrinkageEntry,
   ProcessorTypeStats,
   ProcessorSummary,
   ProcessorRateCardSummary,
@@ -43,19 +39,6 @@ import { pickRatedSlab, carriedBandLabel } from './helpers/rate-slab.helper';
 // ============================================
 // Rate History Helper Functions
 // ============================================
-
-interface RateUpdateParams {
-  processorId: string;
-  processingType: string;
-  printingType?: PrintingType | null;
-  greigeId: string;
-  laceId?: string | null;
-  slabId: string;
-  newRatePerMeter: number;
-  userId: string;
-  changeReasonCode?: string;
-  changeNotes?: string;
-}
 
 /**
  * Helper to convert Decimal to number

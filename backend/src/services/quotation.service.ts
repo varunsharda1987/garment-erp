@@ -4,11 +4,10 @@
  */
 
 import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from './base.service';
-import { QuotationStatus, quotations, quotation_items } from '@prisma/client';
-import { ConflictError, NotFoundError, ValidationError } from '../errors';
+import { QuotationStatus, quotations } from '@prisma/client';
+import { NotFoundError, ValidationError } from '../errors';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
-import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { gstService, GSTCalculation } from './gst.service';
 import { companyProfileService } from './company-profile.service';

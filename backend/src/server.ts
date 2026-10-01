@@ -143,7 +143,7 @@ process.on('message', (msg) => {
 });
 
 // Production-grade error handlers
-process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
+process.on('unhandledRejection', (reason: unknown, _promise: Promise<unknown>) => {
   logError('⚠️ Unhandled Promise Rejection:', reason);
   // In production, you might want to track this in Sentry
   // Sentry.captureException(reason);

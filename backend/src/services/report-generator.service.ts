@@ -123,7 +123,7 @@ class ReportGeneratorService {
   private async generateInventorySummary(
     filePath: string,
     format: string,
-    params: ReportParams
+    _params: ReportParams
   ): Promise<ReportResult> {
     // T2-1: derived on-hand + policy config (per-lot truth, excludes phantom/RAW/zero rows; lastUpdated is
     // the real last movement, not the reconcile-bumped ledger timestamp) instead of stock_levels.
@@ -159,7 +159,7 @@ class ReportGeneratorService {
    * Stock Levels Report
    * Detailed stock levels with reorder points
    */
-  private async generateStockLevels(filePath: string, format: string, params: ReportParams): Promise<ReportResult> {
+  private async generateStockLevels(filePath: string, format: string, _params: ReportParams): Promise<ReportResult> {
     // T2-1: derived on-hand + policy config (per-lot truth, excludes phantom/RAW/zero rows; lastUpdated is
     // the real last movement, not the reconcile-bumped ledger timestamp) instead of stock_levels.
     const stockLevels = (await getDerivedStockDetailed()).sort((a, b) => a.materialId.localeCompare(b.materialId));
@@ -256,7 +256,7 @@ class ReportGeneratorService {
   private async generateProductionStatus(
     filePath: string,
     format: string,
-    params: ReportParams
+    _params: ReportParams
   ): Promise<ReportResult> {
     const workOrders = await prisma.work_orders.findMany({
       include: {
@@ -300,7 +300,7 @@ class ReportGeneratorService {
   /**
    * Style Costing Report
    */
-  private async generateStyleCosting(filePath: string, format: string, params: ReportParams): Promise<ReportResult> {
+  private async generateStyleCosting(filePath: string, format: string, _params: ReportParams): Promise<ReportResult> {
     const costings = await prisma.style_costing.findMany({
       include: {
         styles: true,
@@ -382,7 +382,7 @@ class ReportGeneratorService {
   /**
    * Get list of available reports for download
    */
-  async listReports(userId?: string): Promise<{ fileName: string; createdAt: Date; size: number }[]> {
+  async listReports(_userId?: string): Promise<{ fileName: string; createdAt: Date; size: number }[]> {
     const files = fs.readdirSync(REPORTS_DIR);
 
     return files

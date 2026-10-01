@@ -7,7 +7,6 @@
 
 import { Request, Response } from 'express';
 import prisma from '../config/database';
-import { ValidationError } from '../errors';
 import type {
   CreateComponentInput,
   UpdateComponentInput,

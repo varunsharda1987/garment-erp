@@ -6,7 +6,7 @@
 import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from './base.service';
 import { styles, ProductionStage, Gender, AgeGroup, Prisma } from '@prisma/client';
 import { ConflictError, NotFoundError, ValidationError } from '../errors';
-import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
+import { logInfo, logDebug, logWarn } from '../utils/logger';
 import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
 import { randomUUID } from 'crypto';
 import {
@@ -23,7 +23,7 @@ import {
   FabricCADMapping,
   StyleTrimInput,
 } from '../types/style.types';
-import { generateSKU, checkMultipleSKUsExist, validateSKUFormat, getSizeOrder } from '../utils/sku-generator';
+import { checkMultipleSKUsExist, validateSKUFormat, getSizeOrder } from '../utils/sku-generator';
 import { recomputeStyleCadStatus } from './helpers/cad-status.helper';
 import { recordCadEvent, refuseRejectWhenInUse } from './helpers/cad-history.helper';
 import { checkMarkerOnApprove } from './helpers/cad-marker.helper';

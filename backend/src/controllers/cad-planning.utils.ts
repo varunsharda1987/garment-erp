@@ -6,7 +6,7 @@
 import { Prisma } from '@prisma/client';
 import prisma from '../config/database';
 import { BusinessError, NotFoundError } from '../errors';
-import { toCurrency, addCurrency, divideCurrency, toNumber } from '../utils/currency'; // BUG-CAD8 fix
+import { addCurrency, divideCurrency, toNumber } from '../utils/currency'; // BUG-CAD8 fix
 import { formatDateTime24 } from '../utils/date';
 
 // ============================================================================

@@ -6,7 +6,7 @@
 import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from './base.service';
 import { InvoiceStatus, PaymentMethod, invoices, payments } from '@prisma/client';
 import { ConflictError, NotFoundError, ValidationError, BusinessError } from '../errors';
-import { logInfo, logError, logDebug } from '../utils/logger';
+import { logInfo, logError } from '../utils/logger';
 import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';

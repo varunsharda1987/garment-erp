@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
-import logger from '../utils/logger';
 import prisma from '../config/database';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../errors';
 

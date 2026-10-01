@@ -1,6 +1,6 @@
 import prisma from '../config/database';
 import logger from '../utils/logger';
-import { Prisma, ProductionStage, CADStatus, SampleStatus, OrderStatus } from '@prisma/client';
+import { Prisma, ProductionStage, CADStatus } from '@prisma/client';
 import { InternalError } from '../errors';
 import { applySearch } from '../utils/search-filter';
 
@@ -225,7 +225,7 @@ class ProductionStatusService {
     try {
       const result = await this.getAll({ page: 1, limit: 10000 });
       return result.summary;
-    } catch (error) {
+    } catch {
       throw new InternalError('Failed to fetch production status summary');
     }
   }

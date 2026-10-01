@@ -6,7 +6,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import { logInfo, logError, logWarn, logDebug } from '../../../utils/logger';
+import { logError } from '../../../utils/logger';
 import {
   IAIProvider,
   AITextRequest,
@@ -63,7 +63,7 @@ export class AnthropicProvider implements IAIProvider {
     }
   }
 
-  async generateEmbedding(request: AIEmbeddingRequest): Promise<AIEmbeddingResponse> {
+  async generateEmbedding(_request: AIEmbeddingRequest): Promise<AIEmbeddingResponse> {
     // Anthropic doesn't have a native embeddings API
     // Options:
     // 1. Fallback to OpenAI or Voyage AI

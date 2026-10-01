@@ -8,7 +8,6 @@
 import { Router, Request, Response } from 'express';
 import os from 'os';
 import { version } from '../../package.json';
-import { logError } from '../utils/logger';
 import prisma from '../config/database';
 import { runAllCleanupTasks } from '../services/file-cleanup.service';
 import { asyncHandler } from '../middleware/error.middleware';

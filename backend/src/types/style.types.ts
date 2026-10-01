@@ -3,7 +3,7 @@
  * Type definitions for style-related operations
  */
 
-import { Prisma, MaterialType as PrismaMaterialType } from '@prisma/client';
+import { MaterialType as PrismaMaterialType } from '@prisma/client';
 
 // Re-export Prisma's MaterialType for use in controllers
 export type MaterialType = PrismaMaterialType;

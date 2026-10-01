@@ -1247,7 +1247,6 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
         toCurrency(0)
       )
     );
-    const totalExpected = toNumber(allItems.reduce((sum, item) => sum.plus(toCurrency(item.quantity)), toCurrency(0)));
 
     // Determine status. Quantity rule (utils/quantity): a line received within dust of its quantity
     // (2-decimal entry against a 3-decimal line) is fully received.

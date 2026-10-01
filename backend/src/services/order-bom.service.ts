@@ -8,7 +8,7 @@
 
 import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from './base.service';
 import { Prisma, order_bom, OrderBOMStatus } from '@prisma/client';
-import { ConflictError, NotFoundError, ValidationError, BusinessError } from '../errors';
+import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
 import { processorRateValidationService } from './processor-rate-validation.service';
 // Qty-rate audit 2026-08-24: the single slab-aware rate authority (never re-implement slab matching)
@@ -31,8 +31,6 @@ import {
   CopyOrderBOMInput,
   UpdateOrderBOMInput,
   ApproveOrderBOMInput,
-  OrderBOMQueryFilters,
-  OrderBOMItemInput,
   OrderBOMMaterialRequirement,
   OrderBOMCalculationSummary,
 } from '../types/order-bom.types';
@@ -166,7 +164,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     return this.prisma.order_bom;
   }
 
-  protected buildSearchFilter(search: string): SearchFilter {
+  protected buildSearchFilter(_search: string): SearchFilter {
     return [];
   }
 
@@ -1012,8 +1010,6 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
 
       // P3.5+ wastage unification: fetch system defaults before loops
       const trimDefaultWastage = await systemSettingsService.getNumberDefault('TRIM_DEFAULT_WASTAGE_PERCENT');
-      const fabricDefaultWastage = await systemSettingsService.getNumberDefault('FABRIC_DEFAULT_WASTAGE_PERCENT');
-      const threadDefaultCost = await systemSettingsService.getNumberDefault('THREAD_DEFAULT_COST_PER_GARMENT');
 
       // Create BOM items from trimsDetails JSON
       // BUG-ORD4 fix: Skip trims marked "Not Applicable" on cost sheet
@@ -2621,7 +2617,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     const invalidIds: string[] = [];
 
     // Validate each FK type in parallel
-    const validations = await Promise.all([
+    await Promise.all([
       fabricIds.size > 0
         ? this.prisma.fabric_master
             .findMany({ where: { id: { in: [...fabricIds] } }, select: { id: true } })

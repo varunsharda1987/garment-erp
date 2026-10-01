@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
-import { logInfo, logDebug } from '../utils/logger';
 import { ValidationError, NotFoundError } from '../errors';
 import { systemSettingsService } from '../services/system-settings.service';
 import { multiplyCurrency, toNumber } from '../utils/currency'; // BUG-CAD8 fix

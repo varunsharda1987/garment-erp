@@ -16,7 +16,6 @@ import {
 } from '../services/styleCostingLaceItems.service';
 import { serialize } from '../utils/serializer';
 import { NotFoundError, ValidationError } from '../errors';
-import logger from '../utils/logger';
 
 /**
  * POST /api/style-costing/:costingId/lace-items

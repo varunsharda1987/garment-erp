@@ -6,7 +6,7 @@ import { logInfo, logDebug } from '../utils/logger';
 import { randomUUID } from 'crypto';
 import { ValidationError, NotFoundError } from '../errors';
 // BUG-STY8 fix: Use decimal.js for precise BOM quantity calculations
-import { toCurrency, multiplyCurrency, addCurrency, toNumber } from '../utils/currency';
+import { toCurrency, multiplyCurrency, toNumber } from '../utils/currency';
 import { systemSettingsService } from '../services/system-settings.service';
 import { lineUnit, loadLineUnits, loadMaterialUnits } from '../services/helpers/material-unit.helper';
 import { getStyleLabelSet } from '../services/label-set.service';
@@ -345,11 +345,9 @@ export const getMaterialByCode = async (req: Request, res: Response): Promise<vo
   logDebug(`Fetching material by code: ${materialCode}`);
 
   // Determine material type from code prefix
-  let materialType: MaterialType | null = null;
   let material: any = null;
 
   if (materialCode.startsWith('LACE-')) {
-    materialType = 'LACE';
     const lace = await prisma.lace_master.findFirst({
       where: { laceCode: materialCode, isActive: true },
       include: {
@@ -378,7 +376,6 @@ export const getMaterialByCode = async (req: Request, res: Response): Promise<vo
       };
     }
   } else if (materialCode.startsWith('BTN-')) {
-    materialType = 'BUTTON';
     const button = await prisma.button_master.findFirst({
       where: { buttonCode: materialCode, isActive: true },
       include: {
@@ -409,7 +406,6 @@ export const getMaterialByCode = async (req: Request, res: Response): Promise<vo
       };
     }
   } else if (materialCode.startsWith('THR-')) {
-    materialType = 'THREAD';
     const thread = await prisma.thread_master.findFirst({
       where: { threadCode: materialCode, isActive: true },
       include: {
@@ -441,7 +437,6 @@ export const getMaterialByCode = async (req: Request, res: Response): Promise<vo
       };
     }
   } else if (materialCode.startsWith('ZIP-')) {
-    materialType = 'ZIPPER';
     const zipper = await prisma.zipper_master.findFirst({
       where: { zipperCode: materialCode, isActive: true },
       include: {
@@ -471,7 +466,6 @@ export const getMaterialByCode = async (req: Request, res: Response): Promise<vo
       };
     }
   } else if (materialCode.startsWith('ELA-')) {
-    materialType = 'ELASTIC';
     const elastic = await prisma.elastic_master.findFirst({
       where: { elasticCode: materialCode, isActive: true },
       include: {
@@ -501,7 +495,6 @@ export const getMaterialByCode = async (req: Request, res: Response): Promise<vo
       };
     }
   } else if (materialCode.startsWith('LBL-')) {
-    materialType = 'LABEL';
     const label = await prisma.label_master.findFirst({
       where: { labelCode: materialCode, isActive: true },
       include: {
@@ -533,7 +526,6 @@ export const getMaterialByCode = async (req: Request, res: Response): Promise<vo
       };
     }
   } else if (materialCode.startsWith('PKG-')) {
-    materialType = 'PACKAGING';
     const pkg = await prisma.packaging_master.findFirst({
       where: { packagingCode: materialCode, isActive: true },
       include: {

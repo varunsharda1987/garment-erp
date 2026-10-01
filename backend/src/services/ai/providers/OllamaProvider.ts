@@ -22,7 +22,7 @@ import {
   AIStructuredExtractionRequest,
   AIStructuredExtractionResponse,
 } from './IAIProvider';
-import { logInfo, logError, logWarn, logDebug } from '../../../utils/logger';
+import { logError } from '../../../utils/logger';
 
 // Ollama API response types
 interface OllamaGenerateResponse {

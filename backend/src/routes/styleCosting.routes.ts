@@ -28,7 +28,7 @@ import {
 import { authenticateToken, requirePermission, requireAdmin } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
-import { idParamSchema, styleIdParamSchema, costSheetIdAsIdParamSchema } from '../schemas/common.schema';
+import { styleIdParamSchema, costSheetIdAsIdParamSchema } from '../schemas/common.schema';
 import {
   costingIdParamSchema,
   costingAndItemIdParamSchema,

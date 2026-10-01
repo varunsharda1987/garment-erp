@@ -1,9 +1,9 @@
 // Stock Count Controller - RESTful API endpoints for physical inventory counts
 import { Request, Response } from 'express';
 import stockCountService, { CreateStockCountDTO, UpdateCountItemDTO } from '../services/stockCount.service';
-import { CountType, CountStatus, Unit } from '@prisma/client';
+import { CountType, CountStatus } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
-import { NotFoundError, ValidationError } from '../errors';
+import { ValidationError } from '../errors';
 
 // ============================================
 // Types for Stock Count Controller

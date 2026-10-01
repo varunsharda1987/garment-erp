@@ -330,7 +330,6 @@ class CadFileService {
       if (source.cadId === null || source.cadId === cadId) {
         return tx.cad_purpose_files.update({ where: { id: source.id }, data: { cadId, purpose, replacedAt: null } });
       }
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { id, createdAt, readSizes, replacedAt, sortOrder, ...rest } = source;
       return tx.cad_purpose_files.create({
         data: {
@@ -432,7 +431,6 @@ class CadFileService {
     let source = await prisma.cad_purpose_files.findFirst({ where: { id: fileId, styleId } });
     if (!source) throw new NotFoundError('CAD image', fileId);
     if (source.cadId !== null && source.cadId !== cadId) {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { id, createdAt, readSizes, replacedAt, cadId: otherRow, ...rest } = source;
       source = await prisma.cad_purpose_files.create({
         data: {

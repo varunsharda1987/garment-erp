@@ -7,7 +7,7 @@ import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from '
 import { style_costing, Prisma } from '@prisma/client';
 import { NotFoundError, BusinessError } from '../errors';
 import { logInfo, logDebug, logWarn } from '../utils/logger';
-import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
+import { SearchFilter } from '../types/prisma.types';
 import { multiplyCurrency, toNumber, addCurrency, toCurrency, Decimal } from '../utils/currency'; // BUG-FAB12 fix, BUG-COST6 fix
 
 // ============================================
@@ -98,7 +98,7 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
     return this.prisma.style_costing;
   }
 
-  protected buildSearchFilter(search: string): SearchFilter {
+  protected buildSearchFilter(_search: string): SearchFilter {
     // Complex search done in custom methods
     return [];
   }

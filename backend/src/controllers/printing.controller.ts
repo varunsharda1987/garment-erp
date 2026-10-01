@@ -5,7 +5,6 @@ import { Prisma, Unit } from '@prisma/client';
 import { createChallan } from '../services/challan.service';
 import { issueJobWorkOrder, issueForSendToMill } from '../services/job-work-issuance.service';
 import { STOCK_HELD_FOR_ORDER } from '../services/helpers/po-allocation.helper';
-import { generateUnifiedPONumber } from '../utils/po-number-generator';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 import { styleCodeLabel } from '../utils/style-code';
 import {
@@ -14,11 +13,9 @@ import {
   resolveFinishedFabricIdentity,
   resolveManualJobStyleFabricAnchor,
 } from '../services/helpers/fabric-identity.helper';
-import { randomUUID } from 'crypto';
 import logger from '../utils/logger';
 // BUG-INV3 fix: Import material sync helpers for processor receipt stock_levels sync
 import { ensureMaterialRecord, syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
-import greigeStockService from '../services/greige-stock.service';
 import { isJwoDead, JWO_PRE_ISSUE_STATUSES, JWO_AT_PROCESSOR_STATUSES } from '../services/helpers/jwo-status.helper';
 import { returnJobWorkUnprocessed } from '../services/helpers/jwo-return-unprocessed.helper';
 import { echoShadowPoStatus } from '../services/helpers/shadow-po.helper';
@@ -33,7 +30,6 @@ import {
   roundToCent,
 } from '../utils/currency';
 // BUG-DYE9 fix: Import system settings service for configurable cutable width deduction
-import { systemSettingsService } from '../services/system-settings.service';
 // Phase 6: Job work order service for loss split calculation
 import { jobWorkOrderService, JobWorkOrderError, JWO_ERROR_CODES } from '../services/job-work-order.service';
 // Atomic scoped numbering helpers now live in utils/jobWorkNumber.ts
@@ -2305,7 +2301,7 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, _n
 export const getSummary = async (req: Request, res: Response, _next: NextFunction) => {
   const processType = 'PRINTING';
 
-  const [totalLabDips, labDipsPending, labDipsApproved, totalJobs, jobsByStatus] = await Promise.all([
+  const [, labDipsPending, labDipsApproved, totalJobs, jobsByStatus] = await Promise.all([
     prisma.lab_dips.count({ where: { processType } }),
     prisma.lab_dips.count({ where: { processType, status: 'PENDING' } }),
     prisma.lab_dips.count({ where: { processType, status: 'APPROVED' } }),
@@ -2344,7 +2340,7 @@ export const getSummaryByStyle = async (req: Request, res: Response, _next: Next
   const { styleId } = req.params;
   const processType = 'PRINTING';
 
-  const [totalLabDips, labDipsPending, labDipsApproved, totalJobs, jobsByStatus] = await Promise.all([
+  const [, labDipsPending, labDipsApproved, totalJobs, jobsByStatus] = await Promise.all([
     prisma.lab_dips.count({ where: { processType, styleId } }),
     prisma.lab_dips.count({ where: { processType, styleId, status: 'PENDING' } }),
     prisma.lab_dips.count({ where: { processType, styleId, status: 'APPROVED' } }),
@@ -2383,7 +2379,7 @@ export const getSummaryByMill = async (req: Request, res: Response, _next: NextF
   const { processorId } = req.params;
   const processType = 'PRINTING';
 
-  const [totalLabDips, labDipsPending, labDipsApproved, totalJobs, jobsByStatus] = await Promise.all([
+  const [, labDipsPending, labDipsApproved, totalJobs, jobsByStatus] = await Promise.all([
     prisma.lab_dips.count({ where: { processType, processorId } }),
     prisma.lab_dips.count({ where: { processType, processorId, status: 'PENDING' } }),
     prisma.lab_dips.count({ where: { processType, processorId, status: 'APPROVED' } }),

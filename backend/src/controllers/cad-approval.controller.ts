@@ -474,7 +474,7 @@ export async function createPlanningVersion(req: Request, res: Response) {
  */
 export async function copyCADPurpose(req: Request, res: Response) {
   const { styleId } = req.params;
-  const { sourceCadId, targetPurpose, styleFabricId, componentId, patternPartId } = req.body;
+  const { sourceCadId, targetPurpose, styleFabricId, patternPartId } = req.body;
   const userId = req.user?.userId;
 
   // Fetch source CAD

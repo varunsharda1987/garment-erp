@@ -24,7 +24,7 @@ module.exports = [
     rules: {
       // Allow unused vars with underscore prefix
       'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', ignoreRestSiblings: true }],
 
       // Auth middleware import restrictions — the four guards route-write-guard.test.ts accepts,
       // plus the identity check. requireAnyPermission is a deliberate guard (an action two

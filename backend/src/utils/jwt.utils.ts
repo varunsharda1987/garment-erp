@@ -62,7 +62,7 @@ export const verifyToken = (token: string): JWTPayload => {
 export const decodeToken = (token: string): JWTPayload | null => {
   try {
     return jwt.decode(token) as JWTPayload;
-  } catch (error) {
+  } catch {
     return null;
   }
 };

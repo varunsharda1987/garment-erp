@@ -15,7 +15,7 @@
  */
 
 import prisma from '../../config/database';
-import { logInfo, logWarn, logError } from '../../utils/logger';
+import { logInfo, logWarn } from '../../utils/logger';
 
 // Type alias for Prisma transaction client
 type PrismaTransaction = Omit<typeof prisma, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>;

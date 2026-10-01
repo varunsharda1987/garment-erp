@@ -9,7 +9,7 @@
  */
 
 import prisma from '../config/database';
-import { logInfo, logError, logDebug } from '../utils/logger';
+import { logInfo, logDebug } from '../utils/logger';
 import { applySearch } from '../utils/search-filter';
 
 // ============================================

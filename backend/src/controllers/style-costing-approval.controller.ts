@@ -8,7 +8,6 @@ import { getCostSheetOrderDependents, consumerOrderNumbers } from '../services/h
 import { copyCostSheetItemTables, createCostSheetVersionTx } from '../services/helpers/cost-sheet-version.helper';
 import { onCostSheetApproved, onCostSheetRejected } from '../services/cad-correction.service';
 import { createAuditLog } from '../services/audit.service';
-import type { Prisma } from '@prisma/client';
 
 // ============================================================================
 // APPROVAL & VERSIONING OPERATIONS
@@ -630,7 +629,7 @@ export const updateActuals = async (req: Request, res: Response): Promise<void> 
   }
 
   // Update actual fields
-  const updatedCostSheet = await prisma.style_costing.update({
+  await prisma.style_costing.update({
     where: { id },
     data: {
       fabricActual: fabricActual !== undefined ? fabricActual : costSheet.fabricActual,

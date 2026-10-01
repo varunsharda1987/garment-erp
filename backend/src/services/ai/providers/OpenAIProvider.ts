@@ -6,7 +6,7 @@
  */
 
 import OpenAI from 'openai';
-import { logInfo, logError, logWarn, logDebug } from '../../../utils/logger';
+import { logError } from '../../../utils/logger';
 import {
   IAIProvider,
   AITextRequest,

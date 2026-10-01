@@ -72,7 +72,7 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
     }
 
     next();
-  } catch (error) {
+  } catch {
     res.status(403).json({
       error: 'Forbidden',
       message: 'Invalid or expired token',

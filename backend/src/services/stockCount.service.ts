@@ -4,7 +4,6 @@ import { CountType, CountStatus, Unit, Prisma } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import prisma from '../config/database';
 import stockMovementService from './stockMovement.service';
-import stockLevelService from './stockLevel.service';
 import { getDerivedStockDetailed, getDerivedValuation, DerivedStockDetailedRow } from './helpers/derived-stock.helper';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';

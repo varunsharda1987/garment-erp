@@ -46,7 +46,7 @@ class ExportService {
    * Export data to Excel format (XLSX)
    */
   async exportToExcel(options: ExportOptions): Promise<Buffer> {
-    const { columns, data, title, filename } = options;
+    const { columns, data, title } = options;
 
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'Kashaya Fabs ERP';
@@ -114,7 +114,7 @@ class ExportService {
     });
 
     // Add borders to all cells
-    worksheet.eachRow((row, rowNumber) => {
+    worksheet.eachRow((row, _rowNumber) => {
       row.eachCell((cell) => {
         cell.border = {
           top: { style: 'thin' },
@@ -134,7 +134,7 @@ class ExportService {
    * Export data to PDF format
    */
   async exportToPDF(options: ExportOptions): Promise<Buffer> {
-    const { columns, data, title, filename } = options;
+    const { columns, data, title } = options;
 
     return new Promise((resolve, reject) => {
       const doc = new PDFDocument({ margin: 30, size: 'A4', layout: 'landscape' });

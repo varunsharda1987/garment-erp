@@ -1,12 +1,6 @@
 // Greige Stock Service - Manage raw greige inventory directly
 // This service uses the dedicated greige_stock table (not proxy fabric_master records)
-import {
-  Prisma,
-  PrismaClient,
-  StockStatus,
-  SpecializedStockTransactionType,
-  TransactionReferenceType,
-} from '@prisma/client';
+import { Prisma, PrismaClient, StockStatus, TransactionReferenceType } from '@prisma/client';
 import prisma from '../config/database';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { ensureMaterialRecord, syncStockLevelQuantity, getDefaultWarehouseId } from './helpers/material-sync.helper';
@@ -569,7 +563,7 @@ class GreigeStockService {
   /**
    * Reserve greige stock for processing
    */
-  async reserveGreigeStock(stockId: string, quantity: number, userId: string) {
+  async reserveGreigeStock(stockId: string, quantity: number, _userId: string) {
     try {
       const stock = await prisma.greige_stock.findUnique({
         where: { id: stockId },
@@ -1121,7 +1115,6 @@ class GreigeStockService {
         const actualTotal = foldActual(countedTotal, foldLengthCm).toNumber();
         const allowed = (onHand * THAN_PICK_TOLERANCE_PCT) / 100;
         if (qtyExceeds(Math.abs(actualTotal - onHand), allowed)) {
-          const counted = foldLengthCm != null && foldActual(countedTotal, foldLengthCm).toNumber() !== countedTotal;
           throw new BusinessError(
             `These ${input.pieces.length} ${pieceWord(detailType, input.pieces.length)} come to ` +
               `${fmtQty(actualTotal, 'METER')} m actual` +
@@ -1528,7 +1521,7 @@ class GreigeStockService {
 
     const newQty = data.adjustmentType === 'INCREASE' ? currentQty + data.quantity : currentQty - data.quantity;
 
-    const updated = await prisma.greige_stock.update({
+    await prisma.greige_stock.update({
       where: { id: stockId },
       data: {
         quantityAvailable: new Prisma.Decimal(newQty),

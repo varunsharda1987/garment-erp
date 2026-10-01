@@ -21,7 +21,7 @@ import prisma from '../config/database';
 import { resolveLiveGreigeRates } from './helpers/greige-live-rate.helper';
 import { lookupRate, getAllDyeingPrintingProcessors } from './processor-rate-v2.service';
 import type { ProcessingTypeV2, PrintingTypeV2, RateLookupResult } from '../types/processor-rate-v2.types';
-import { toCurrency, multiplyCurrency, addCurrency, toNumber } from '../utils/currency'; // BUG-FAB12 fix
+import { multiplyCurrency, addCurrency, toNumber } from '../utils/currency'; // BUG-FAB12 fix
 
 export interface FabricCostOptions {
   fabricId: string;

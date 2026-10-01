@@ -14,9 +14,7 @@
  */
 
 import { Router } from 'express';
-import { authenticateToken, requirePermissionForWrites, requireAdmin } from '../middleware/auth.middleware';
-import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 // import * as [feature]Controller from '../controllers/[feature].controller';
 // import {
 //   create[Feature]Schema,

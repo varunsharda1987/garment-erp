@@ -100,7 +100,7 @@ export class DeepSeekProvider implements IAIProvider {
     }
   }
 
-  async generateEmbedding(request: AIEmbeddingRequest): Promise<AIEmbeddingResponse> {
+  async generateEmbedding(_request: AIEmbeddingRequest): Promise<AIEmbeddingResponse> {
     // DeepSeek doesn't have a dedicated embedding model in their API
     logWarn('[DeepSeekProvider] DeepSeek does not support embeddings directly. Use Ollama or OpenAI for embeddings.');
     throw new Error(

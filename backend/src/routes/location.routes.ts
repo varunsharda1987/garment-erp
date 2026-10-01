@@ -3,11 +3,10 @@
  * API endpoints for Indian states and cities
  */
 
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Request, Response } from 'express';
 import { locationService, StateFilterOptions, CityFilterOptions } from '../services/location.service';
 import { StateType, CityTier } from '@prisma/client';
 import { asyncHandler } from '../middleware/asyncHandler';
-import { ValidationError } from '../errors';
 import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { validateParams } from '../middleware/validation.middleware';
 import { idParamSchema, stateCodeParamSchema } from '../schemas/common.schema';

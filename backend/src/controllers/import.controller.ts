@@ -3,7 +3,6 @@ import { Request, Response } from 'express';
 import importService, { ImportColumn } from '../services/import.service';
 import prisma from '../config/database';
 import { Prisma, SupplierCategory } from '@prisma/client';
-import { logInfo, logDebug } from '../utils/logger';
 import { ValidationError, UnauthorizedError } from '../errors';
 import { cleanupTempFile } from '../middleware/upload.middleware';
 import { randomUUID } from 'crypto';

@@ -5,9 +5,9 @@
 
 import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from './base.service';
 import { orders, Prisma, Priority } from '@prisma/client';
-import { BusinessError, ConflictError, NotFoundError, ValidationError } from '../errors';
+import { BusinessError, NotFoundError, ValidationError } from '../errors';
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
-import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
+import { SearchFilter } from '../types/prisma.types';
 import { randomUUID } from 'crypto';
 import workOrderService from './workOrder.service';
 import { generateAtomicOrderNumber } from '../utils/atomicCodeGenerator';

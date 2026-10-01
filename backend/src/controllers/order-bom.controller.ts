@@ -6,7 +6,6 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { OrderBOMStatus } from '../types/order-bom.types';
 import { orderBomService } from '../services/order-bom.service';
-import workOrderService from '../services/workOrder.service';
 import { logError } from '../utils/logger';
 import { NotFoundError, UnauthorizedError, BusinessError } from '../errors';
 import type { CreateFromCostSheetInput, UpdateOrderBOMInput, ChangeWidthInput } from '../schemas/orderBom.schema';

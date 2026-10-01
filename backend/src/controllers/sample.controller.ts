@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
-import { logInfo, logDebug } from '../utils/logger';
+import { logInfo } from '../utils/logger';
 import { randomUUID } from 'crypto';
 import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
@@ -118,9 +118,6 @@ export const createSample = async (req: Request, res: Response) => {
     requiredDate,
     remarks,
     // Type-specific fields
-    sampleSizeId,
-    fitSampleReference,
-    ppSampleReference,
     linkedDispatchId,
     productionLot,
     sentTo,

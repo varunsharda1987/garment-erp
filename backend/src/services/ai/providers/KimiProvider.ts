@@ -101,7 +101,7 @@ export class KimiProvider implements IAIProvider {
     }
   }
 
-  async generateEmbedding(request: AIEmbeddingRequest): Promise<AIEmbeddingResponse> {
+  async generateEmbedding(_request: AIEmbeddingRequest): Promise<AIEmbeddingResponse> {
     // Kimi doesn't have a dedicated embedding model
     // Fall back to using text-based similarity or throw an error
     logWarn('[KimiProvider] Kimi does not support embeddings directly. Use Ollama or OpenAI for embeddings.');
@@ -110,7 +110,7 @@ export class KimiProvider implements IAIProvider {
     );
   }
 
-  async analyzeImage(request: AIImageAnalysisRequest): Promise<AIImageAnalysisResponse> {
+  async analyzeImage(_request: AIImageAnalysisRequest): Promise<AIImageAnalysisResponse> {
     // Kimi's vision capabilities (if available)
     // For now, indicate this is not supported
     logWarn('[KimiProvider] Image analysis not yet supported with Kimi.');

@@ -6,7 +6,7 @@
 import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from './base.service';
 import { fabric_master, FabricFinishType, Prisma } from '@prisma/client';
 import { ConflictError, NotFoundError, ValidationError } from '../errors';
-import { logInfo, logError, logDebug } from '../utils/logger';
+import { logInfo, logDebug } from '../utils/logger';
 import { SearchFilter } from '../types/prisma.types';
 import { materialService } from './material.service';
 import { syncMasterToMaterials } from './helpers/material-sync.helper';

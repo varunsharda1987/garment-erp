@@ -3,7 +3,7 @@ import prisma from '../config/database';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { normalizeId, isUUID } from '../utils/id-helper';
 import { FabricFinishType, Prisma } from '@prisma/client';
-import { FabricSupplierInput, FabricWhereClause, FabricUpdateData } from '../types/fabric.types';
+import { FabricSupplierInput, FabricWhereClause } from '../types/fabric.types';
 import { FabricQueryInput } from '../schemas/fabricGreige.schema';
 import { materialService } from '../services/material.service';
 import { getDerivedOnHandMap } from '../services/helpers/derived-stock.helper';

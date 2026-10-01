@@ -13,14 +13,7 @@ import {
   ThreadPly,
 } from '@prisma/client';
 import { randomUUID } from 'crypto';
-import {
-  CreateGRNDTO,
-  GRNFilters,
-  PendingPOItem,
-  ProcessingReceiveData,
-  ProcessingQCData,
-  GRNItemDetailDTO,
-} from '../types/grn.types';
+import { CreateGRNDTO, GRNFilters, PendingPOItem, ProcessingQCData, GRNItemDetailDTO } from '../types/grn.types';
 import { createChallan } from './challan.service';
 import { purchaseOrderService } from './purchaseOrder.service';
 import mrpService from './mrp.service';
@@ -44,7 +37,6 @@ import {
   setJwoStatusMany,
   isJwoDead,
   lockJobWorkOrder,
-  JWO_ACTIVE_FILTER,
   JWO_AT_PROCESSOR_STATUSES,
   JWO_GRN_UOMS,
 } from './helpers/jwo-status.helper';

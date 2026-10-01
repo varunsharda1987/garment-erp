@@ -1871,7 +1871,6 @@ export async function promoteCostingOption(req: Request, res: Response) {
   }
 
   // Create copy with new purpose (original remains for audit trail)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { id, createdAt, updatedAt, ...data } = option;
 
   const promoted = await prisma.fabric_width_cad.create({

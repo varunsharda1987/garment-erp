@@ -5,7 +5,6 @@ import { Prisma, Unit } from '@prisma/client';
 import { createChallan } from '../services/challan.service';
 import { issueJobWorkOrder, issueForSendToMill } from '../services/job-work-issuance.service';
 import { STOCK_HELD_FOR_ORDER } from '../services/helpers/po-allocation.helper';
-import { generateUnifiedPONumber } from '../utils/po-number-generator';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 import { maxNumericSuffix, seedScopedSequenceIfMissing, generateJobWorkNumber } from '../utils/jobWorkNumber';
 import { styleCodeLabel } from '../utils/style-code';
@@ -15,10 +14,8 @@ import {
   resolveFinishedFabricIdentity,
   resolveManualJobStyleFabricAnchor,
 } from '../services/helpers/fabric-identity.helper';
-import { randomUUID } from 'crypto';
 import logger from '../utils/logger';
 import { ensureMaterialRecord, syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
-import greigeStockService from '../services/greige-stock.service';
 import { isJwoDead, JWO_PRE_ISSUE_STATUSES, JWO_AT_PROCESSOR_STATUSES } from '../services/helpers/jwo-status.helper';
 import { returnJobWorkUnprocessed } from '../services/helpers/jwo-return-unprocessed.helper';
 import { echoShadowPoStatus } from '../services/helpers/shadow-po.helper';
@@ -2329,7 +2326,7 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, _n
 
 // Get dyeing summary
 export const getSummary = async (req: Request, res: Response, _next: NextFunction) => {
-  const [totalLabDips, labDipsPending, labDipsApproved, totalJobs, jobsByStatus] = await Promise.all([
+  const [, labDipsPending, labDipsApproved, totalJobs, jobsByStatus] = await Promise.all([
     prisma.lab_dips.count({ where: { processType: PROCESS_TYPE } }),
     prisma.lab_dips.count({ where: { processType: PROCESS_TYPE, status: 'PENDING' } }),
     prisma.lab_dips.count({ where: { processType: PROCESS_TYPE, status: 'APPROVED' } }),
@@ -2367,7 +2364,7 @@ export const getSummary = async (req: Request, res: Response, _next: NextFunctio
 export const getSummaryByStyle = async (req: Request, res: Response, _next: NextFunction) => {
   const { styleId } = req.params;
 
-  const [totalLabDips, labDipsPending, labDipsApproved, totalJobs, jobsByStatus] = await Promise.all([
+  const [, labDipsPending, labDipsApproved, totalJobs, jobsByStatus] = await Promise.all([
     prisma.lab_dips.count({ where: { processType: PROCESS_TYPE, styleId } }),
     prisma.lab_dips.count({ where: { processType: PROCESS_TYPE, styleId, status: 'PENDING' } }),
     prisma.lab_dips.count({ where: { processType: PROCESS_TYPE, styleId, status: 'APPROVED' } }),
@@ -2405,7 +2402,7 @@ export const getSummaryByStyle = async (req: Request, res: Response, _next: Next
 export const getSummaryByMill = async (req: Request, res: Response, _next: NextFunction) => {
   const { processorId } = req.params;
 
-  const [totalLabDips, labDipsPending, labDipsApproved, totalJobs, jobsByStatus] = await Promise.all([
+  const [, labDipsPending, labDipsApproved, totalJobs, jobsByStatus] = await Promise.all([
     prisma.lab_dips.count({ where: { processType: PROCESS_TYPE, processorId } }),
     prisma.lab_dips.count({ where: { processType: PROCESS_TYPE, processorId, status: 'PENDING' } }),
     prisma.lab_dips.count({ where: { processType: PROCESS_TYPE, processorId, status: 'APPROVED' } }),

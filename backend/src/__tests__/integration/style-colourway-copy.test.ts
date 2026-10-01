@@ -358,7 +358,8 @@ describe('Create Colourway', () => {
       where: { styleId: copyId },
       orderBy: { sortOrder: 'asc' },
     });
-    expect(variants.map((v) => v.sku)).toEqual([`${copy.styleCode}S`, `${copy.styleCode}M`]);
+    // A new SKU starts with the buyer's code (skuStyleCode, owner 2026-10-01)
+    expect(variants.map((v) => v.sku)).toEqual([`${RUN}-BLUES`, `${RUN}-BLUEM`]);
     const sizes = await prisma.size_options.findMany({ where: { styleId: copyId } });
     expect(sizes.map((s) => s.sizeName).sort()).toEqual(['M', 'S']);
   });

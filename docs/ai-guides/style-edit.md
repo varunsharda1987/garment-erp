@@ -124,7 +124,7 @@ route: /styles
 3. To change it, pick another preset, or **None (Manual Sizes)** for the standard XS-XXXL list. The size list is replaced, but a size that stays keeps its SKU code and barcode
 4. Sizes from the preset show a small **\*** and the line **size(s) from preset - you can add more sizes manually**
 5. Enable/disable specific sizes using the checkboxes
-6. Click **Auto-Generate SKUs** to fill SKU codes (empty SKUs are also filled when you save); codes can be typed over
+6. Click **Auto-Generate SKUs** to fill the SKU codes that are still empty (empty SKUs are also filled when you save) — a new code is the **Buyer Style Code** followed by the size (the **Style Code** when there is no Buyer Style Code). SKU codes already saved on the style are kept; codes can be typed over
 
 ### Saving Changes
 

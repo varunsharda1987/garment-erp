@@ -268,7 +268,7 @@ class StyleImportController {
       [''],
       ['AUTO-GENERATED FIELDS:'],
       ['InternalCode', 'System generates: STYYYMM-XXXX (e.g., STY2607-0001)'],
-      ['SKU', 'System generates: {StyleCode}{Size} (e.g., COS009S)'],
+      ['SKU', 'System generates: {BuyerStyleCode, else StyleCode}{Size} (e.g., SP27DR27S)'],
       ['Barcode', 'Same as SKU'],
       [''],
       ['NOTES:'],

@@ -12,6 +12,7 @@ import {
   formatStyleCodeWithRef,
   lineBuyerStyleRef,
   ourStyleCode,
+  skuStyleCode,
   styleCodeIfDifferent,
   styleCodeLabel,
 } from '../../utils/style-code';
@@ -74,6 +75,15 @@ describe('style identity — Buyer Style Code first', () => {
     expect(formatStyleCodeWithRef('EBWW-021', 'SP27DR27')).toBe('EBWW-021 (SP27DR27)');
     expect(formatStyleCodeWithRef('ST-001', 'ZR 4087 - 042')).toBe('ST-001 (ZR 4087-042)');
     expect(formatStyleCodeWithRef('LNG276', null)).toBe('LNG276');
+  });
+
+  it("starts a new SKU with the buyer's code, else ours (owner, 2026-10-01)", () => {
+    expect(skuStyleCode(EBWW)).toBe('SP27DR27');
+    expect(skuStyleCode(ESSKY)).toBe('ESSKY082LS');
+    expect(skuStyleCode(KASYA)).toBe('LNG276');
+    expect(skuStyleCode({ styleCode: 'EBWW-021', buyerStyleRef: '   ' })).toBe('EBWW-021');
+    expect(skuStyleCode({ styleCode: '', buyerStyleRef: null })).toBe('STYLE');
+    expect(skuStyleCode(null)).toBe('STYLE');
   });
 
   it('is identical to its frontend twin', () => {

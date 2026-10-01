@@ -28,7 +28,7 @@ import prisma from '../config/database';
 import { BusinessError, ConflictError, NotFoundError, ValidationError } from '../errors';
 import { logInfo, logWarn } from '../utils/logger';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
-import { styleCodeLabel } from '../utils/style-code';
+import { skuStyleCode, styleCodeLabel } from '../utils/style-code';
 import { styleService } from './style.service';
 import { syncStyleColourway } from './helpers/style-colour.helper';
 import { buyerStyleCodeOwner, buyerStyleCodeTakenMessage } from './helpers/buyer-style-code.helper';
@@ -445,14 +445,15 @@ async function copyStyleTx(
   await syncStyleColourway(tx, newId, colour.id);
 
   // ---- sizes + SKUs ----
-  // SKU = style code + size, as the Style form writes it (EBEW-002XS), so the form's next save keeps them.
+  // SKU = the copy's buyer code (else its style code) + size, as the Style form writes it (SP27DR27XS),
+  // so the form's next save keeps them.
   // Never the source's SKUs: they are unique, and the update path would move them onto the copy.
   const sizes = await tx.size_options.findMany({
     where: { styleId: source.id, isActive: true },
     orderBy: { sortOrder: 'asc' },
   });
   const sizeIdMap = new Map<string, string>(sizes.map((s) => [s.id, randomUUID()]));
-  const newSizes = sizes.map((s) => ({ ...s, id: sizeIdMap.get(s.id) as string, sku: `${styleCode}${s.sizeName}` }));
+  const newSizes = sizes.map((s) => ({ ...s, id: sizeIdMap.get(s.id) as string, sku: `${skuStyleCode({ styleCode, buyerStyleRef })}${s.sizeName}` }));
   if (newSizes.length > 0) {
     const skuTaken = await tx.style_variants.findMany({
       where: { sku: { in: newSizes.map((s) => s.sku) } },

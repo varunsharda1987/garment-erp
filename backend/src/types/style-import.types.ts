@@ -101,7 +101,7 @@ export interface StyleImportRow {
   internalCategoryId?: string;
 
   // Auto-generated fields
-  sku?: string; // Generated: {styleCode}{size}
+  sku?: string; // Generated: {buyerStyleRef, else styleCode}{size} — skuStyleCode
   barcode?: string; // Same as SKU
 
   // Legacy fields (kept for backwards compatibility)

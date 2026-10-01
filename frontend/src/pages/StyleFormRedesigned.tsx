@@ -96,6 +96,7 @@ import { FABRIC_FINISH_TYPES, type FabricFinishType } from '../constants/fabric-
 import { MiniMarkerBadge } from '../components/cad/MiniMarkerBadge';
 import { formatTime, formatDateTime } from '@/lib/date';
 import { StyleIdentity } from '@/components/StyleIdentity';
+import { skuStyleCode } from '@/lib/style-code';
 
 // Enums
 type CADStatus = 'PENDING' | 'IN_PROGRESS' | 'APPROVED';
@@ -1849,11 +1850,13 @@ export default function StyleFormRedesigned() {
   };
 
   const generateSKUs = () => {
-    const base = styleCode || 'STYLE';
+    const base = skuStyleCode({ styleCode, buyerStyleRef });
+    // On a saved style only the sizes without a code are filled: a saved SKU is never renamed
+    // (stock, barcodes and the B2B app key on it), now that a new SKU leads with the buyer code.
     setSkuVariants(
       skuVariants.map((v) => ({
         ...v,
-        sku: v.isActive ? `${base}${v.size}` : v.sku,
+        sku: v.isActive && !(isEditMode && v.sku) ? `${base}${v.size}` : v.sku,
       }))
     );
     notify.success('SKUs generated!');
@@ -2029,7 +2032,7 @@ export default function StyleFormRedesigned() {
       // Auto-generate SKUs for active variants that don't have them
       const skuVariantsWithGenerated = skuVariants.map((v) => ({
         ...v,
-        sku: v.sku || (styleCode ? `${styleCode}${v.size}` : `STYLE${v.size}`),
+        sku: v.sku || `${skuStyleCode({ styleCode, buyerStyleRef })}${v.size}`,
       }));
 
       // Filter out trims with empty masterId (invalid/incomplete records from legacy data)

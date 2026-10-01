@@ -578,7 +578,12 @@ lineBuyerStyleRef(lineRef, ref)   // raw value for a sale-order line (payloads /
   day the line was taken) — delivery-note items carry it too (`dispatch.controller`).
 - **Printouts** (kf templates, pdfkit, Excel) lead with the buyer code; the Buyer TRF pre-fills its
   Style No. with it for NEW TRFs.
-- **Saved values keep the RAW style code:** job-work numbers, lab-dip and fabric codes, SKUs,
+- **SKUs start with the BUYER's code** (owner, 2026-10-01): a new SKU is `skuStyleCode(style)` + size —
+  the Buyer Style Code, else our Style Code (SP27DR27XS, not EBWW-021XS). Every SKU writer calls it: the
+  Style form (*Generate SKUs* and the save's fill-in for a size with no SKU), *Create Colourway* and the
+  style Excel import. SKUs already saved are not renamed (`style_variants.sku` is unique and the B2B app,
+  barcodes and stock rows key on it).
+- **Other saved values keep the RAW style code:** job-work numbers, lab-dip and fabric codes,
   `fabric_master.styleReference` (identity matching keys on it), lace `originStyleCode` columns. NEW
   fabric / lace names and new printed line text use `styleCodeLabel` (the style part stays one `' - '`
   segment); existing names were not renamed. The **invoice line description keeps the old code-first

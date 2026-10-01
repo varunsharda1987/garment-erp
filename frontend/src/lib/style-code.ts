@@ -14,8 +14,10 @@
  *  - One line: 'SP27DR27 (EBWW-021)' — our code in brackets only when it differs.
  *  - Tables: a "Buyer Style Code" column first (`buyerStyleCode`), then "Style Code" (`ourStyleCode`).
  *
- * Saved codes never change: job work numbers, lab-dip and fabric codes, SKUs and
+ * Saved codes never change: job work numbers, lab-dip and fabric codes and
  * fabric_master.styleReference key on the raw Style Code. Text already saved stays as it was saved.
+ * SKUs are the exception (owner, 2026-10-01): a NEW SKU starts with the buyer's code
+ * (`skuStyleCode`); SKUs already saved keep the code they were made with.
  * New fabric / lace names and new printed line text are built with `styleCodeLabel`.
  *
  * This file is identical to `frontend/src/lib/style-code.ts` (asserted by
@@ -63,6 +65,16 @@ export function buyerStyleCode(style: StyleCodes | null | undefined, lineRef?: s
 /** Our Style Code — the second column beside "Buyer Style Code". `fallback` when missing. */
 export function ourStyleCode(style: StyleCodes | null | undefined, fallback = '—'): string {
   return clean(style?.styleCode) ?? fallback;
+}
+
+/**
+ * The code a NEW SKU starts with: the buyer's code, else our Style Code (owner, 2026-10-01 — the
+ * buyer, the labels and the buyer's paperwork use SP27DR27, not EBWW-021). `fallback` when the
+ * style carries neither code. Every SKU writer calls this: the Style form (Generate SKUs and the
+ * save's fill-in), Create Colourway and the style import.
+ */
+export function skuStyleCode(style: StyleCodes | null | undefined, fallback = 'STYLE'): string {
+  return clean(style?.buyerStyleRef) ?? clean(style?.styleCode) ?? fallback;
 }
 
 /**

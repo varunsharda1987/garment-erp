@@ -65,7 +65,7 @@ A colourway is its own style: the same garment in another colour, with its own S
 
 ## What is copied and what is not
 
-- **Copied:** components, fabrics (in the new colour where they matched), trims with the same items, quantities and rates, sizes (with new SKUs made from the new Style Code), processes, tech spec, sketches, and the CAD rows (except Production CADs) with their sizes and marker images.
+- **Copied:** components, fabrics (in the new colour where they matched), trims with the same items, quantities and rates, sizes (with new SKUs made from the new Buyer Style Code, or the new Style Code when there is none), processes, tech spec, sketches, and the CAD rows (except Production CADs) with their sizes and marker images.
 - **Not copied:** fabric costing and cost sheets (the dyeing rate can change with the shade), the product photo, samples, orders and stock. The CAD rows are copied **unapproved**.
 
 ## Colourways list

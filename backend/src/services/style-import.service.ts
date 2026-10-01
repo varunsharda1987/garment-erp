@@ -24,7 +24,7 @@ import { StyleVariantData } from '../types/style-variant.types';
 import { randomUUID } from 'crypto';
 import { SeasonService } from './season.service';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
-import { styleCodeLabel } from '../utils/style-code';
+import { skuStyleCode, styleCodeLabel } from '../utils/style-code';
 import { generateCode } from '../utils/code-generator';
 import { ensureMaterialRecord } from './helpers/material-sync.helper';
 import { getSizeOrder } from '../utils/sku-generator';
@@ -41,8 +41,8 @@ export class StyleImportService {
   }
 
   /**
-   * Generate SKU from styleCode and size
-   * Pattern: {styleCode}{size} with special chars removed
+   * Generate SKU from the SKU code (`skuStyleCode`: buyer code, else style code) and size
+   * Pattern: {code}{size} with special chars removed
    */
   private generateSKU(styleCode: string, size: string): string {
     const cleanStyleCode = styleCode.replace(/[^A-Z0-9]/gi, '').toUpperCase();
@@ -391,7 +391,12 @@ export class StyleImportService {
           }
 
           // Process size variants (simplified - no components/fabrics/CAD/workflow)
-          const variantCount = await this.processStyleVariants(style.id, styleCode, rows);
+          const variantCount = await this.processStyleVariants(
+            style.id,
+            styleCode,
+            skuStyleCode({ styleCode, buyerStyleRef }),
+            rows
+          );
           summary.variantsCreated += variantCount;
 
           summary.successCount += rows.length;
@@ -506,8 +511,8 @@ export class StyleImportService {
         }
       }
 
-      // Generate SKU from styleCode + size
-      const sku = this.generateSKU(styleCode, size);
+      // Generate SKU from the buyer code (else styleCode) + size
+      const sku = this.generateSKU(skuStyleCode({ styleCode, buyerStyleRef }), size);
 
       // Use default values for optional fields
       const styleName = (row.styleName || row.itemDescription || styleCode).trim();
@@ -1252,9 +1257,14 @@ export class StyleImportService {
 
   /**
    * Process and create variants for a style from CSV rows
-   * Updated to auto-generate SKU from styleCode + size
+   * Updated to auto-generate SKU from the SKU code (buyer code, else styleCode) + size
    */
-  private async processStyleVariants(styleId: string, styleCode: string, rows: StyleImportRow[]): Promise<number> {
+  private async processStyleVariants(
+    styleId: string,
+    styleCode: string,
+    skuCode: string,
+    rows: StyleImportRow[]
+  ): Promise<number> {
     // Extract unique size combinations from rows
     // Each row with a size should create a variant
     const variantMap = new Map<string, StyleVariantData>();
@@ -1264,8 +1274,8 @@ export class StyleImportService {
       const size = row.size?.trim();
       if (!size) continue;
 
-      // Generate SKU from styleCode + size
-      const sku = row.sku || this.generateSKU(styleCode, size);
+      // Generate SKU from the SKU code + size
+      const sku = row.sku || this.generateSKU(skuCode, size);
       const barcode = row.barcode || sku; // Same as SKU
 
       // Use size as key to deduplicate

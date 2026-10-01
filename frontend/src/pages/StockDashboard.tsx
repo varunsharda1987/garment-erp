@@ -84,14 +84,14 @@ export default function StockDashboard() {
 
   if (loading) {
     return (
-      <div className="container mx-auto py-6">
+      <div>
         <LoadingSpinner />
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-6">
+    <div>
       {/* Header */}
       <PageHeader title="Unified Inventory Dashboard">
         <div className="flex gap-2">

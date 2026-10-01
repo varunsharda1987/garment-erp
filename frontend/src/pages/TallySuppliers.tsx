@@ -163,7 +163,7 @@ export default function TallySuppliersPage() {
   const stats = data?.stats || { total: 0, matched: 0, unmatched: 0 };
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-6xl">
+    <div>
       <div className="mb-6">
         <h1 className="text-3xl font-display font-medium text-foreground">Supplier-Ledger Matching</h1>
         <p className="text-muted-foreground mt-1">Link ERP suppliers to Tally creditor ledgers for debit note sync</p>

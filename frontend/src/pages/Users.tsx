@@ -243,7 +243,7 @@ export default function Users() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto py-8 px-4">
+    <div>
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">

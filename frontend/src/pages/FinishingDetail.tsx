@@ -379,7 +379,7 @@ export default function FinishingDetail() {
 
   if (error || !issue) {
     return (
-      <div className="container mx-auto py-6">
+      <div>
         <Alert variant="destructive">
           <AlertDescription>{error || 'Finishing issue not found'}</AlertDescription>
         </Alert>

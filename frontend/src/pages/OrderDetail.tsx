@@ -204,7 +204,7 @@ export default function OrderDetail() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto py-8 px-4">
+      <div>
         <div className="text-center py-8">Loading order details...</div>
       </div>
     );
@@ -212,7 +212,7 @@ export default function OrderDetail() {
 
   if (orderError || !order) {
     return (
-      <div className="container mx-auto py-8 px-4">
+      <div>
         <Card>
           <CardContent className="pt-6">
             <div className="text-center text-destructive">
@@ -243,7 +243,7 @@ export default function OrderDetail() {
   const invoices = order.orderInvoices ?? [];
 
   return (
-    <div className="container mx-auto py-8 px-4 space-y-6">
+    <div className="space-y-6">
       {/* ── Header ───────────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>

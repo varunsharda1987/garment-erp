@@ -327,7 +327,7 @@ export default function ManufacturingControlCenter() {
   const firingAlerts = alertEntries.filter(([, a]) => a.count > 0);
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="space-y-6">
       <PageHeader title="Manufacturing Control Center">
         <Button variant="outline" size="sm" onClick={refreshAll} disabled={isFetchingAny}>
           <RefreshCw className={`h-4 w-4 mr-2 ${isFetchingAny ? 'animate-spin' : ''}`} />

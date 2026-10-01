@@ -138,7 +138,7 @@ export default function ElasticForm({ mode = 'create' }: ElasticFormProps) {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <div>
       <Card>
         <CardHeader>
           <CardTitle>{isNewElastic ? 'Create New Elastic' : 'Edit Elastic'}</CardTitle>

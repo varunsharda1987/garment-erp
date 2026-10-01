@@ -769,7 +769,7 @@ export default function JobWorkOrderDetail() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto py-6 space-y-6">
+      <div className="space-y-6">
         <Skeleton className="h-8 w-64" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Skeleton className="h-64" />
@@ -781,7 +781,7 @@ export default function JobWorkOrderDetail() {
 
   if (error || !jwo) {
     return (
-      <div className="container mx-auto py-6">
+      <div>
         <Alert variant="destructive">
           <AlertTitle>Error</AlertTitle>
           <AlertDescription>Failed to load job work order. {(error as any)?.message}</AlertDescription>
@@ -918,7 +918,7 @@ export default function JobWorkOrderDetail() {
         (!issueNeedsWidthAck || issueWidthAcknowledged);
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">

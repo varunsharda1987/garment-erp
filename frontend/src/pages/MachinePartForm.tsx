@@ -154,7 +154,7 @@ export default function MachinePartForm({ mode = 'create' }: MachinePartFormProp
   }
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <div>
       <Card>
         <CardHeader>
           <CardTitle>{isNewPart ? 'Create New Machine Part' : 'Edit Machine Part'}</CardTitle>

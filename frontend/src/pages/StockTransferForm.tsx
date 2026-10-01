@@ -123,7 +123,7 @@ export default function StockTransferForm() {
   };
 
   return (
-    <div className="container mx-auto py-6">
+    <div>
       <PageHeader title="Stock Transfer" />
 
       {error && (

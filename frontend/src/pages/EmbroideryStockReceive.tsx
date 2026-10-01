@@ -218,7 +218,7 @@ export default function EmbroideryStockReceive() {
   };
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <div>
       {/* Breadcrumb */}
       <div className="mb-4 text-sm text-muted-foreground">
         <Link to="/" className="hover:text-info">

@@ -612,7 +612,7 @@ export default function StockOutForm() {
   };
 
   return (
-    <div className="container mx-auto py-6">
+    <div>
       <PageHeader title="Stock Out" />
       {heldStockDialog}
       <p className="text-muted-foreground -mt-4 mb-4">Return materials to suppliers or transfer to departments</p>

@@ -202,7 +202,7 @@ export default function FabricStockEntry() {
     formData.quantity && formData.purchaseCost ? parseFloat(formData.quantity) * parseFloat(formData.purchaseCost) : 0;
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <div>
       {/* Breadcrumb */}
       <div className="mb-4 text-sm text-muted-foreground">
         <Link to="/" className="hover:text-info">

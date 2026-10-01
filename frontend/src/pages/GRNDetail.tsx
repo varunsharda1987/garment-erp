@@ -282,7 +282,7 @@ export default function GRNDetail() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto py-8 px-4">
+      <div>
         <div className="text-center py-8">Loading GRN details...</div>
       </div>
     );
@@ -290,7 +290,7 @@ export default function GRNDetail() {
 
   if (error || !grn) {
     return (
-      <div className="container mx-auto py-8 px-4">
+      <div>
         <Card>
           <CardContent className="pt-6">
             <div className="text-center text-destructive">{error || 'GRN not found'}</div>

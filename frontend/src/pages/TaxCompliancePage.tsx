@@ -72,7 +72,7 @@ export default function TaxCompliancePage() {
   const visibleTools = TAX_TOOLS.filter((tool) => !tool.permission || can(tool.permission));
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-display font-medium text-foreground">Tax & GST</h1>
         <p className="text-muted-foreground mt-1">GST filing, tax masters, and TDS/TCS tracking</p>

@@ -115,7 +115,7 @@ export default function GenericTrimList() {
 
   if (!trimType || !config) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div>
         <Card>
           <CardContent className="p-6 text-center">
             <p className="text-muted-foreground">Invalid trim type specified.</p>
@@ -238,7 +238,7 @@ export default function GenericTrimList() {
   });
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div>
       {/* Header */}
       <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-4">

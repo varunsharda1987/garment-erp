@@ -213,7 +213,7 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <div>
       <Card>
         <CardHeader>
           <CardTitle>{isNewThread ? 'Create New Thread' : 'Edit Thread'}</CardTitle>

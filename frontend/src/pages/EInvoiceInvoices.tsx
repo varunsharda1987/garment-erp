@@ -224,7 +224,7 @@ export default function EInvoiceInvoicesPage() {
   const pushableCount = data?.data.filter(canGenerate).length || 0;
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-6xl">
+    <div>
       <div className="mb-6">
         <h1 className="text-3xl font-display font-medium text-foreground">IRN Generation</h1>
         <p className="text-muted-foreground mt-1">

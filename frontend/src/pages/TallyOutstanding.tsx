@@ -89,7 +89,7 @@ export default function TallyOutstandingPage() {
   const summary = data?.summary;
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-7xl">
+    <div>
       <div className="mb-6">
         <h1 className="text-3xl font-display font-medium text-foreground">Outstanding Balances</h1>
         <p className="text-muted-foreground mt-1">Reconcile customer receivables between Tally and ERP</p>

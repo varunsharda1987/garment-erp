@@ -172,7 +172,7 @@ export function DesignDashboard() {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6 space-y-6">
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
           <Skeleton className="h-8 w-48" />
           <Skeleton className="h-10 w-32" />
@@ -192,7 +192,7 @@ export function DesignDashboard() {
 
   if (!data) {
     return (
-      <div className="container mx-auto p-6">
+      <div>
         <Card>
           <CardContent className="flex flex-col items-center justify-center h-64">
             <FileX className="h-12 w-12 text-muted-foreground mb-4" />
@@ -209,7 +209,7 @@ export function DesignDashboard() {
   const { stats, recentStyles, activity, stylesBySeason } = data;
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

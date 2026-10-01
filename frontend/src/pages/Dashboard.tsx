@@ -149,7 +149,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-1">
+    <div>
       {/* ── Welcome ─────────────────────────────────────────────── */}
       <div className="mb-8">
         <h2 className="font-display text-display-sm font-medium text-foreground mb-1">Welcome back, {user?.name}</h2>

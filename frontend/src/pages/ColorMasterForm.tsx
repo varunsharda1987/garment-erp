@@ -146,7 +146,7 @@ export default function ColorMasterForm({ mode = 'create' }: ColorMasterFormProp
   }
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <div>
       <div className="mb-6">
         <Button variant="ghost" onClick={() => navigate('/colors')}>
           <ArrowLeft className="h-4 w-4 mr-2" />

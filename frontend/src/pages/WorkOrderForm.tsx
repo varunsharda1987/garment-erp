@@ -123,7 +123,7 @@ export default function WorkOrderForm() {
 
   if (!workOrder) {
     return (
-      <div className="container mx-auto py-6">
+      <div>
         <Alert variant="destructive">
           <AlertDescription>Production run not found</AlertDescription>
         </Alert>
@@ -138,7 +138,7 @@ export default function WorkOrderForm() {
   // Check if editing is allowed
   if (workOrder.status !== 'PENDING') {
     return (
-      <div className="container mx-auto py-6">
+      <div>
         <Alert>
           <AlertDescription>
             This production run cannot be edited because its status is "{workOrder.status.replace(/_/g, ' ')}". Only

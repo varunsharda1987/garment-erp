@@ -354,7 +354,7 @@ export default function TrimMastersDashboard() {
 
   if (loading) {
     return (
-      <div className="container mx-auto py-6">
+      <div>
         <LoadingSpinner />
       </div>
     );
@@ -364,7 +364,7 @@ export default function TrimMastersDashboard() {
   const totalItems = totalTrims + Object.values(newTrimCounts).reduce((a, b) => a + b, 0);
 
   return (
-    <div className="container mx-auto py-6">
+    <div>
       {/* Header */}
       <PageHeader title="Trim Masters">
         <DropdownMenu>

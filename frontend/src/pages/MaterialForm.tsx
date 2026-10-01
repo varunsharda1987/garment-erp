@@ -326,7 +326,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <div>
       <Card>
         <CardHeader>
           <CardTitle>{isNewMaterial ? 'Create New Material' : 'Edit Material'}</CardTitle>

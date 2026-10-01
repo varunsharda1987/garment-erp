@@ -217,7 +217,7 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <div>
       <Card>
         <CardHeader>
           <CardTitle>{isNewPackaging ? 'Create New Packaging' : 'Edit Packaging'}</CardTitle>

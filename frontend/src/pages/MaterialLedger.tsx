@@ -151,7 +151,7 @@ export default function MaterialLedgerPage() {
   const unit = ledger?.material.unit ?? 'MTR';
 
   return (
-    <div className="container mx-auto py-6">
+    <div>
       <PageHeader title="Material Ledger">
         <Button variant="outline" disabled={!ledger} onClick={() => openPDF(materialLedgerPdfPath(materialId, params))}>
           <Printer className="mr-2 h-4 w-4" />

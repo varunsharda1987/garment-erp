@@ -161,7 +161,7 @@ export default function WarehouseForm() {
   }
 
   return (
-    <div className="container mx-auto py-6">
+    <div>
       <PageHeader title={isEdit ? 'Edit Warehouse' : 'New Warehouse'} />
 
       {error && (

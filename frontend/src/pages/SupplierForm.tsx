@@ -274,7 +274,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-7xl">
+    <div>
       <Card>
         <CardHeader className="bg-gradient-to-r from-primary/5 to-info-muted border-b">
           <CardTitle className="text-2xl font-bold text-foreground">

@@ -304,7 +304,7 @@ export default function StitchingDetail() {
 
   if (error || !issue) {
     return (
-      <div className="container mx-auto py-6">
+      <div>
         <Alert variant="destructive">
           <AlertDescription>{error || 'Stitching issue not found'}</AlertDescription>
         </Alert>

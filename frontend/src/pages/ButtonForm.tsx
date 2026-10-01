@@ -156,7 +156,7 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <div>
       <Card>
         <CardHeader>
           <CardTitle>{isNewButton ? 'Create New Button' : 'Edit Button'}</CardTitle>

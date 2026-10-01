@@ -210,7 +210,7 @@ export default function StyleDetail() {
   if (loading) {
     return (
       <div className="min-h-screen bg-muted p-6">
-        <div className="max-w-7xl mx-auto">
+        <div>
           <div className="text-center py-12">
             <p className="text-muted-foreground">Loading style details...</p>
           </div>
@@ -222,7 +222,7 @@ export default function StyleDetail() {
   if (error || !style) {
     return (
       <div className="min-h-screen bg-muted p-6">
-        <div className="max-w-7xl mx-auto">
+        <div>
           <Card>
             <CardContent className="p-6">
               <p className="text-destructive">{error || 'Style not found'}</p>
@@ -238,7 +238,7 @@ export default function StyleDetail() {
 
   return (
     <div className="min-h-screen bg-muted p-6">
-      <div className="max-w-7xl mx-auto">
+      <div>
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <div>

@@ -346,7 +346,7 @@ export default function DispatchToProcessor() {
   });
 
   return (
-    <div className="container mx-auto space-y-6 py-6">
+    <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate('/job-work-orders')} aria-label="Back">
           <ArrowLeft className="h-4 w-4" />

@@ -60,7 +60,7 @@ export default function ProcessPODetail({ processType, backPath, title }: Proces
 
   if (isLoading) {
     return (
-      <div className="container mx-auto py-12 flex items-center justify-center">
+      <div className="py-12 flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -68,7 +68,7 @@ export default function ProcessPODetail({ processType, backPath, title }: Proces
 
   if (error || !processPO) {
     return (
-      <div className="container mx-auto py-12 text-center">
+      <div className="py-12 text-center">
         <p className="text-destructive">Failed to load job work order details</p>
         <Button variant="outline" onClick={() => navigate(backPath)} className="mt-4">
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -82,7 +82,7 @@ export default function ProcessPODetail({ processType, backPath, title }: Proces
   const status = processPO.processPOStatus;
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">

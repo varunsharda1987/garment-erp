@@ -117,7 +117,7 @@ export default function TallyCustomersPage() {
   const pagination = data?.pagination || { page: 1, limit: 20, total: 0, totalPages: 1 };
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-6xl">
+    <div>
       <div className="mb-6">
         <h1 className="text-3xl font-display font-medium text-foreground">Customer-Ledger Matching</h1>
         <p className="text-muted-foreground mt-1">Link ERP customers to their corresponding Tally party ledgers</p>

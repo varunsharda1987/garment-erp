@@ -117,7 +117,7 @@ export default function ProcessingBatchDetail() {
   };
 
   return (
-    <div className="container mx-auto py-6">
+    <div>
       <div className="mb-8">
         <button
           onClick={() => navigate('/processing/batches')}

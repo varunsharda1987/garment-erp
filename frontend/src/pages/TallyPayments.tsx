@@ -186,7 +186,7 @@ export default function TallyPaymentsPage() {
   };
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-6xl">
+    <div>
       <div className="mb-6">
         <h1 className="text-3xl font-display font-medium text-foreground">Receipt Push to Tally</h1>
         <p className="text-muted-foreground mt-1">Manage and push customer payment receipts to Tally ERP</p>

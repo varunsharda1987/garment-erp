@@ -55,7 +55,7 @@ export default function LaceStockAging() {
   const sortedItems = [...items].sort((a, b) => b.agingDays - a.agingDays);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div>
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>

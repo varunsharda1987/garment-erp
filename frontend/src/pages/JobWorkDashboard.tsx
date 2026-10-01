@@ -57,7 +57,7 @@ export default function JobWorkDashboard() {
   }
 
   return (
-    <div className="container mx-auto py-6">
+    <div>
       <div className="mb-8 flex items-start justify-between">
         <div>
           <h2 className="text-3xl font-display font-medium text-foreground mb-2">Job Work Dashboard</h2>

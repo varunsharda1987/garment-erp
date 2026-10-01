@@ -151,7 +151,7 @@ export default function ProcessorStatementPage() {
   );
 
   return (
-    <div className="container mx-auto py-6">
+    <div>
       <PageHeader title="Processor Statement">
         <Button variant="outline" onClick={generate} disabled={loading || !processorId}>
           {loading ? 'Building…' : 'Generate'}

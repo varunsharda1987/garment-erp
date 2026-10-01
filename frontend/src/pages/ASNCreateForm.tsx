@@ -205,7 +205,7 @@ export default function ASNCreateForm() {
   const orders = (ordersData?.data || []).filter((o: Order) => o.status !== 'CANCELLED' && o.status !== 'SPLIT');
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" onClick={() => navigate('/manufacturing/dispatch')}>

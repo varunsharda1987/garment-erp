@@ -788,7 +788,7 @@ export default function StockInForm() {
   };
 
   return (
-    <div className="container mx-auto py-6">
+    <div>
       <PageHeader title="Stock IN (Receipt)" />
 
       {error && (

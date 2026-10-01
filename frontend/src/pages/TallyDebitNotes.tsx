@@ -172,7 +172,7 @@ export default function TallyDebitNotesPage() {
   };
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-6xl">
+    <div>
       <div className="mb-6">
         <h1 className="text-3xl font-display font-medium text-foreground">Debit Note Push to Tally</h1>
         <p className="text-muted-foreground mt-1">Manage and push debit notes (supplier returns) to Tally ERP</p>

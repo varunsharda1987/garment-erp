@@ -136,7 +136,7 @@ export default function SizeCategoryForm({ mode = 'create' }: SizeCategoryFormPr
   }
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <div>
       <Card>
         <CardHeader>
           <CardTitle>{isNewCategory ? 'Create New Size Category' : 'Edit Size Category'}</CardTitle>

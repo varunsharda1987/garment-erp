@@ -109,7 +109,7 @@ export default function StockCountForm() {
   const requiresMaterialSelection = ['PARTIAL', 'CYCLE', 'SPOT_CHECK'].includes(formData.countType);
 
   return (
-    <div className="container mx-auto py-6">
+    <div>
       <PageHeader title="New Stock Count" />
 
       {error && (

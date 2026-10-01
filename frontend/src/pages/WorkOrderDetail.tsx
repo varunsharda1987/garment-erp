@@ -335,7 +335,7 @@ export default function WorkOrderDetail() {
 
   if (error) {
     return (
-      <div className="container mx-auto py-6">
+      <div>
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
@@ -349,7 +349,7 @@ export default function WorkOrderDetail() {
 
   if (!workOrder) {
     return (
-      <div className="container mx-auto py-6">
+      <div>
         <Alert>
           <AlertDescription>Production run not found</AlertDescription>
         </Alert>

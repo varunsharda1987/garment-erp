@@ -187,6 +187,8 @@ export default function WorkOrderList() {
           showStyleCode={false}
           fallback="-"
           codeClassName="text-foreground"
+          imageUrl={wo.style?.imageUrl}
+          showImage
         />
       ),
     },

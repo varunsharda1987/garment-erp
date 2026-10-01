@@ -130,9 +130,9 @@ function KanbanCard({ item, onClick }: { item: OrderStatusItem; onClick?: () => 
 
       {/* Style Info */}
       <div className="mb-2">
-        <p className="text-sm truncate">
-          <StyleIdentity style={item} />
-        </p>
+        <div className="text-sm truncate">
+          <StyleIdentity style={item} imageUrl={item.imageUrl} showImage imageSize="sm" />
+        </div>
         {item.brandName && <span className="text-xs text-muted-foreground">{item.brandName}</span>}
       </div>
 

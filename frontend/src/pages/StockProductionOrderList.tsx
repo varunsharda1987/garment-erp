@@ -302,6 +302,8 @@ export default function StockProductionOrderList() {
                         name={spo.style?.styleName}
                         layout="stacked"
                         showStyleCode={false}
+                        imageUrl={spo.style?.imageUrl}
+                        showImage
                       />
                     </TableCell>
                     <TableCell className="text-sm">{ourStyleCode(spo.style)}</TableCell>

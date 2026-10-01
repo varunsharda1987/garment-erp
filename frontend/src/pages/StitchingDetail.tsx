@@ -56,7 +56,8 @@ import { CompleteStitchingDialog } from '@/components/production/CompleteStitchi
 import { EditStitchingIssueDialog } from '@/components/production/EditStitchingIssueDialog';
 
 import { formatDate, toDateInputValue } from '@/lib/date';
-import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, buyerStyleCode, ourStyleCode } from '@/lib/style-code';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, buyerStyleCode, ourStyleCode, styleCodeLabel } from '@/lib/style-code';
+import { StyleThumbnail } from '@/components/StyleThumbnail';
 
 interface OutputEntry {
   colorId: string | null;
@@ -655,6 +656,11 @@ export default function StitchingDetail() {
                   {issue.workOrder?.workOrderNumber || '-'}
                 </span>
               </div>
+              {issue.workOrder?.style?.imageUrl && (
+                <div className="flex justify-center pb-2">
+                  <StyleThumbnail imageUrl={issue.workOrder?.style.imageUrl} alt={styleCodeLabel(issue.workOrder?.style)} size="lg" />
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">{BUYER_STYLE_CODE_LABEL}</span>
                 <span className="font-medium">{buyerStyleCode(issue.workOrder?.style)}</span>

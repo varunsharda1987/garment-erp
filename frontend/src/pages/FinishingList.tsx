@@ -411,6 +411,8 @@ export default function FinishingList() {
                             layout="stacked"
                             showStyleCode={false}
                             fallback="-"
+                            imageUrl={issue.workOrder?.style?.imageUrl}
+                            showImage
                           />
                         </TableCell>
                         <TableCell>

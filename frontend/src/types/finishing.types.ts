@@ -123,6 +123,8 @@ export interface FinishingIssue {
       id: string;
       styleCode: string;
       styleName: string;
+      /** The garment photo (styles.imageUrl) — the list includes the whole style. */
+      imageUrl?: string | null;
       buyerStyleRef?: string | null;
     };
     order?: {

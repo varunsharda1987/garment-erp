@@ -35,7 +35,7 @@ import sys
 import time
 from collections import Counter
 
-READER_VERSION = "rapidocr-3.9.2/pp-ocrv6-small/2"
+READER_VERSION = "rapidocr-3.9.2/pp-ocrv6-small/3"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FIXTURES = os.path.normpath(os.path.join(HERE, "..", "src", "__tests__", "fixtures", "markers"))
@@ -53,8 +53,18 @@ WIDTH_RE = re.compile(r"Width\s*:?\s*" + NUM + r"\s*inch", re.I)
 EFF_RE = re.compile(r"Eff\s*:?\s*" + NUM + r"\s*%", re.I)
 PLACED_RE = re.compile(r"Placed\s*:?\s*(\d+)\s*/\s*(\d+)", re.I)
 
-# One size token of a marker title, optionally repeated: S, XL, 3XL, XXXL, 28, FREE, "L(x2)"
-SIZE_TOKEN_RE = re.compile(r"^(XS|S|M|L|XL|XXL|XXXL|[2-6]XL|XXS|\d{2}|FREE|FS)(?:\(X(\d+)\))?$", re.I)
+# One size token of a marker title, optionally repeated: S, XL, 3XL, XXXL, 2XS, 8, 28, 100, FREE SIZE, "L(x2)"
+SIZE_TOKEN_RE = re.compile(
+    r"^(XXXS|XXS|XS|S|M|L|XL|XXL|XXXL|XXXXL|[2-6]XL|[2-4]XS|\d{1,3}|FREESIZE|FREE|FS)(?:\(X(\d+)\))?$", re.I
+)
+# A token that looks like a size this reader does not know (7XL, XXXXXL, 5XS): a list cut there is not the whole
+# list, so the title gives no sizes rather than its tail
+LOOKS_LIKE_SIZE_RE = re.compile(r"^\d?X{1,6}[SL](?:\(X\d+\))?$", re.I)
+
+
+def _size_kind(name):
+    """'number' (8, 28, 100) or 'letter' (S, XL, FREE): one marker lists sizes of one kind"""
+    return "number" if name.isdigit() else "letter"
 
 
 def _num(text):
@@ -85,8 +95,18 @@ def parse_sizes(title_line):
     sizes = []
     bounded = False
     for token in reversed(tokens):
-        m = SIZE_TOKEN_RE.match(token.replace(" ", ""))
+        compact = token.replace(" ", "")
+        m = SIZE_TOKEN_RE.match(compact)
+        # A size of the other kind ends the list: "IP00138 - 02 - S-M-L" is S, M, L (02 is the style's part)
+        if m and sizes and _size_kind(m.group(1)) != _size_kind(sizes[-1]["sizeName"]):
+            m = None
+            bounded = True
+            break
         if not m:
+            # Stopped on something that looks like a size: the list goes on past what this reader knows, so its
+            # tail is not the marker's sizes ("2XS-XS-S-M" read XS, S, M until 2026-10-01; "8-10-12-14" read 10..14)
+            if sizes and LOOKS_LIKE_SIZE_RE.match(compact):
+                return []
             bounded = True
             break
         sizes.append({"sizeName": m.group(1).upper(), "quantity": int(m.group(2)) if m.group(2) else 1})
@@ -139,7 +159,7 @@ def classify(reading):
 # The piece table: the sizes when the title bar is not in the screenshot
 # ---------------------------------------------------------------------------
 
-PIECE_SIZE_RE = re.compile(r"^(XXXL|XXL|XXS|XS|XL|[2-6]XL|S|M|L|FREE|FS|\d{2})$")
+PIECE_SIZE_RE = re.compile(r"^(XXXXL|XXXL|XXL|XXXS|XXS|XS|XL|[2-6]XL|[2-4]XS|S|M|L|FREESIZE|FREE|FS|\d{1,3})$")
 PIECE_COUNT_RE = re.compile(r"^(\d{1,3})/(\d{1,3})$")
 GROUP_LABEL_RE = re.compile(r"^\s*GROUP\s*[0-9OIl]+\s*$", re.I)  # OCR reads "Group 0" as "Group o"
 CUT_ONE_LABEL_RE = re.compile(r"CUT\s*-?\s*1(?!\d)", re.I)
@@ -554,6 +574,16 @@ TITLE_CASES = [
     ("2026\\TISHA\\ESSFF106LS [TISHA ] AVG.ord - S-M-L(x2)-XL-XXL*", "S M L L XL XXL"),
     ("Nest EXPERT - Z:\\CAD\\GRAIN NEW AVG.ord - M(x3)-L(x3)*", "M M M L L L"),
     ("L-XL-XXL*", ""),  # a crop that began inside the list is NOT a shorter list
+    ("Nest EXPERT - KIDS TEE - 8-10-12-14*", "8 10 12 14"),  # one-digit sizes (read 10 12 14 until 2026-10-01)
+    ("Nest EXPERT - X - 2XS-XS-S-M*", "2XS XS S M"),  # 2XS was dropped
+    ("Nest EXPERT - X - 3XS-2XS-XS-S*", "3XS 2XS XS S"),
+    ("Nest EXPERT - X - XXXXXL-S-M*", ""),
+    ("Nest EXPERT - TEE - S-M-7XL*", ""),  # a size this reader does not know: no tail, "not checked"
+    ("Nest EXPERT - IP00138 - 02 - S-M-L*", "S M L"),  # a number before letter sizes is not a size
+    ("Nest EXPERT - ESSKY082LS - 52 - S-M-L(x2)-XL*", "S M L L XL"),  # nor a width (read "52" as a size)
+    ("Nest EXPERT - X - 28-30-32*", "28 30 32"),
+    ("Nest EXPERT - DUPATTA - FREE SIZE*", "FREESIZE"),
+    ("Nest EXPERT - X - S-M-L-XL-XXL-3XL*", "S M L XL XXL 3XL"),
     ("", ""),
 ]
 
@@ -573,6 +603,9 @@ ROW_CASES = [
     (("S1", "l/1"), (None, (1, 1))),  # a name that is not one size token is not read
     (("M", "1/7x"), ("M", None)),
     (("功", "2/1"), (None, None)),  # placed above required is not a count
+    (("2XS", "1/1"), ("2XS", (1, 1))),
+    (("Free Size", "1/1"), ("FREESIZE", (1, 1))),
+    (("8", "1/1"), ("8", (1, 1))),
 ]
 
 

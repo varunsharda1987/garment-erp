@@ -138,6 +138,38 @@ describe('Approve CAD Plan', () => {
   });
 });
 
+describe('Approve CAD Plan leaves approved rows and their twins as they are', () => {
+  it('an older approved Raw Mat row with no image does not block the plan; a costing twin stays pending', async () => {
+    // approved before CAD images were required: no image, no reason
+    const oldRawMat = await row({
+      purpose: 'RAW_MATERIAL_CALCULATION',
+      purposeEnum: 'RAW_MATERIAL_CALCULATION',
+      approvalStatus: 'APPROVED',
+      cutableWidth: 45,
+    });
+    const newCosting = await row({ cutableWidth: 44 });
+    // a Fabric Costing clone of an approved row: same part, fabric, width and purpose, never CAD-approved
+    const approvedCosting = await row({ cutableWidth: 43, approvalStatus: 'APPROVED' });
+    const clone = await row({ cutableWidth: 43, approvalStatus: null });
+
+    await approvePlan([
+      { fabricId: styleFabricId, fabricCADId: oldRawMat.id },
+      { fabricId: styleFabricId, fabricCADId: newCosting.id },
+      { fabricId: styleFabricId, fabricCADId: approvedCosting.id },
+      { fabricId: styleFabricId, fabricCADId: clone.id },
+    ]).expect(200);
+
+    const [n, c, sf] = await Promise.all([
+      prisma.fabric_width_cad.findUnique({ where: { id: newCosting.id } }),
+      prisma.fabric_width_cad.findUnique({ where: { id: clone.id } }),
+      prisma.style_fabrics.findUnique({ where: { id: styleFabricId } }),
+    ]);
+    expect(n?.approvalStatus).toBe('APPROVED');
+    expect(c?.approvalStatus).toBeNull();
+    expect(sf?.fabricCADId).not.toBe(clone.id);
+  });
+});
+
 describe('Reject CAD Plan', () => {
   it('keeps a kept Production CAD linked, and refuses when no planning row is approved', async () => {
     const production = await row({

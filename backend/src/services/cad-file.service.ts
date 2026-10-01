@@ -13,6 +13,7 @@ import {
   markerRequired,
   markerSummaryForRow,
   readingColumns,
+  reasonCovers,
   recordMarkerImage,
   rowDifferencesFromImage,
   storedReading,
@@ -338,6 +339,8 @@ class CadFileService {
    */
   private async takeEfficiency(cadId: string, file: Pick<cad_purpose_files, 'readEfficiencyPct'>): Promise<void> {
     if (file.readEfficiencyPct === null) return;
+    // an approved (or price-approved) row keeps every CAD value, its efficiency included
+    if (await this.isLocked(cadId)) return;
     await prisma.fabric_width_cad.update({ where: { id: cadId }, data: { markerEfficiency: file.readEfficiencyPct } });
   }
 
@@ -525,10 +528,13 @@ class CadFileService {
     if (!current) throw new BusinessError('This CAD row has no marker image to read');
     const reading = await this.readImage(current);
 
-    if (
-      reading.status === 'READER_UNAVAILABLE' &&
-      (current.readStatus === 'READ' || current.readStatus === 'PARTIAL')
-    ) {
+    // A read that did not happen — the reader busy, timed out, switched off, or installed but broken (it then
+    // answers UNREADABLE with the error) — never replaces a read that did (READ, PARTIAL, or a clean UNREADABLE):
+    // the row's reason was given for that one
+    const readFailed = reading.status === 'READER_UNAVAILABLE' || (reading.status === 'UNREADABLE' && !!reading.error);
+    const hadRead =
+      current.readStatus === 'READ' || current.readStatus === 'PARTIAL' || current.readStatus === 'UNREADABLE';
+    if (readFailed && hadRead) {
       throw new BusinessError(
         `The marker reader could not read the image just now (${reading.error ?? 'it did not answer'}) — the ` +
           'earlier reading is kept. Try again in a minute.'
@@ -539,13 +545,18 @@ class CadFileService {
       throw new BusinessError("The row's CAD image was changed while it was being read — open it again.");
     }
     if (await this.isLocked(cadId)) {
-      const before = await rowDifferencesFromImage(prisma, cadId, current);
+      // An approved row keeps its state: the new reading is kept only when the row then matches its image, or the
+      // reason the row holds still covers exactly what differs (a reading that drops one of two explained
+      // differences would leave the reason covering neither — "Differs" on a row nobody can edit)
       const after = await rowDifferencesFromImage(prisma, cadId, {
         ...current,
         ...readingAsColumns(reading),
       });
-      const known = new Set(before.map((d) => d.label));
-      if (after.some((d) => !known.has(d.label))) {
+      const row = await prisma.fabric_width_cad.findUnique({
+        where: { id: cadId },
+        select: { markerOverrideDifferences: true },
+      });
+      if (after.length > 0 && !reasonCovers(row?.markerOverrideDifferences, after)) {
         throw new ConflictError(
           `This row is approved and keeps its values — read again, its image would differ from them: ${after
             .map((d) => d.label)

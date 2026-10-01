@@ -317,7 +317,7 @@ const differenceKey = (d: Pick<MarkerDifference, 'field' | 'image' | 'row' | 'la
   d.image === null && d.row === null ? `${d.field}|${d.label}` : `${d.field}|${d.image}|${d.row}`;
 
 /** Does a stored reason still cover exactly these differences? (A new image or new values need a new one.) */
-function reasonCovers(storedText: string | null | undefined, differences: MarkerDifference[]): boolean {
+export function reasonCovers(storedText: string | null | undefined, differences: MarkerDifference[]): boolean {
   if (!storedText || differences.length === 0) return false;
   let stored: unknown;
   try {

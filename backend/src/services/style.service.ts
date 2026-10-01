@@ -2606,6 +2606,8 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         purposeEnum: true,
         approvalStatus: true, // allow-cad-approval: the plan approves CAD geometry
         cutableWidth: true,
+        costingStyleId: true,
+        styleFabricId: true,
         updatedAt: true,
       },
     });
@@ -2630,20 +2632,58 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
 
     const cadMap = new Map(cadRecords.map((c) => [c.id, c]));
 
+    // The rows this approval flips: every plan row not approved yet. A row approved earlier is left as it is (owner,
+    // 28-Sep) — re-running the marker gate on it refused a whole plan for an older approved row with no image. A
+    // pending TWIN of an approved row (same part, fabric, width and purpose — a Fabric Costing clone for another
+    // processor or quantity) is left pending too: two APPROVED rows on that key break the row's unique index, and
+    // the clone is a costing option of geometry already approved.
+    const twinKey = (c: (typeof cadRecords)[number]) =>
+      [c.costingStyleId, c.componentName, c.styleFabricId, Number(c.cutableWidth), c.purpose].join('|');
+    const approvedKeys = new Set(
+      (
+        await this.prisma.fabric_width_cad.findMany({
+          // allow-cad-approval: the CAD-side unique key includes the CAD approval
+          where: { AND: [cadRowsOfStyle(styleId), { approvalStatus: 'APPROVED' }] },
+          select: {
+            costingStyleId: true,
+            componentName: true,
+            styleFabricId: true,
+            cutableWidth: true,
+            purpose: true,
+          },
+        })
+      ).map((c) => [c.costingStyleId, c.componentName, c.styleFabricId, Number(c.cutableWidth), c.purpose].join('|'))
+    );
+    const toApprove: typeof cadRecords = [];
+    for (const c of cadRecords) {
+      if (c.approvalStatus === 'APPROVED') continue; // allow-cad-approval: already approved
+      if (approvedKeys.has(twinKey(c))) continue;
+      approvedKeys.add(twinKey(c));
+      toApprove.push(c);
+    }
+
     // Expand combined-cutting rows into per-fabric mappings. Explicit mappings win;
     // expansion only fills fabrics the client didn't send. Stale combinedFabricIds
     // entries (style edits recreate style_fabrics with new IDs) are skipped by
     // intersecting with the style's actual fabrics.
     // Each fabric links (style_fabrics.fabricCADId) to ONE of its rows — Raw Mat over Costing, then the latest
     // saved. It was "the last mapping sent wins", i.e. whatever order the table listed the rows in.
+    // (a row that is or will be approved first — never a pending twin this approval leaves pending)
+    const approvedAfter = new Set([
+      ...cadRecords.filter((c) => c.approvalStatus === 'APPROVED').map((c) => c.id), // allow-cad-approval
+      ...toApprove.map((c) => c.id),
+    ]);
     const rank = (cadId: string) => {
       const c = cadMap.get(cadId);
-      return c ? [purposeOf(c) === 'RAW_MATERIAL_CALCULATION' ? 1 : 0, c.updatedAt.getTime()] : [-1, 0];
+      return c
+        ? [approvedAfter.has(c.id) ? 1 : 0, purposeOf(c) === 'RAW_MATERIAL_CALCULATION' ? 1 : 0, c.updatedAt.getTime()]
+        : [-1, -1, 0];
     };
     const better = (a: string, b: string) => {
-      const [pa, ta] = rank(a);
-      const [pb, tb] = rank(b);
-      return pa !== pb ? pa > pb : ta > tb;
+      const ra = rank(a);
+      const rb = rank(b);
+      for (let i = 0; i < ra.length; i++) if (ra[i] !== rb[i]) return ra[i] > rb[i];
+      return false;
     };
     const mappingByFabricId = new Map<string, string>();
     for (const m of fabricCADMappings) {
@@ -2682,8 +2722,8 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       );
     }
 
-    // Validate every row of the plan has valid data (every row is approved, not just the one each fabric links to)
-    const invalidMappings = cadRecords.filter((cad) => !cad.cadAverage || Number(cad.cadAverage) <= 0);
+    // Validate every row this approves has valid data (all of them, not just the one each fabric links to)
+    const invalidMappings = toApprove.filter((cad) => !cad.cadAverage || Number(cad.cadAverage) <= 0);
 
     if (invalidMappings.length > 0) {
       throw new ValidationError(
@@ -2692,7 +2732,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     }
 
     // Validate all CAD records have a pattern part assigned (a legacy "All Parts" row carries it as its componentName)
-    const rowsWithoutPart = cadRecords.filter((c) => !c.patternPartId && c.componentName !== ALL_PARTS_LEGACY_MARKER);
+    const rowsWithoutPart = toApprove.filter((c) => !c.patternPartId && c.componentName !== ALL_PARTS_LEGACY_MARKER);
     if (rowsWithoutPart.length > 0) {
       throw new ValidationError(
         `Cannot approve: ${rowsWithoutPart.length} CAD row(s) are missing a Part. Please select a Part for all rows before approving.`
@@ -2701,7 +2741,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
 
     // Validate all CAD records have EITHER greige OR fabric selected
     // BUG-CS5 FIX: Previously only checked greigeId, blocking approval for ready-fabric styles
-    const rowsWithoutFabricSource = cadRecords.filter((c) => !c.greigeId && !c.fabricId);
+    const rowsWithoutFabricSource = toApprove.filter((c) => !c.greigeId && !c.fabricId);
     if (rowsWithoutFabricSource.length > 0) {
       throw new ValidationError(
         `Cannot approve: ${rowsWithoutFabricSource.length} CAD row(s) are missing a Greige/Fabric selection. Please select a Greige or Fabric for all rows before approving.`
@@ -2712,7 +2752,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     // style status from the rows. The old code stamped only styles.cadStatus and never
     // touched row-level approval — the purest producer of the style-vs-row drift
     // (landmine №3), and under the derived model the button would have been a no-op.
-    const mappedCadIds = cadRecords.map((c) => c.id);
+    const mappedCadIds = toApprove.map((c) => c.id);
 
     // Every row approved here passes the marker-image rule first (cad-marker.helper) — the plan-level button
     // is not a way around the row-level one
@@ -2739,16 +2779,17 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         )
       );
 
-      await tx.fabric_width_cad.updateMany({
-        where: { id: { in: mappedCadIds } },
-        data: {
-          approvalStatus: 'APPROVED', // allow-cad-approval: this IS the CAD-side approval
-          ...(approvedById ? { approvedBy: approvedById } : {}),
-          approvedAt: new Date(),
-          rejectedBy: null,
-          rejectedAt: null,
-        },
-      });
+      if (mappedCadIds.length > 0)
+        await tx.fabric_width_cad.updateMany({
+          where: { id: { in: mappedCadIds } },
+          data: {
+            approvalStatus: 'APPROVED', // allow-cad-approval: this IS the CAD-side approval
+            ...(approvedById ? { approvedBy: approvedById } : {}),
+            approvedAt: new Date(),
+            rejectedBy: null,
+            rejectedAt: null,
+          },
+        });
 
       await recomputeStyleCadStatus(tx, styleId);
     });

@@ -431,7 +431,10 @@ async function writeCad(
 async function linkCorrectionMarker(tx: Tx, cadId: string, after: CorrectionAfter, userId: string): Promise<boolean> {
   if (!after.marker) return false;
   if (after.marker.fileId === null) {
-    // Corrected by hand with no image: the reason is the row's marker override
+    // Corrected by hand with no image: the reason is the row's marker override. An image attached to the row while
+    // the correction waited for approval is not the corrected marker (it matched the OLD values): it is kept as the
+    // row's earlier image, so the corrected values and their reason stand instead of reading "Differs" against it
+    await tx.cad_purpose_files.updateMany({ where: { cadId, replacedAt: null }, data: { replacedAt: new Date() } });
     await tx.fabric_width_cad.update({
       where: { id: cadId },
       data: {

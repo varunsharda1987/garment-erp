@@ -746,7 +746,10 @@ export async function linkCADToStock(req: Request, res: Response) {
   // The row keeps its marker's width when that fits the lot (lot-width.helper); a row with no marker
   // yet takes the lot's width; a marker wider than the lot is refused — it would not fit
   const rowWidth = Number(cadRecord.cutableWidth);
-  const keepsOwnWidth = rowWidth > 0 && markerFitsLot(rowWidth, Number(fabricStock.cutableWidth)).fits;
+  // only a MARKER's width is kept: a row with no layer length yet holds a planning default (52", 40"…), not a
+  // marker, and takes the lot's width
+  const keepsOwnWidth =
+    cadRecord.cadMeters != null && rowWidth > 0 && markerFitsLot(rowWidth, Number(fabricStock.cutableWidth)).fits;
   if (!keepsOwnWidth && cadRecord.cadMeters != null) {
     await assertMarkerFitsLot(prisma, rowWidth, fabricStockId, cadId);
   }
@@ -776,6 +779,25 @@ export async function linkCADToStock(req: Request, res: Response) {
         },
       },
     },
+  });
+
+  // History: the row moved to a lot, and its width / greige with it (they used to be written by a row save, which
+  // recorded them)
+  await recordCadEvent({
+    cadId,
+    userId: req.user?.userId,
+    action: 'UPDATE',
+    oldValues: {
+      fabricStockId: cadRecord.fabricStockId,
+      cutableWidth: Number(cadRecord.cutableWidth),
+      greigeId: cadRecord.greigeId,
+    },
+    newValues: {
+      fabricStockId,
+      cutableWidth: Number(updated.cutableWidth),
+      greigeId: updated.greigeId,
+    },
+    reason: `Linked to lot ${lot.lotLabel || fabricStockId}`,
   });
 
   return res.json({

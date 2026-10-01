@@ -503,15 +503,11 @@ export const getStockForStyle = async (req: Request, res: Response) => {
   // Add embroideryId filter for CAD planning
   // - embroideryId=null or embroideryId='' → filter for plain (non-embroidered) stock only
   // - embroideryId=<uuid> → filter for specific embroidery design
-  // - embroideryId=any → embroidered stock of any design (CAD Planning's embroidered rows: they sent no
-  //   filter, which listed plain lots too)
   // - embroideryId not provided → return all stock (no filter)
   if (embroideryId !== undefined) {
     if (embroideryId === 'null' || embroideryId === '') {
       // Filter for plain (non-embroidered) stock
       where.embroideryId = null;
-    } else if (embroideryId === 'any') {
-      where.embroideryId = { not: null };
     } else if (typeof embroideryId === 'string' && embroideryId.length > 0) {
       // Filter for specific embroidery design
       where.embroideryId = embroideryId;

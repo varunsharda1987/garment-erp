@@ -16,6 +16,9 @@
  *    width, sizes, or a marker with pieces left unplaced — is refused unless a reason is given. An image that
  *    could not be read counts as a difference ("not checked"). The reason and the differences it covers are
  *    kept on the row and in its History; a later save that matches clears them.
+ *  - No image at all (a marker not made in Nest EXPERT, or none to give): the person's own values are saved with
+ *    a reason, the same way (`NO_IMAGE_DIFFERENCE`, 2026-10-01). Until then the row could not be saved at all.
+ *  - Size names are compared by `sameSizeKey` (utils/sku-generator): a marker's 3XL is the style's XXXL.
  *  - Approve refuses a row that needs an image or whose differences are not explained.
  *  - A row made from another (Copy to Raw Mat, Create CAD on a lot, Fabric Costing clone / promote) gets the
  *    source's image with it — `copyMarkerImage`.
@@ -28,6 +31,7 @@ import { Prisma, PrismaClient, cad_purpose_files } from '@prisma/client';
 import { BusinessError, ConflictError } from '../../errors';
 import { cadAverageFromMarker } from '../../controllers/cad-planning.utils';
 import { isQtyZero } from '../../utils/quantity';
+import { sameSizeKey } from '../../utils/sku-generator';
 import type { MarkerReadStatus, MarkerReading, MarkerSize } from '../marker-reader.service';
 import { recordCadEvent } from './cad-history.helper';
 
@@ -177,10 +181,11 @@ function sizesText(sizes: MarkerSize[]): string | null {
   return sizes.map((s) => (s.quantity > 1 ? `${s.sizeName} ×${s.quantity}` : s.sizeName)).join(', ');
 }
 
+/** Garments per size, keyed by `sameSizeKey` — the marker's 3XL is the style's XXXL, its 2XL the style's XXL */
 function sizeCounts(sizes: MarkerSize[]): Map<string, number> {
   const counts = new Map<string, number>();
   for (const s of sizes) {
-    const name = s.sizeName.trim().toUpperCase();
+    const name = sameSizeKey(s.sizeName);
     if (s.quantity > 0) counts.set(name, (counts.get(name) ?? 0) + s.quantity);
   }
   return counts;
@@ -251,8 +256,10 @@ export function markerDifferences(
     const names = new Set([...image.keys(), ...row.keys()]);
     const same = [...names].every((n) => (image.get(n) ?? 0) === (row.get(n) ?? 0));
     if (!same) {
-      const offered = styleSizes ? new Set(styleSizes.map((s) => s.trim().toUpperCase())) : null;
-      const missing = offered ? [...image.keys()].filter((n) => !offered.has(n)) : [];
+      const offered = styleSizes ? new Set(styleSizes.map(sameSizeKey)) : null;
+      const missing = offered
+        ? reading.sizes.filter((s) => !offered.has(sameSizeKey(s.sizeName))).map((s) => s.sizeName)
+        : [];
       const note =
         missing.length > 0
           ? ` (the marker has ${missing.join(', ')} — this style has no ${missing.length > 1 ? 'such sizes' : `${missing[0]} size`})`
@@ -277,6 +284,19 @@ export function markerDifferences(
 
   return out;
 }
+
+/**
+ * The one "difference" of a Raw Mat / Production row saved with NO marker image: some markers are not made in
+ * Nest EXPERT (a hand lay, a marker from another CAD, a sample cut) and there is no screenshot to give. The row
+ * may then be saved — and approved — on the person's own values with a reason, kept on the row and in its
+ * History like any other override (owner, 2026-10-01). Attaching an image later checks the values against it.
+ */
+export const NO_IMAGE_DIFFERENCE: MarkerDifference = {
+  field: 'image',
+  label: 'No marker image — the values are not checked against one',
+  image: null,
+  row: null,
+};
 
 /**
  * Is the row a marker yet? It is once it has a layer length or any size — a width alone is not (a new row gets a
@@ -320,7 +340,8 @@ function reasonCovers(storedText: string | null | undefined, differences: Marker
 
 /**
  * NONE        no image, and none needed (Costing, or a row that is not a marker yet)
- * NEEDS_IMAGE a Raw Mat / Production row with CAD values and no image
+ * NEEDS_IMAGE a Raw Mat / Production row with CAD values, no image and no reason (saved by hand with a reason
+ *             it is EXPLAINED)
  * UNUSED      an image, but the row is not a marker yet (no length, no sizes): "Use these values" fills it;
  *             approve is refused until it is filled and saved
  * MATCHES     the values are what the image says
@@ -369,13 +390,17 @@ export function summarizeMarker(
   const required = markerRequired(row.purpose);
   const isMarker = describesMarker(row.values);
   if (!file) {
+    const needsImage = required && isMarker;
+    // Saved by hand with a reason: explained, approvable; otherwise it still needs its image (or a reason)
+    const explained =
+      needsImage && !!row.markerOverrideReason && reasonCovers(row.markerOverrideDifferences, [NO_IMAGE_DIFFERENCE]);
     return {
-      state: required && isMarker ? 'NEEDS_IMAGE' : 'NONE',
+      state: explained ? 'EXPLAINED' : needsImage ? 'NEEDS_IMAGE' : 'NONE',
       required,
       file: null,
       reading: null,
-      differences: [],
-      overrideReason: null,
+      differences: needsImage ? [NO_IMAGE_DIFFERENCE] : [],
+      overrideReason: explained ? row.markerOverrideReason : null,
       imageMarginM: null,
       imageAverage: null,
     };
@@ -577,15 +602,38 @@ export async function checkMarkerOnSave(
   const isMarker = describesMarker(values);
   const [file, styleSizes] = await Promise.all([currentMarkerFile(db, row.id), styleSizeNames(db, rowStyleId(row))]);
 
+  const reason = args.overrideReason?.trim() ?? '';
   if (!file) {
     if (markerRequired(purpose) && isMarker) {
-      throw new BusinessError(
-        `Attach this ${PURPOSE_LABEL[purpose ?? ''] ?? ''} CAD's marker image first — its values are saved from ` +
-          "the marker. Open the row's CAD image, upload the Nest EXPERT screenshot (or PDF) and its values fill in.",
-        { code: 'CAD_MARKER_IMAGE_REQUIRED', cadId: row.id }
-      );
+      // No image to give (or none yet): the person's own values are saved only with a reason
+      if (reason.length < 3) {
+        throw new BusinessError(
+          `This ${PURPOSE_LABEL[purpose ?? ''] ?? ''} CAD has no marker image. Attach the Nest EXPERT screenshot ` +
+            "(or PDF) in the row's CAD image and its values fill in — or, if there is no marker image to give, say " +
+            'where these values come from and save them by hand.',
+          { code: 'CAD_MARKER_IMAGE_REQUIRED', cadId: row.id, differences: [NO_IMAGE_DIFFERENCE] }
+        );
+      }
+      return {
+        patch: {
+          markerOverrideReason: reason,
+          markerOverrideById: args.userId ?? null,
+          markerOverrideAt: new Date(),
+          markerOverrideDifferences: JSON.stringify([NO_IMAGE_DIFFERENCE]),
+        },
+        override: { reason, differences: [NO_IMAGE_DIFFERENCE] },
+      };
     }
-    return none;
+    // Not required (Costing) or not a marker yet: nothing to check, and no reason left over
+    return {
+      patch: {
+        markerOverrideReason: null,
+        markerOverrideById: null,
+        markerOverrideAt: null,
+        markerOverrideDifferences: null,
+      },
+      override: null,
+    };
   }
 
   // Still not a marker after this save (e.g. a new row's greige, notes or default width): its image has nothing
@@ -604,7 +652,6 @@ export async function checkMarkerOnSave(
 
   const reading = storedReading(file);
   const differences = markerDifferences(values, reading, styleSizes);
-  const reason = args.overrideReason?.trim() ?? '';
   if (differences.length > 0 && reason.length < 3) {
     throw new ConflictError(
       `These values differ from the row's CAD image: ${differences.map((d) => d.label).join('; ')}. ` +
@@ -706,7 +753,8 @@ export async function checkMarkerOnApprove(db: Db, cadIds: string[]): Promise<vo
     const { cadId, summary, label } = refusals[0];
     if (summary.state === 'NEEDS_IMAGE') {
       throw new BusinessError(
-        `This ${label} CAD has no marker image. Attach it (CAD image column) — its values are checked against it — then approve.`,
+        `This ${label} CAD has no marker image. Attach it (CAD image column) — its values are checked against it — ` +
+          'or, if there is none to give, edit the row and save its values with a reason. Then approve.',
         { code: 'CAD_MARKER_IMAGE_REQUIRED', cadId }
       );
     }

@@ -7,6 +7,7 @@ import {
   describesMarker,
   markerDifferences,
   markerRequired,
+  NO_IMAGE_DIFFERENCE,
   readingColumns,
   storedReading,
   summarizeMarker,
@@ -77,6 +78,23 @@ describe('markerDifferences', () => {
     expect(d.label).toContain('the marker has XXL — this style has no XXL size');
   });
 
+  it('reads 3XL as XXXL and 2XL as XXL, both ways (the marker title and the style spell them differently)', () => {
+    const marker: StoredReading = {
+      ...ip00138,
+      sizes: ['M', 'L', 'XL', '2XL', '3XL'].map((sizeName) => ({ sizeName, quantity: 1 })),
+    };
+    const style = ['M', 'L', 'XL', 'XXL', 'XXXL'];
+    const row = style.map((sizeName) => ({ sizeName, quantity: 1 }));
+    expect(markerDifferences({ ...matching, sizes: row }, marker, style)).toEqual([]);
+    const flipped: StoredReading = { ...ip00138, sizes: row };
+    const twoXl = ['M', 'L', 'XL', '2xl', '3XL'].map((sizeName) => ({ sizeName, quantity: 1 }));
+    expect(markerDifferences({ ...matching, sizes: twoXl }, flipped, ['M', 'L', 'XL', '2XL', '3XL'])).toEqual([]);
+    // still a different size: XXL is not XXXL
+    const [d] = markerDifferences({ ...matching, sizes: row.slice(0, 4) }, marker, style);
+    expect(d.field).toBe('sizes');
+    expect(d.label).not.toContain('this style has no');
+  });
+
   it('flags a marker with pieces left unplaced', () => {
     const partial: StoredReading = { ...ip00138, placed: 4, total: 60 };
     expect(markerDifferences(matching, partial)).toEqual([
@@ -127,6 +145,7 @@ describe('summarizeMarker', () => {
 
   it('NEEDS_IMAGE for a Raw Mat row with values and no image; NONE before it has any', () => {
     expect(summarizeMarker(row(matching), null).state).toBe('NEEDS_IMAGE');
+    expect(summarizeMarker(row(matching), null).differences).toEqual([NO_IMAGE_DIFFERENCE]);
     expect(summarizeMarker(row({ layerLengthM: null, widthIn: 52, sizes: [] }), null).state).toBe('NONE');
     expect(summarizeMarker({ ...row(matching), purpose: 'COSTING' }, null).state).toBe('NONE');
   });
@@ -143,6 +162,27 @@ describe('summarizeMarker', () => {
     expect(summarizeMarker(row({ ...matching, layerLengthM: 8.4 }, 'rounded', differs.differences), file).state).toBe(
       'DIFFERS'
     );
+  });
+});
+
+describe('summarizeMarker — values entered by hand with no image (2026-10-01)', () => {
+  const row = (reason: string | null, covered: unknown) => ({
+    purpose: 'PRODUCTION',
+    values: matching,
+    markerOverrideReason: reason,
+    markerOverrideDifferences: covered === null ? null : JSON.stringify(covered),
+  });
+
+  it('is EXPLAINED (approvable) with a reason given for having no image', () => {
+    const s = summarizeMarker(row('hand-laid marker, no Nest EXPERT file', [NO_IMAGE_DIFFERENCE]), null);
+    expect(s.state).toBe('EXPLAINED');
+    expect(s.overrideReason).toBe('hand-laid marker, no Nest EXPERT file');
+  });
+
+  it('a reason given for another difference does not cover having no image', () => {
+    const other = [{ field: 'length', label: 'x', image: '8.29 m', row: '8.3 m' }];
+    expect(summarizeMarker(row('rounded', other), null).state).toBe('NEEDS_IMAGE');
+    expect(summarizeMarker(row(null, null), null).state).toBe('NEEDS_IMAGE');
   });
 });
 

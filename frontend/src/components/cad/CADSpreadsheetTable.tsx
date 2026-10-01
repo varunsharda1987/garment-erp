@@ -213,9 +213,11 @@ export function CADSpreadsheetTable({
   // CAD image of each row (backend helpers/cad-marker.helper.ts): its state, what was read, the differences
   const [markerRowId, setMarkerRowId] = useState<string | null>(null);
   // A save refused because the values differ from the row's CAD image — asks for the reason, then saves
+  // (also when the row has NO image: its values are then saved by hand, with the reason — `noImage`)
   const [markerReasonPrompt, setMarkerReasonPrompt] = useState<{
     rowId: string;
     differences: MarkerDifference[];
+    noImage?: boolean;
   } | null>(null);
   const [markerReason, setMarkerReason] = useState('');
   const { data: rowMarkers, refetch: refetchMarkers } = useQuery({
@@ -698,8 +700,9 @@ export function CADSpreadsheetTable({
         setMarkerReason('');
         setMarkerReasonPrompt({ rowId, differences: refusal.differences });
       } else if (refusal?.code === 'CAD_MARKER_IMAGE_REQUIRED') {
-        notify.warning(refusal.message, { duration: 7000 });
-        setMarkerRowId(rowId);
+        // No image: attach one, or save these values by hand with a reason (the same prompt)
+        setMarkerReason('');
+        setMarkerReasonPrompt({ rowId, differences: refusal.differences, noImage: true });
       }
       // allow-silent-catch: otherwise the page's handler has already shown the server's reason (it names the
       // next click); a second, vaguer toast here only buried it
@@ -901,6 +904,8 @@ export function CADSpreadsheetTable({
       const refusal = markerRefusalFromError(error);
       if (refusal?.code === 'CAD_MARKER_MISMATCH') {
         setMarkerReasonPrompt({ rowId, differences: refusal.differences });
+      } else if (refusal?.code === 'CAD_MARKER_IMAGE_REQUIRED') {
+        setMarkerReasonPrompt({ rowId, differences: refusal.differences, noImage: true });
       } else if (!refusal) {
         notify.error(getErrorMessage(error));
       }
@@ -1966,7 +1971,7 @@ export function CADSpreadsheetTable({
                             // a correction (Correct…) brings its marker image
                             const marker =
                               found && isRowLocked && (found.state === 'NEEDS_IMAGE' || found.state === 'UNUSED')
-                                ? { ...found, state: 'NONE' as const }
+                                ? { ...found, state: 'NONE' as const, differences: [] }
                                 : found;
                             const tip = marker?.differences.length
                               ? marker.differences.map((d) => d.label).join('\n') +
@@ -1976,7 +1981,7 @@ export function CADSpreadsheetTable({
                                 : marker?.state === 'UNUSED'
                                   ? 'The CAD image is attached — open it and click Use these values to fill the row'
                                   : marker?.state === 'NEEDS_IMAGE'
-                                    ? 'This row is saved from its marker — attach the CAD image'
+                                    ? 'This row is saved from its marker — attach the CAD image, or save its values by hand with a reason'
                                     : isRowLocked
                                       ? marker?.file
                                         ? 'The CAD image of this approved row'
@@ -2807,6 +2812,13 @@ export function CADSpreadsheetTable({
             onClose={() => setMarkerRowId(null)}
             onChanged={() => void refetchMarkers()}
             onUseValues={(values) => markerRow && handleUseMarkerValues(markerRow.id, values)}
+            onEnterByHand={() => {
+              if (!markerRow) return;
+              setEditingRow(markerRow.id);
+              notify.info('Type the layer length, width and sizes in the row and click Save — you will be asked why', {
+                duration: 7000,
+              });
+            }}
           />
         );
       })()}
@@ -2822,16 +2834,19 @@ export function CADSpreadsheetTable({
           {(() => {
             // A difference with neither an image nor a row value is one the image could not check (unreadable,
             // or its sizes / width not shown) — nothing to correct, only to explain
-            const all = markerReasonPrompt?.differences ?? [];
+            const noImage = !!markerReasonPrompt?.noImage;
+            const all = noImage ? [] : (markerReasonPrompt?.differences ?? []);
             const unchecked = all.filter((d) => d.image === null && d.row === null);
             const differing = all.filter((d) => !(d.image === null && d.row === null));
             return (
               <>
                 <DialogHeader>
                   <DialogTitle>
-                    {differing.length === 0
-                      ? 'The CAD image could not check these values'
-                      : 'These values differ from the CAD image'}
+                    {noImage
+                      ? 'This row has no CAD image'
+                      : differing.length === 0
+                        ? 'The CAD image could not check these values'
+                        : 'These values differ from the CAD image'}
                   </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-3">
@@ -2853,9 +2868,11 @@ export function CADSpreadsheetTable({
                     </div>
                   )}
                   <p className="text-sm text-muted-foreground">
-                    {differing.length === 0
-                      ? 'The image does not show these clearly enough to check them. Say where the values come from, and save.'
-                      : 'Correct them to match the marker (CAD image → Use these values), or say why they are right and save.'}
+                    {noImage
+                      ? 'Attach the Nest EXPERT screenshot (Open CAD image) and its values fill in. If there is no marker image to give, say where these values come from and save them as typed.'
+                      : differing.length === 0
+                        ? 'The image does not show these clearly enough to check them. Say where the values come from, and save.'
+                        : 'Correct them to match the marker (CAD image → Use these values), or say why they are right and save.'}
                   </p>
                   <div className="space-y-1.5">
                     <Label htmlFor="marker-reason">Reason</Label>
@@ -2864,9 +2881,11 @@ export function CADSpreadsheetTable({
                       value={markerReason}
                       onChange={(e) => setMarkerReason(e.target.value)}
                       placeholder={
-                        differing.length === 0
-                          ? "e.g. sizes counted from the piece list in Nest EXPERT; the screenshot's title bar was cut off"
-                          : 'e.g. the marker was re-made at 3.85 m after the fit sample; new screenshot to follow'
+                        noImage
+                          ? 'e.g. hand-laid marker on the cutting table, measured 3.85 m for S–XXL; no Nest EXPERT marker'
+                          : differing.length === 0
+                            ? "e.g. sizes counted from the piece list in Nest EXPERT; the screenshot's title bar was cut off"
+                            : 'e.g. the marker was re-made at 3.85 m after the fit sample; new screenshot to follow'
                       }
                       rows={3}
                     />

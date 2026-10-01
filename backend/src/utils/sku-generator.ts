@@ -167,6 +167,23 @@ export function compareSizes(a: string, b: string): number {
   return getSizeOrder(a) - getSizeOrder(b) || a.localeCompare(b);
 }
 
+/**
+ * The ONE name a size goes by when two spellings mean the same size: 2XL = XXL, 3XL = XXXL, 4XL = XXXXL,
+ * 2XS = XXS — case, spaces and hyphens ignored ("Free Size" = "FREESIZE" = "FREE"). Compare size names with
+ * this, never with the raw text: a Nest EXPERT marker titled "…-XL-3XL*" is the style's XXXL, and the CAD
+ * row refused it as a different size until 2026-10-01. Display keeps each record's own spelling.
+ */
+export function sameSizeKey(sizeName: string): string {
+  const key = sizeName
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, '');
+  const multi = /^([2-6])X([LS])$/.exec(key);
+  if (multi) return `${'X'.repeat(Number(multi[1]))}${multi[2]}`;
+  if (key === 'FREESIZE' || key === 'FS') return 'FREE';
+  return key;
+}
+
 // ── Size order: END ──
 
 /**

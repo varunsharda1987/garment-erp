@@ -383,6 +383,24 @@ describe('CAD values are saved from the marker image', () => {
     await put(costing.id, { layerLengthMeters: 3.82 }).expect(200);
   });
 
+  it('with no marker image to give, the values are saved by hand with a reason — and can then be approved', async () => {
+    const row = await createRow();
+    const refused = await put(row.id, { layerLengthMeters: 3.82 });
+    expect(codeOf(refused)).toBe('CAD_MARKER_IMAGE_REQUIRED');
+    expect(refused.body.details.differences).toEqual([expect.objectContaining({ field: 'image' })]);
+
+    await put(row.id, {
+      layerLengthMeters: 3.82,
+      sizeBreakdowns: [{ sizeName: 'S', quantity: 1 }],
+      markerOverrideReason: 'hand-laid marker on the cutting table',
+    }).expect(200);
+    const saved = await prisma.fabric_width_cad.findUnique({ where: { id: row.id } });
+    expect(Number(saved?.cadMeters)).toBeCloseTo(3.82, 3);
+    expect(saved?.markerOverrideReason).toBe('hand-laid marker on the cutting table');
+    expect((await rowMarkers()).get(row.id).state).toBe('EXPLAINED');
+    await approve(row.id).expect(200);
+  });
+
   it('an edit that touches no CAD value needs no image (a Raw Mat row saved before the rule)', async () => {
     const legacy = await createRow({ cadMeters: 3.85 }, ['S', 'M']);
     await put(legacy.id, { printDirection: 'ONE_WAY' }).expect(200);

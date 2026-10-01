@@ -30,6 +30,7 @@ import {
 import type { CADGreigeOption, CADSizeBreakdown, CADSizeOption, CADSpreadsheetRow } from '@/types/cad-planning.types';
 import type { CadRowMarker, MarkerReading } from '@/types/cadFile.types';
 import { miniMarkerService } from '@/services/miniMarker.service';
+import { sameSizeKey } from '@/utils/sku-generator';
 import { SizeBreakdownPopup } from './SizeBreakdownPopup';
 
 const PURPOSE_LABEL: Record<string, string> = { COSTING: 'Costing', RAW_MATERIAL_CALCULATION: 'Raw material' };
@@ -203,13 +204,14 @@ function CorrectCadForm({
     if (r.lengthM !== null) setLayer(String(r.lengthM));
     if (r.widthIn !== null) setWidth(String(r.widthIn));
     if (r.sizes.length > 0) {
-      const offered = new Map(sizeOptions.map((s) => [s.name.trim().toUpperCase(), s]));
+      // 3XL = XXXL, 2XL = XXL (sameSizeKey)
+      const offered = new Map(sizeOptions.map((s) => [sameSizeKey(s.name), s]));
       setSizes(
         r.sizes
-          .filter((s) => offered.size === 0 || offered.has(s.sizeName.toUpperCase()))
+          .filter((s) => offered.size === 0 || offered.has(sameSizeKey(s.sizeName)))
           .map((s) => ({
-            sizeName: offered.get(s.sizeName.toUpperCase())?.name ?? s.sizeName,
-            sizeId: offered.get(s.sizeName.toUpperCase())?.id ?? null,
+            sizeName: offered.get(sameSizeKey(s.sizeName))?.name ?? s.sizeName,
+            sizeId: offered.get(sameSizeKey(s.sizeName))?.id ?? null,
             quantity: s.quantity,
           }))
       );
@@ -290,13 +292,13 @@ function CorrectCadForm({
   };
 
   const markerCheck = impact?.markerCheck;
+  // No image to give: the corrected values go in by hand with a reason (backend NO_IMAGE_DIFFERENCE)
   const markerMissing = !!markerCheck?.required && !markerCheck.fileId;
-  const markerNeedsReason = !!markerCheck?.fileId && markerCheck.differences.length > 0;
+  const markerNeedsReason = markerMissing || (!!markerCheck?.fileId && markerCheck.differences.length > 0);
   const canSubmit =
     !!impact &&
     !impact.nothingToCorrect &&
     reason.trim().length >= 3 &&
-    !markerMissing &&
     (!markerNeedsReason || markerReason.trim().length >= 3) &&
     !submitting &&
     !uploadingMarker;
@@ -454,12 +456,20 @@ function CorrectCadForm({
                 </p>
               )}
               {markerMissing && (
-                <p className="text-xs text-destructive">
-                  Upload the corrected marker's image, or pick an uploaded one above — a Raw Mat CAD's values come from
-                  its marker.
-                </p>
+                <div className="space-y-1">
+                  <p className="text-xs text-warning">
+                    Upload the corrected marker's image, or pick an uploaded one above — a Raw Mat CAD's values come
+                    from its marker. No marker image to give? Say where the corrected values come from:
+                  </p>
+                  <Textarea
+                    rows={2}
+                    placeholder="e.g. hand-laid marker on the cutting table, measured 3.85 m for S–XXL"
+                    value={markerReason}
+                    onChange={(e) => setMarkerReason(e.target.value)}
+                  />
+                </div>
               )}
-              {markerNeedsReason && (
+              {markerNeedsReason && !markerMissing && (
                 <div className="space-y-1">
                   <p className="text-xs text-warning">The corrected values differ from this image:</p>
                   <ul className="list-disc pl-5 text-xs text-warning">

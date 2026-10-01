@@ -4,7 +4,7 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { SIZE_ORDER, compareSizes, getSizeOrder } from '../../utils/sku-generator';
+import { SIZE_ORDER, compareSizes, getSizeOrder, sameSizeKey } from '../../utils/sku-generator';
 
 describe('getSizeOrder / compareSizes', () => {
   it('reads letter sizes smallest to largest, not alphabetically', () => {
@@ -25,6 +25,23 @@ describe('getSizeOrder / compareSizes', () => {
 
   it('puts unknown sizes after every known one, alphabetically among themselves', () => {
     expect(['Petite', 'XL', 'Curvy', 'Free Size'].sort(compareSizes)).toEqual(['XL', 'Free Size', 'Curvy', 'Petite']);
+  });
+});
+
+describe('sameSizeKey', () => {
+  it('gives 2XL / XXL, 3XL / XXXL, 4XL / XXXXL and 2XS / XXS one name, ignoring case, spaces and hyphens', () => {
+    expect(sameSizeKey('3XL')).toBe(sameSizeKey('XXXL'));
+    expect(sameSizeKey('2xl')).toBe(sameSizeKey('XXL'));
+    expect(sameSizeKey(' 4XL ')).toBe('XXXXL');
+    expect(sameSizeKey('2XS')).toBe('XXS');
+    expect(sameSizeKey('Free Size')).toBe(sameSizeKey('FREE'));
+    expect(sameSizeKey('X-L')).toBe('XL');
+  });
+
+  it('keeps different sizes apart', () => {
+    expect(sameSizeKey('XXL')).not.toBe(sameSizeKey('XXXL'));
+    expect(sameSizeKey('3XL')).not.toBe(sameSizeKey('XXL'));
+    expect(sameSizeKey('32')).toBe('32');
   });
 });
 

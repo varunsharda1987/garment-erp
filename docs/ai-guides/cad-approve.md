@@ -28,6 +28,12 @@ keywords:
   - needs image
   - differs from the CAD image
   - cannot approve CAD
+  - enter values by hand
+  - own values without image
+  - image not readable
+  - no marker image
+  - 3XL XXXL
+  - 2XL XXL
   # Hinglish
   - CAD approve karna
   - marker approve
@@ -45,6 +51,10 @@ keywords:
   - marker lot se chauda hai
   - wider than lot
   - will not fit
+  - apni values dalni hai
+  - image nahi padh raha
+  - CAD image nahi hai
+  - haath se values
   # Devanagari
   - कैड अप्रूव
   - मार्कर अप्रूवल
@@ -60,6 +70,9 @@ keywords:
   - कैड इमेज
   - कैड अप्रूव नहीं हो रहा
   - मार्कर लॉट से चौड़ा
+  - अपनी वैल्यू डालना
+  - इमेज नहीं पढ़ रहा
+  - कैड इमेज नहीं है
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/CADPlanningPage.tsx
@@ -80,7 +93,7 @@ The CAD plan must be complete before you can approve it:
 1. **All rows must have a Part assigned** - Each CAD row needs a pattern part selected
 2. **All rows must have CAD values** - The CAD Average (m/pc) must be calculated and greater than zero
 3. **All fabric groups must be covered** - Every style fabric must have at least one CAD row with values
-4. **Every Raw Mat and Production row must have its marker image** - The **CAD Image** column must not say **Needs image** or **Not used yet** (a row with its image but no values — open the image, click **Use these values**, save), and a row that differs from its image (**Differs** / **Not checked**) must first be saved with a reason. Costing rows need no image (when they have one, it is checked the same way). See the guide "Create a CAD Plan (Marker)" for attaching the image
+4. **Every Raw Mat and Production row must have its marker image** - The **CAD Image** column must not say **Needs image** or **Not used yet** (a row with its image but no values — open the image, click **Use these values**, save), and a row that differs from its image (**Differs** / **Not checked**) must first be saved with a reason. When there is no marker image to give (a hand-laid marker, or the image cannot be read), edit the row, type your own values and save them with a reason — the row can then be approved. Costing rows need no image (when they have one, it is checked the same way). See the guide "Create a CAD Plan (Marker)" for attaching the image
 5. **A Production CAD must fit its lot** - its **Width** may be narrower than the lot's cutable width, never wider. The line under **Width** shows **Lot 53" · 1" spare**, or **Wider than lot** in red
 
 If any of these are missing, you will see an error when trying to approve.
@@ -128,7 +141,7 @@ When you approve a CAD plan:
 - **Every change is recorded** - Row menu (three dots) > **History** shows who created, edited, approved, rejected or corrected the row, what changed (old → new) and why
 - **The green APPROVED badge is not the Production CAD** - It shows once any CAD row is approved. The Production CAD for received fabric is approved row by row: row menu (three dots) > **Approve**. Cutting needs an approved Production CAD with a CAD Average; a pending or rejected one does not count
 - **A Production CAD with no average cannot be approved** - Fill in Layer(M) and the Size Breakdown, save, then Approve
-- **Approve is refused for the CAD image** - A single row: "This Raw Mat CAD has no marker image…" (or Production) — the **CAD image** window opens; attach the image and use its values. Or "…values differ from its marker image: … Correct them, or save them with a reason, then approve." **Approve CAD Plan** names every row that is not ready ("2 CAD rows cannot be approved yet: …")
+- **Approve is refused for the CAD image** - A single row: "This Raw Mat CAD has no marker image…" (or Production) — the **CAD image** window opens; attach the image and use its values, or click **Enter values by hand**, save the row with a reason, then approve. Or "…values differ from its marker image: … Correct them, or save them with a reason, then approve." **Approve CAD Plan** names every row that is not ready ("2 CAD rows cannot be approved yet: …")
 - **Approved rows from before 28-Sep-2026 show "No image"** - They keep their values and stay approved. Click the chip to attach the marker image: an approved row takes it only when the image says exactly what the row holds. If it differs, the image is kept in the style's images and the row changes only through row menu > **Correct…** (pick the image there)
 - **A Production CAD must be on a received lot** - Approve does not show on a Production row with no lot. Use **Link to Stock** on the row, or delete it and press **Create CAD** on the lot in the **Fabric Stock Available** box
 - **"This marker is 54" but lot … is 53" cutable — it will not fit"** - Approve (and Approve CAD Plan) refuse a Production CAD wider than its lot. Make a marker at the lot's cutable width or less; or, if the lot's width was recorded wrong at receipt, click **Width** on the lot in the **Fabric Stock Available** box and correct it first

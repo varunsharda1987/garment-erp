@@ -145,7 +145,13 @@ keywords:
   - अपनी वैल्यू डालना
   - इमेज नहीं पढ़ रहा
   - कैड इमेज नहीं है
+  - हाथ से वैल्यू डालना
+  - कैड में हाथ से वैल्यू
+  - 3XL और XXXL साइज
+  - 2XL और XXL साइज
 sources:
+  - frontend/src/utils/sku-generator.ts
+  - backend/src/controllers/cad-approval.controller.ts
   - frontend/src/config/navigation.ts
   - frontend/src/pages/CADPlanningPage.tsx
   - frontend/src/pages/CADPlanningList.tsx
@@ -287,7 +293,7 @@ A reason covers only those differences. If you later change the values again and
 Sometimes the marker image cannot give the values (a phone photo, another CAD program, a cut-off screenshot), or there is no Nest EXPERT marker at all (a hand-laid marker, a sample cut). You can still save your own numbers:
 
 1. Click the row's **CAD Image** cell. In the **CAD image** window click **Enter values by hand**. (Or open the row menu > **Edit**.) The row opens for editing.
-2. Type **Layer(M)**, **Width** and the **Sizes**, and click **Save**.
+2. Type **Layer(M)**, **Width** and the **Sizes**, and click **Save**. When the row already holds the right values (for example a row made by **Copy to Raw Mat** from a Costing row with no image), just click **Save** — it still asks for the reason.
 3. A window asks why:
    - With an image that could not be read: **The CAD image could not check these values**.
    - With no image at all: **This row has no CAD image** — "Attach the Nest EXPERT screenshot (Open CAD image) and its values fill in. If there is no marker image to give, say where these values come from and save them as typed."

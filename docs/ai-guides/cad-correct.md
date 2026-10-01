@@ -42,6 +42,9 @@ keywords:
   - correction pending kyun hai
   - order ka BOM update karna
   - correction mein CAD image lagana
+  - correct CAD without image
+  - no marker image correction
+  - bina image CAD sudharna
   # Devanagari (MANDATORY)
   - कैड सुधारना
   - कैड गलत है
@@ -56,6 +59,8 @@ keywords:
   - कॉस्ट शीट वर्जन अप्रूव
   - कैड इमेज
   - मार्कर इमेज
+  - बिना इमेज कैड सुधारना
+  - मार्कर इमेज नहीं है
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/CADPlanningPage.tsx
@@ -89,14 +94,14 @@ Reject no longer works once an approved cost sheet or an order's BOM uses the CA
    - **Size breakup** — click the button, set the pieces per size in the popup and click **Save**
    - **Greige** — click it and type part of the greige name (or its generic greige or supplier) to search; only greiges of the row's own generic greige are listed
    - **Cuttable width (in)**
-5. **Corrected marker image** — on a **Raw Mat** row, needed when the layer length, sizes or width change (on a Costing row it is optional, and checked when given). If the row already has its CAD image, the box starts with it ("This row's image, …" and the length, width and sizes it reads) — when you are correcting the row to what that image says, nothing more is needed: click **Use these values** to put its length, width and sizes into the fields above. For a different marker, click **Upload** and choose the new Nest EXPERT screenshot (or PDF), or choose one already uploaded for the style in **…or use an uploaded image** — choosing it uses it at once (for example the image the row's **CAD Image** did not take because it differs). A new image is read — "Reading the marker — about 10 seconds…" — and the values it read show under the heading. A greige-only correction needs no image. If there is no marker image to give, the box says so and asks where the corrected values come from — type that reason instead of uploading.
+5. **Corrected marker image** — on a **Raw Mat** row, needed when the layer length, sizes or width change (on a Costing row it is optional, and checked when given). If the row already has its CAD image, the box starts with it ("This row's image, …" and the length, width and sizes it reads) — when you are correcting the row to what that image says, nothing more is needed: click **Use these values** to put its length, width and sizes into the fields above. For a different marker, click **Upload** and choose the new Nest EXPERT screenshot (or PDF), or choose one already uploaded for the style in **…or use an uploaded image** — choosing it uses it at once (for example the image the row's **CAD Image** did not take because it differs). A new image is read — "Reading the marker — about 10 seconds…" — and the values it read show under the heading. A greige-only correction needs no image.
 6. Type the **Reason** * — at least 3 characters. It is kept in the CAD history.
-7. Click **Check impact**. The result appears under the fields (see the next section). If the corrected values differ from the uploaded image, the image box lists each difference ("The corrected values differ from this image:") and asks **Why are these values right although the image says otherwise?** — type that reason too.
+7. Click **Check impact**. The result appears under the fields (see the next section). If the corrected values differ from the uploaded image, the image box lists each difference ("The corrected values differ from this image:") and asks **Why are these values right although the image says otherwise?** — type that reason too. On a Raw Mat row with no image and none uploaded, the image box now asks where the corrected values come from ("No marker image to give? Say where the corrected values come from") — type that instead of uploading. Changing a field hides it again until the next **Check impact**.
 8. Click the last button. Its label tells you what will happen:
    - **Submit correction** — nothing approved uses this CAD yet. The row is corrected at once and stays approved. You see "CAD corrected." If the price per metre changed, the row's fabric price approval is cleared — approve it again on **Pre-Production > Costing Options**.
    - **Send for approval** — an approved cost sheet or an order's BOM uses this CAD. The CAD row is NOT changed yet. A new cost sheet version is made for each approved cost sheet and waits for an admin. You see "Correction sent for approval — … Orders and requirements update when it is approved."
 9. When sent for approval, the row shows a **Correction pending** badge. Hover it to see who corrected it, when and why.
-10. When the correction applies (at once, or when the admin approves), its image becomes the row's marker — the **CAD Image** column shows it.
+10. When the correction applies (at once, or when the admin approves), its image becomes the row's marker — the **CAD Image** column shows it. A correction made with no image keeps no image: the row shows the reason you gave (hover its **CAD Image** chip).
 
 ## What Check impact shows
 

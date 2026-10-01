@@ -74,6 +74,9 @@ keywords:
   - इमेज नहीं पढ़ रहा
   - कैड इमेज नहीं है
 sources:
+  - backend/src/services/style.service.ts
+  - backend/src/services/helpers/cad-marker.helper.ts
+  - frontend/src/utils/sku-generator.ts
   - frontend/src/config/navigation.ts
   - frontend/src/pages/CADPlanningPage.tsx
   - frontend/src/components/cad/CADSpreadsheetTable.tsx
@@ -137,13 +140,14 @@ When you approve a CAD plan:
 
 - **Cannot edit after approval** - Once approved, you cannot change any CAD values (the Size Breakup button is greyed out too). To fix an approved Costing or Raw Mat row, use row menu (three dots) > **Correct…** (see the guide "Correct an approved CAD"). While nothing uses the CAD, you can also Reject it, edit it and approve it again
 - **Reject requires a reason** - To undo an approval, you must provide a rejection reason
-- **"CAD Plan Approved" means every Costing and Raw Mat row is approved** - An approved Production CAD on its own does not make the plan approved: **Approve CAD Plan** stays available, and **Reject CAD Plan** is refused with "The CAD plan is not approved — no Costing or Raw Mat row is approved"
+- **"CAD Plan Approved" means every Costing and Raw Mat row is approved** - The card under the header says **CAD Plan Approved** only then. When a new row (a width variant) is added to an approved plan, the card offers **Approve CAD Plan** again, and the **Actions** menu still has **Push to Fabric Costing** and **Reject CAD Plan**. Approving the plan again approves only the new rows — rows approved earlier are left as they are. An approved Production CAD on its own does not make the plan approved: **Reject CAD Plan** is then refused with "The CAD plan is not approved — no Costing or Raw Mat row is approved"
+- **A costing clone stays pending** - A Costing row copied in Fabric Costing for another processor or quantity (same part, fabric, width) is a costing option of geometry already approved: Approve CAD Plan leaves it pending and does not count it
 - **One Production CAD per lot** - Approving a Production CAD is refused while its lot has another Production CAD that is pending or approved: "This lot already has another Production CAD … reject or delete that one first"
 - **Reject is refused when the CAD is in use** - If an approved cost sheet or an order's BOM is built on the CAD, Reject stops with a yellow box **This CAD is already in use — it cannot be rejected**. It lists the cost sheets and orders. There is no way to reject past it. Use **Correct…** instead: it carries the change to those cost sheets, order BOMs and requirements
 - **Rejection resets the planning rows** - Rejecting an approved CAD plan resets the Costing and Raw Mat rows to PENDING and unlocks them for editing. Production CADs stay approved, because cutting uses them
 - **Rejection clears the fabric price approval** - The fabric costing figures are kept, but their approval is removed and must be done again on the Costing Options page
 - **Every change is recorded** - Row menu (three dots) > **History** shows who created, edited, approved, rejected or corrected the row, what changed (old → new) and why
-- **The green APPROVED badge is not the Production CAD** - It shows once any CAD row is approved. The Production CAD for received fabric is approved row by row: row menu (three dots) > **Approve**. Cutting needs an approved Production CAD with a CAD Average; a pending or rejected one does not count
+- **The green APPROVED badge is not the Production CAD** - The badge in the header is the style's CAD status, as the CAD Planning list files it: it shows once any CAD row is approved. Whether the PLAN is approved is the card under it (**CAD Plan Approved**). The Production CAD for received fabric is approved row by row: row menu (three dots) > **Approve**. Cutting needs an approved Production CAD with a CAD Average; a pending or rejected one does not count
 - **A Production CAD with no average cannot be approved** - Fill in Layer(M) and the Size Breakdown, save, then Approve
 - **Approve is refused for the CAD image** - A single row: "This Raw Mat CAD has no marker image…" (or Production) — the **CAD image** window opens; attach the image and use its values, or click **Enter values by hand**, save the row with a reason, then approve. Or "…values differ from its marker image: … Correct them, or save them with a reason, then approve." **Approve CAD Plan** names every row that is not ready ("2 CAD rows cannot be approved yet: …")
 - **Approved rows from before 28-Sep-2026 show "No image"** - They keep their values and stay approved. Click the chip to attach the marker image: an approved row takes it only when the image says exactly what the row holds. If it differs, the image is kept in the style's images and the row changes only through row menu > **Correct…** (pick the image there)

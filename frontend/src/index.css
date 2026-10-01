@@ -6,7 +6,7 @@
    Theme: "The Atelier OS" — warm, editorial, fashion-forward ops
    
    Fonts loaded via main.tsx or index.html:
-   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
    ============================================================ */
 
 @tailwind base;
@@ -17,7 +17,7 @@
 @layer base {
   :root {
     /* ── TYPOGRAPHY ──────────────────────────────────────── */
-    --font-display: 'Cormorant Garamond', Georgia, serif;
+    --font-display: 'DM Sans', system-ui, sans-serif; /* one font: Cormorant's old-style numerals sat off the line (2026-10-01) */
     --font-sans:    'DM Sans', system-ui, sans-serif;
     --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
 
@@ -203,7 +203,7 @@
     font-weight: 400;
   }
 
-  /* Display headings use Cormorant */
+  /* Display headings — same font as the body (DM Sans, level numerals) */
   h1, h2, h3 {
     font-family: var(--font-display);
     font-weight: 500;

@@ -123,7 +123,7 @@ module.exports = {
 
       /* ── TYPOGRAPHY ─────────────────────────────────────── */
       fontFamily: {
-        display: ['Cormorant Garamond', 'Georgia', 'serif'],
+        display: ['DM Sans', 'system-ui', 'sans-serif'],
         sans:    ['DM Sans', 'system-ui', 'sans-serif'],
         mono:    ['JetBrains Mono', 'Fira Code', 'monospace'],
       },
@@ -140,7 +140,7 @@ module.exports = {
         '2xl':  ['1.5rem',    { lineHeight: '2rem' }],         /* 24px */
         '3xl':  ['1.875rem',  { lineHeight: '2.25rem' }],      /* 30px */
 
-        /* Display sizes — for Cormorant Garamond headings */
+        /* Display sizes — headings */
         'display-sm': ['1.75rem',  { lineHeight: '2rem',    letterSpacing: '-0.015em' }], /* 28px */
         'display-md': ['2.25rem',  { lineHeight: '2.5rem',  letterSpacing: '-0.02em'  }], /* 36px */
         'display-lg': ['3rem',     { lineHeight: '3.25rem', letterSpacing: '-0.025em' }], /* 48px */

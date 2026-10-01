@@ -739,14 +739,16 @@ export function CADSpreadsheetTable({
   };
 
   // Load available stock for PRODUCTION purpose when style fabrics are selected
-  const loadProductionStock = async () => {
-    if (selectedStyleFabrics.length === 0) return;
+  // `fabricIds` = the ticks as they are about to be (a tick change reloads the lots before its state settles)
+  const loadProductionStock = async (fabricIds: string[] = selectedStyleFabrics) => {
+    if (fabricIds.length === 0) return;
 
     setLoadingProductionStock(true);
     try {
       // Get the first selected fabric to determine embroidery status
-      const firstFabric = styleFabrics.find((sf) => selectedStyleFabrics.includes(sf.id));
-      const embroideryFilter = firstFabric?.hasEmbroidery ? undefined : null;
+      const firstFabric = styleFabrics.find((sf) => fabricIds.includes(sf.id));
+      // 'any' = embroidered lots of any design (undefined sent no filter, so plain lots were offered too)
+      const embroideryFilter = firstFabric?.hasEmbroidery ? 'any' : null;
 
       const stock = await fabricStockService.getStockForStyle(styleId, {
         status: 'AVAILABLE',
@@ -762,6 +764,17 @@ export function CADSpreadsheetTable({
     }
   };
 
+  // The fabrics ticked in Add Row. For a Production row the lots offered depend on them (plain or embroidered), so
+  // they are reloaded — they used to load only when the purpose changed, from whatever was ticked then.
+  const changeFabricTicks = (next: string[]) => {
+    setSelectedStyleFabrics(next);
+    if (selectedPurpose === 'PRODUCTION') {
+      setSelectedStockForProduction(null);
+      if (next.length > 0) void loadProductionStock(next);
+      else setProductionStockOptions([]);
+    }
+  };
+
   // Handle batch creation of CAD rows for multiple style_fabrics
   const handleBatchAddRows = async () => {
     if (selectedStyleFabrics.length === 0) return;
@@ -771,11 +784,20 @@ export function CADSpreadsheetTable({
       notify.error('PRODUCTION CAD requires stock selection. Please select available stock or use COSTING purpose.');
       return;
     }
+    // A Production CAD is the marker of ONE lot, on that lot's own fabric: one lot cannot be every ticked fabric's
+    // (all but one were refused). Several fabrics cut together are one combined row.
+    if (selectedPurpose === 'PRODUCTION' && selectedStyleFabrics.length > 1) {
+      notify.error(
+        'A Production CAD is for one fabric lot — tick one fabric, or use "Combine as 1 PRODUCTION Row" for fabrics cut together.'
+      );
+      return;
+    }
 
     setAddingRow(true);
     try {
       let successCount = 0;
       let failCount = 0;
+      let firstError: unknown = null;
 
       // Create CAD rows for all selected style_fabrics
       for (const styleFabricId of selectedStyleFabrics) {
@@ -789,17 +811,18 @@ export function CADSpreadsheetTable({
           successCount++;
         } catch (error) {
           console.error(`Failed to add CAD row for ${styleFabricId}:`, error);
+          firstError ??= error;
           failCount++;
         }
       }
 
-      // Show result notification
+      // Show result notification — one, with the server's reason (the page no longer toasts each row)
       if (failCount === 0) {
         notify.success(`Successfully created ${successCount} ${selectedPurpose} CAD row${successCount > 1 ? 's' : ''}`);
       } else if (successCount > 0) {
-        notify.warning(`Created ${successCount} row(s), ${failCount} failed`);
+        notify.warning(`Created ${successCount} row(s), ${failCount} failed: ${getErrorMessage(firstError)}`);
       } else {
-        notify.error('Failed to create CAD rows');
+        notify.error(getErrorMessage(firstError));
       }
 
       // Reset state
@@ -944,7 +967,7 @@ export function CADSpreadsheetTable({
       // - If CAD row is for embroidery (isEmbroidery=true), show only embroidered stock
       // - If CAD row is for plain fabric (isEmbroidery=false), show only plain stock
       const embroideryFilter = currentRow?.isEmbroidery
-        ? undefined // Show embroidered stock (any embroideryId)
+        ? 'any' // Show embroidered stock (any embroideryId) — undefined sent no filter at all
         : null; // Show only plain stock (embroideryId=null)
 
       const stock = await fabricStockService.getStockForStyle(styleId, {
@@ -1012,14 +1035,9 @@ export function CADSpreadsheetTable({
     if (!selectedRowForStock) return;
 
     try {
-      // Update CAD row with stock information
-      await onUpdateRow(selectedRowForStock, {
-        cutableWidth: selectedStock.cutableWidth,
-        greigeId: selectedStock.greigeId,
-        // Note: Backend will handle fabricStockId linkage via linkToStock endpoint
-      });
-
-      // Link CAD to stock (backend endpoint)
+      // ONE call: the link sets the lot, its greige and the width — keeping the marker's own width when it fits
+      // the lot. A row save first (width + greige) used to replace the marker's width before that rule could keep
+      // it, checked the fit against the OLD lot, and was left half-done when the link was refused.
       await cadPlanningService.linkCADToStock(styleId, {
         cadId: selectedRowForStock,
         fabricStockId: stockId,
@@ -1030,6 +1048,7 @@ export function CADSpreadsheetTable({
       setSelectedRowForStock(null);
       setVarianceWarningOpen(false);
       setPendingStockSelection(null);
+      onDataRefresh?.();
     } catch (error: unknown) {
       // BUG-CAD11 fix: use error utility instead of inline extraction
       notify.error(`Failed to link stock: ${getErrorMessage(error)}`);
@@ -2313,11 +2332,7 @@ export function CADSpreadsheetTable({
                   checked={selectAllStyleFabrics}
                   onCheckedChange={(checked) => {
                     setSelectAllStyleFabrics(!!checked);
-                    if (checked) {
-                      setSelectedStyleFabrics(styleFabrics.map((sf) => sf.id));
-                    } else {
-                      setSelectedStyleFabrics([]);
-                    }
+                    changeFabricTicks(checked ? styleFabrics.map((sf) => sf.id) : []);
                   }}
                 />
                 <label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
@@ -2337,9 +2352,9 @@ export function CADSpreadsheetTable({
                     checked={selectedStyleFabrics.includes(sf.id)}
                     onCheckedChange={(checked) => {
                       if (checked) {
-                        setSelectedStyleFabrics([...selectedStyleFabrics, sf.id]);
+                        changeFabricTicks([...selectedStyleFabrics, sf.id]);
                       } else {
-                        setSelectedStyleFabrics(selectedStyleFabrics.filter((id) => id !== sf.id));
+                        changeFabricTicks(selectedStyleFabrics.filter((id) => id !== sf.id));
                         setSelectAllStyleFabrics(false);
                       }
                     }}
@@ -2435,7 +2450,7 @@ export function CADSpreadsheetTable({
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={loadProductionStock}
+                        onClick={() => void loadProductionStock()}
                         disabled={loadingProductionStock}
                         className="h-7 text-xs"
                       >

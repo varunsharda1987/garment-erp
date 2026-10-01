@@ -379,6 +379,8 @@ export default function CADPlanningPage() {
   // ============================================
   // CAD SPREADSHEET TABLE HANDLERS
   // ============================================
+  // The CAD table reports the outcome (one message for a batch, with the server's reason) — these only call the
+  // API and reload. Each used to toast too, so a combined row's refusal showed twice.
   const handleSpreadsheetAddRow = async (
     styleFabricId: string,
     partId?: string,
@@ -394,33 +396,21 @@ export default function CADPlanningPage() {
         purpose,
         fabricStockId,
       });
-      const purposeLabel = purpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Mat' : purpose || 'Costing';
-      notify.success(`${purposeLabel} row added successfully`);
+    } finally {
       await loadCADTableData();
-    } catch (error: unknown) {
-      console.error('Failed to add row:', error);
-      const axiosMsg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      notify.error(axiosMsg || 'Failed to add row');
-      throw error;
     }
   };
 
   const handleSpreadsheetAddCombinedRow = async (
     styleFabricIds: string[],
-    purpose?: 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION'
+    purpose?: 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION',
+    fabricStockId?: string
   ) => {
     if (!id) return;
-    try {
-      await cadPlanningService.addCombinedCADRow(id, styleFabricIds, purpose);
-      const purposeLabel = purpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Mat' : purpose || 'Costing';
-      notify.success(`Combined ${purposeLabel} row added successfully`);
-      await loadCADTableData();
-    } catch (error: unknown) {
-      console.error('Failed to add combined row:', error);
-      const axiosMsg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      notify.error(axiosMsg || 'Failed to add combined row');
-      throw error;
-    }
+    // A combined PRODUCTION row is the marker of one lot: the lot goes with it (it was dropped here, so the
+    // server refused every combined Production row)
+    await cadPlanningService.addCombinedCADRow(id, styleFabricIds, purpose, fabricStockId);
+    await loadCADTableData();
   };
 
   const handleSpreadsheetUpdateRow = async (

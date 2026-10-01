@@ -438,11 +438,14 @@ export const cadPlanningService = {
   async addCombinedCADRow(
     styleId: string,
     styleFabricIds: string[],
-    purpose?: string
+    purpose?: string,
+    /** Required for a PRODUCTION combined row: the lot it is the marker of */
+    fabricStockId?: string
   ): Promise<{ success: boolean; data: CADSpreadsheetRow }> {
     const response = await api.post(`/cad-planning/${styleId}/combined-row`, {
       styleFabricIds,
       purpose,
+      ...(fabricStockId ? { fabricStockId } : {}),
     });
     return response.data;
   },

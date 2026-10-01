@@ -692,9 +692,17 @@ export async function linkCADToStock(req: Request, res: Response) {
     throw new NotFoundError('CAD record', cadId);
   }
 
-  // Verify it's PRODUCTION purpose
-  if (cadRecord.purpose !== 'PRODUCTION') {
+  // Verify it's PRODUCTION purpose (either purpose column — Landmine №8)
+  if ((cadRecord.purposeEnum ?? cadRecord.purpose) !== 'PRODUCTION') {
     throw new BusinessError('Only PRODUCTION CAD can be linked to stock');
+  }
+  // An approved Production CAD is the marker cutting reads for its lot — it is not moved to another lot
+  // allow-cad-approval: the CAD-side lock
+  if (cadRecord.approvalStatus === 'APPROVED') {
+    throw new BusinessError(
+      'This Production CAD is approved for its lot, so it cannot be moved to another lot. Reject it first, or use ' +
+        'Create CAD on the other lot.'
+    );
   }
 
   // Fetch fabric stock
@@ -712,20 +720,27 @@ export async function linkCADToStock(req: Request, res: Response) {
   }
 
   // The lot must be this style's, on this row's fabric, with no other Production CAD — Create CAD's rule
-  await resolveProductionLot(
+  const lot = await resolveProductionLot(
     styleId,
     fabricStockId,
     { styleFabricId: cadRecord.styleFabricId },
     { excludeCadId: cadId }
   );
 
-  // Calculate variance if planning width provided
+  // Calculate variance against the planning width — the one sent, else the one the row already had (the CAD
+  // table sends none, and the link used to wipe it)
+  const planningWidth =
+    planningCadWidth && planningCadWidth > 0
+      ? planningCadWidth
+      : cadRecord.planningCadWidth !== null
+        ? Number(cadRecord.planningCadWidth)
+        : null;
   let widthVariance = null;
   let variancePercent = null;
 
-  if (planningCadWidth && planningCadWidth > 0) {
-    widthVariance = Number(fabricStock.cutableWidth) - planningCadWidth;
-    variancePercent = (widthVariance / planningCadWidth) * 100;
+  if (planningWidth && planningWidth > 0) {
+    widthVariance = Number(fabricStock.cutableWidth) - planningWidth;
+    variancePercent = (widthVariance / planningWidth) * 100;
   }
 
   // The row keeps its marker's width when that fits the lot (lot-width.helper); a row with no marker
@@ -741,9 +756,13 @@ export async function linkCADToStock(req: Request, res: Response) {
     where: { id: cadId },
     data: {
       fabricStockId,
+      // the lot's own slot and greige (the CAD table used to write them through a row save first, which
+      // replaced the marker's width before this rule could keep it)
+      styleFabricId: cadRecord.styleFabricId ?? lot.styleFabricId,
+      ...(lot.lotGreigeId ? { greigeId: lot.lotGreigeId } : {}),
       procurementId: procurementId || null,
       cutableWidth: keepsOwnWidth ? cadRecord.cutableWidth : fabricStock.cutableWidth,
-      planningCadWidth: planningCadWidth || null,
+      planningCadWidth: planningWidth,
       widthVariance,
       variancePercent,
     },

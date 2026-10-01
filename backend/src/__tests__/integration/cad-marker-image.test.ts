@@ -229,6 +229,27 @@ describe('CAD row marker image — endpoints', () => {
     120_000
   );
 
+  itRead(
+    'Read again with the reader down keeps the reading that worked; attaching brings the efficiency',
+    async () => {
+      const row = await createRow({ markerEfficiency: 50 });
+      await attach(row.id).expect(201);
+      expect(Number((await prisma.fabric_width_cad.findUnique({ where: { id: row.id } }))?.markerEfficiency)).toBe(
+        89.05
+      );
+      process.env.MARKER_READER_DISABLED = '1';
+      try {
+        const res = await request(app).post(`/api/cad-planning/${styleId}/row/${row.id}/marker/reread`).set(authHeader);
+        expect(res.status).toBe(422);
+        const current = await prisma.cad_purpose_files.findFirst({ where: { cadId: row.id, replacedAt: null } });
+        expect(current?.readStatus).toBe('READ');
+      } finally {
+        delete process.env.MARKER_READER_DISABLED;
+      }
+    },
+    120_000
+  );
+
   it("an approved row refuses an image that differs from it — the image stays in the style's images", async () => {
     process.env.MARKER_READER_DISABLED = '1'; // not readable = not a match
     try {

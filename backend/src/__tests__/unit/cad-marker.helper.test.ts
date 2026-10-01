@@ -179,6 +179,27 @@ describe('summarizeMarker — values entered by hand with no image (2026-10-01)'
     expect(s.overrideReason).toBe('hand-laid marker, no Nest EXPERT file');
   });
 
+  it('a reason for having no image does not cover an unreadable image attached later (and vice versa)', () => {
+    const unreadable = {
+      id: 'f2',
+      fileUrl: '/uploads/cad-files/photo.jpg',
+      fileName: 'photo.jpg',
+      createdAt: new Date(),
+      readStatus: 'UNREADABLE',
+      readSizes: null,
+    } as unknown as cad_purpose_files;
+    const byHand = row('hand-laid marker', [NO_IMAGE_DIFFERENCE]);
+    expect(summarizeMarker(byHand, unreadable).state).toBe('DIFFERS');
+
+    const photoReason = summarizeMarker(row(null, null), unreadable).differences;
+    expect(summarizeMarker(row('phone photo, values from the cutting master', photoReason), null).state).toBe(
+      'NEEDS_IMAGE'
+    );
+    expect(summarizeMarker(row('phone photo, values from the cutting master', photoReason), unreadable).state).toBe(
+      'EXPLAINED'
+    );
+  });
+
   it('a reason given for another difference does not cover having no image', () => {
     const other = [{ field: 'length', label: 'x', image: '8.29 m', row: '8.3 m' }];
     expect(summarizeMarker(row('rounded', other), null).state).toBe('NEEDS_IMAGE');

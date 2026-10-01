@@ -493,7 +493,7 @@ function MarkerImageBody({
                 )}
               </>
             )}
-            {file && (
+            {file && !readOnly && (
               <Button
                 variant="ghost"
                 size="sm"

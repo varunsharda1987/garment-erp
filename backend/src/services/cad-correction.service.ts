@@ -456,7 +456,21 @@ async function linkCorrectionMarker(tx: Tx, cadId: string, after: CorrectionAfte
     where: { cadId, replacedAt: null, NOT: { id: file.id } },
     data: { replacedAt: new Date() },
   });
-  await tx.cad_purpose_files.update({ where: { id: file.id }, data: { cadId, replacedAt: null } });
+  if (file.cadId !== null && file.cadId !== cadId) {
+    // Picked for another row's marker while this correction waited: that row keeps it, this one gets a record of
+    // its own on the same file (as cad-file.service makeCurrent does) — moving it left the other row with no image
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id, createdAt, readSizes, replacedAt, cadId: otherRow, ...rest } = file;
+    await tx.cad_purpose_files.create({
+      data: {
+        ...rest,
+        readSizes: readSizes === null ? Prisma.DbNull : (readSizes as Prisma.InputJsonValue),
+        cadId,
+      },
+    });
+  } else {
+    await tx.cad_purpose_files.update({ where: { id: file.id }, data: { cadId, replacedAt: null } });
+  }
   const differs = after.marker.differences.length > 0;
   await tx.fabric_width_cad.update({
     where: { id: cadId },

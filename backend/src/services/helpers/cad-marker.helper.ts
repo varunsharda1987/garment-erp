@@ -307,7 +307,14 @@ export function describesMarker(values: Pick<MarkerValues, 'layerLengthM' | 'siz
   return (values.layerLengthM !== null && values.layerLengthM > 0) || values.sizes.some((s) => s.quantity > 0);
 }
 
-const differenceKey = (d: Pick<MarkerDifference, 'field' | 'image' | 'row'>) => `${d.field}|${d.image}|${d.row}`;
+/**
+ * What a reason is given for. A difference with no image or row value ("no image", "could not be read", "the reader
+ * could not run", "width / sizes not read") is told apart by its label: until 2026-10-01 they all keyed
+ * `image|null|null`, so a reason for a hand-entered row with no image went on covering an unreadable photo
+ * attached later, and the other way round.
+ */
+const differenceKey = (d: Pick<MarkerDifference, 'field' | 'image' | 'row' | 'label'>) =>
+  d.image === null && d.row === null ? `${d.field}|${d.label}` : `${d.field}|${d.image}|${d.row}`;
 
 /** Does a stored reason still cover exactly these differences? (A new image or new values need a new one.) */
 function reasonCovers(storedText: string | null | undefined, differences: MarkerDifference[]): boolean {
@@ -328,6 +335,7 @@ function reasonCovers(storedText: string | null | undefined, differences: Marker
           field: rec.field as MarkerDifferenceField,
           image: (rec.image as string | null) ?? null,
           row: (rec.row as string | null) ?? null,
+          label: typeof rec.label === 'string' ? rec.label : '',
         });
       })
   );
@@ -588,12 +596,15 @@ export async function checkMarkerOnSave(
   if (!row) return none;
 
   const stored = rowMarkerValues(row);
+  // Compared at the scale they are stored at (cutableWidth 2 dp, cadMeters 4 dp): a width typed as 52.125 is kept as
+  // 52.13, and a reason given for "52.125" would stop covering the row the moment it was saved
+  const atScale = (n: number | null, dp: number) => (n === null ? null : Number(n.toFixed(dp)));
   const values: MarkerValues = {
-    layerLengthM: args.after.layerLengthM !== undefined ? args.after.layerLengthM : stored.layerLengthM,
+    layerLengthM: args.after.layerLengthM !== undefined ? atScale(args.after.layerLengthM, 4) : stored.layerLengthM,
     widthIn:
       args.after.widthIn !== undefined
         ? args.after.widthIn && args.after.widthIn > 0
-          ? args.after.widthIn
+          ? atScale(args.after.widthIn, 2)
           : null
         : stored.widthIn,
     sizes: args.after.sizes !== undefined ? args.after.sizes : stored.sizes,

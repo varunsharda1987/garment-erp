@@ -229,6 +229,27 @@ describe('CAD row marker image — endpoints', () => {
     120_000
   );
 
+  itRead(
+    'Read again with the reader down keeps the reading that worked; attaching brings the efficiency',
+    async () => {
+      const row = await createRow({ markerEfficiency: 50 });
+      await attach(row.id).expect(201);
+      expect(Number((await prisma.fabric_width_cad.findUnique({ where: { id: row.id } }))?.markerEfficiency)).toBe(
+        89.05
+      );
+      process.env.MARKER_READER_DISABLED = '1';
+      try {
+        const res = await request(app).post(`/api/cad-planning/${styleId}/row/${row.id}/marker/reread`).set(authHeader);
+        expect(res.status).toBe(422);
+        const current = await prisma.cad_purpose_files.findFirst({ where: { cadId: row.id, replacedAt: null } });
+        expect(current?.readStatus).toBe('READ');
+      } finally {
+        delete process.env.MARKER_READER_DISABLED;
+      }
+    },
+    120_000
+  );
+
   it("an approved row refuses an image that differs from it — the image stays in the style's images", async () => {
     process.env.MARKER_READER_DISABLED = '1'; // not readable = not a match
     try {
@@ -381,6 +402,38 @@ describe('CAD values are saved from the marker image', () => {
 
     const costing = await createRow({ purpose: 'COSTING', purposeEnum: 'COSTING' });
     await put(costing.id, { layerLengthMeters: 3.82 }).expect(200);
+  });
+
+  it('clearing the sizes clears the stored CAD average (it was kept and approved on)', async () => {
+    const costing = await createRow({ purpose: 'COSTING', purposeEnum: 'COSTING' });
+    await put(costing.id, {
+      layerLengthMeters: 3.82,
+      sizeBreakdowns: [{ sizeName: 'S', quantity: 2 }],
+      piecesPerMarker: 2,
+    }).expect(200);
+    expect((await prisma.fabric_width_cad.findUnique({ where: { id: costing.id } }))?.cadAverage).not.toBeNull();
+    await put(costing.id, { sizeBreakdowns: [], piecesPerMarker: 0 }).expect(200);
+    const cleared = await prisma.fabric_width_cad.findUnique({ where: { id: costing.id } });
+    expect(cleared?.cadAverage).toBeNull();
+    expect(cleared?.piecesPerMarker).toBeNull();
+  });
+
+  it('with no marker image to give, the values are saved by hand with a reason — and can then be approved', async () => {
+    const row = await createRow();
+    const refused = await put(row.id, { layerLengthMeters: 3.82 });
+    expect(codeOf(refused)).toBe('CAD_MARKER_IMAGE_REQUIRED');
+    expect(refused.body.details.differences).toEqual([expect.objectContaining({ field: 'image' })]);
+
+    await put(row.id, {
+      layerLengthMeters: 3.82,
+      sizeBreakdowns: [{ sizeName: 'S', quantity: 1 }],
+      markerOverrideReason: 'hand-laid marker on the cutting table',
+    }).expect(200);
+    const saved = await prisma.fabric_width_cad.findUnique({ where: { id: row.id } });
+    expect(Number(saved?.cadMeters)).toBeCloseTo(3.82, 3);
+    expect(saved?.markerOverrideReason).toBe('hand-laid marker on the cutting table');
+    expect((await rowMarkers()).get(row.id).state).toBe('EXPLAINED');
+    await approve(row.id).expect(200);
   });
 
   it('an edit that touches no CAD value needs no image (a Raw Mat row saved before the rule)', async () => {

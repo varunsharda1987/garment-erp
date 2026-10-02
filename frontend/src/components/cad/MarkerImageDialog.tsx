@@ -8,6 +8,7 @@ import {
   ImageIcon,
   Info,
   Loader2,
+  PencilLine,
   RefreshCw,
   Upload,
 } from 'lucide-react';
@@ -28,6 +29,7 @@ import { notify } from '@/lib/notify';
 import { getErrorMessage } from '@/lib/api-error-handler';
 import { formatDateTime } from '@/lib/date';
 import { getUploadUrl } from '@/config/api.config';
+import { sameSizeKey } from '@/utils/sku-generator';
 import { miniMarkerService } from '@/services/miniMarker.service';
 import type { CadRowMarker, MarkerDifference, MarkerImageResult, MarkerReading } from '@/types/cadFile.types';
 import type { CADSizeBreakdown, CADSizeOption, CADSpreadsheetRow } from '@/types/cad-planning.types';
@@ -67,6 +69,9 @@ interface MarkerImageDialogProps {
   /** The row's image or reading changed — refresh the table's image states */
   onChanged: () => void;
   onUseValues: (values: MarkerValuesForRow) => void;
+  /** The image cannot give the values (unreadable, or there is no marker image to give): edit the row by hand —
+   *  its save asks for a reason (backend NO_IMAGE_DIFFERENCE / an unreadable image) */
+  onEnterByHand: () => void;
 }
 
 const sizesText = (sizes: { sizeName: string; quantity: number }[]) =>
@@ -98,6 +103,7 @@ function MarkerImageBody({
   onClose,
   onChanged,
   onUseValues,
+  onEnterByHand,
 }: MarkerImageDialogProps & { row: CADSpreadsheetRow }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState<'upload' | 'link' | 'reread' | null>(null);
@@ -117,7 +123,7 @@ function MarkerImageBody({
       : latest;
   const reading: MarkerReading | null = summary?.reading ?? null;
   const file = summary?.file ?? null;
-  const differences: MarkerDifference[] = summary?.differences ?? [];
+  const differences: MarkerDifference[] = summary?.state === 'NONE' ? [] : (summary?.differences ?? []);
   const differs = (field: MarkerDifference['field']) => differences.some((d) => d.field === field);
 
   const { data: gallery } = useQuery({
@@ -161,7 +167,10 @@ function MarkerImageBody({
       }
     } catch (error) {
       const details = (error as { response?: { data?: any } })?.response?.data?.details;
-      if (details?.code === 'CAD_MARKER_APPROVED_DIFFERS') {
+      if (kind === 'reread' && details?.code === 'CAD_MARKER_APPROVED_DIFFERS') {
+        // Read again on an approved row: the image stays the row's marker — only the new reading was not kept
+        notify.warning(getErrorMessage(error), { duration: 8000 });
+      } else if (details?.code === 'CAD_MARKER_APPROVED_DIFFERS') {
         setApprovedRefusal({
           message: getErrorMessage(error),
           differences: Array.isArray(details.differences) ? details.differences : [],
@@ -186,23 +195,30 @@ function MarkerImageBody({
     void run('upload', () => miniMarkerService.attachToRow(styleId, row.id, chosen));
   };
 
-  // Marker sizes mapped onto the style's sizes; any the style does not offer are named, never added
-  const offered = useMemo(() => new Map(sizeOptions.map((s) => [s.name.trim().toUpperCase(), s])), [sizeOptions]);
-  const notOffered = (reading?.sizes ?? []).filter((s) => offered.size > 0 && !offered.has(s.sizeName.toUpperCase()));
+  // Marker sizes mapped onto the style's sizes (3XL = XXXL, 2XL = XXL — sameSizeKey); any the style does not
+  // offer are named, never added
+  const offered = useMemo(() => new Map(sizeOptions.map((s) => [sameSizeKey(s.name), s])), [sizeOptions]);
+  const notOffered = (reading?.sizes ?? []).filter((s) => offered.size > 0 && !offered.has(sameSizeKey(s.sizeName)));
 
   const canUse = !readOnly && !approved && !!reading && (reading.status === 'READ' || reading.status === 'PARTIAL');
   const useValues = () => {
     if (!reading) return;
-    const sizes =
+    const mapped =
       reading.sizes.length === 0
         ? null
         : reading.sizes
-            .filter((s) => offered.size === 0 || offered.has(s.sizeName.toUpperCase()))
+            .filter((s) => offered.size === 0 || offered.has(sameSizeKey(s.sizeName)))
             .map((s) => ({
-              sizeName: offered.get(s.sizeName.toUpperCase())?.name ?? s.sizeName,
-              sizeId: offered.get(s.sizeName.toUpperCase())?.id ?? null,
+              sizeName: offered.get(sameSizeKey(s.sizeName))?.name ?? s.sizeName,
+              sizeId: offered.get(sameSizeKey(s.sizeName))?.id ?? null,
               quantity: s.quantity,
             }));
+    // None of the marker's sizes is one the style offers: leave the row's sizes as they are (an empty list
+    // cleared them, and with them the stored CAD average); the note above names the sizes to add to the style
+    const sizes = mapped && mapped.length > 0 ? mapped : null;
+    if (mapped && mapped.length === 0) {
+      notify.warning("None of the marker's sizes is a size of this style — the row's sizes were left as they are");
+    }
     onUseValues({ layerLengthMeters: reading.lengthM, cutableWidth: reading.widthIn, sizeBreakdowns: sizes });
     onClose();
   };
@@ -270,7 +286,7 @@ function MarkerImageBody({
                 ? 'The marker image of this approved row.'
                 : 'Approved before CAD images were required — it keeps its values. Attach its marker image: an approved row takes one only when it says exactly what the row holds.'
               : summary?.required
-                ? 'This row is saved from its marker: attach the Nest EXPERT screenshot (or its PDF) and use its values.'
+                ? 'This row is saved from its marker: attach the Nest EXPERT screenshot (or its PDF) and use its values. No marker image to give? Enter the values by hand — saving asks why.'
                 : 'A Costing row may keep its marker image; when it has one, its values are checked against it.'}
           </DialogDescription>
         </DialogHeader>
@@ -369,7 +385,10 @@ function MarkerImageBody({
                       {reading.widthIn === null && <p>The image gives no width — enter it in the row.</p>}
                     </>
                   ) : (
-                    <p>The image could not be read — enter the row's values; saving will ask for a reason.</p>
+                    <p>
+                      The image could not be read — click <strong>Enter values by hand</strong>, type the row's values
+                      and save; saving will ask for a reason.
+                    </p>
                   )}
                 </AlertDescription>
               </Alert>
@@ -379,7 +398,17 @@ function MarkerImageBody({
                 Sizes read from the piece list under the toolbar — the title bar is not in the screenshot.
               </p>
             )}
-            {differences.length > 0 && (
+            {!file && summary?.state === 'EXPLAINED' && (
+              <Alert className="border-warning/40 bg-warning/5">
+                <AlertTriangle className="h-4 w-4 text-warning" />
+                <AlertTitle>No CAD image — values entered by hand</AlertTitle>
+                <AlertDescription className="text-xs">
+                  {summary.overrideReason && <p>Reason: {summary.overrideReason}</p>}
+                  <p>Attaching the marker image later checks the row against it.</p>
+                </AlertDescription>
+              </Alert>
+            )}
+            {file && differences.length > 0 && (
               <Alert className="border-warning/40 bg-warning/5">
                 <AlertTriangle className="h-4 w-4 text-warning" />
                 <AlertTitle>
@@ -473,7 +502,7 @@ function MarkerImageBody({
                 )}
               </>
             )}
-            {file && (
+            {file && !readOnly && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -490,6 +519,21 @@ function MarkerImageBody({
             <Button variant="ghost" onClick={onClose}>
               Close
             </Button>
+            {!readOnly && !approved && summary?.state !== 'MATCHES' && (
+              // The image cannot give the values (not readable, partly read, or there is none to give): type them
+              // in the row — its save asks why
+              <Button
+                variant="outline"
+                onClick={() => {
+                  onEnterByHand();
+                  onClose();
+                }}
+                disabled={!!busy}
+              >
+                <PencilLine className="h-4 w-4 mr-1.5" />
+                Enter values by hand
+              </Button>
+            )}
             {!readOnly && !approved && (
               <Button onClick={useValues} disabled={!canUse || !!busy || summary?.state === 'MATCHES'}>
                 Use these values

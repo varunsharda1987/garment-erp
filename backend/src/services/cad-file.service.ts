@@ -7,17 +7,54 @@ import { BusinessError, ConflictError, NotFoundError } from '../errors';
 import { logError, logInfo, logDebug } from '../utils/logger';
 import { CadPurpose, Prisma, cad_purpose_files } from '@prisma/client';
 import { deleteCadFile } from '../middleware/upload.middleware';
-import { markerFilePath, normalizeReading, readMarkerFile } from './marker-reader.service';
+import { markerFilePath, normalizeReading, readMarkerFile, type MarkerReading } from './marker-reader.service';
 import {
   currentMarkerFile,
   markerRequired,
   markerSummaryForRow,
   readingColumns,
+  reasonCovers,
   recordMarkerImage,
   rowDifferencesFromImage,
   storedReading,
   type MarkerSummary,
 } from './helpers/cad-marker.helper';
+
+/** A reading in the shape of a stored record's reading columns — to compare a new reading before keeping it */
+function readingAsColumns(
+  reading: MarkerReading
+): Pick<
+  cad_purpose_files,
+  | 'readStatus'
+  | 'readLengthM'
+  | 'readWidthIn'
+  | 'readEfficiencyPct'
+  | 'readPlaced'
+  | 'readTotal'
+  | 'readSizes'
+  | 'readTitle'
+  | 'readError'
+  | 'readAt'
+> {
+  const dec = (n: number | null) => (n === null ? null : new Prisma.Decimal(n));
+  return {
+    readStatus: reading.status,
+    readLengthM: dec(reading.lengthM),
+    readWidthIn: dec(reading.widthIn),
+    readEfficiencyPct: dec(reading.efficiencyPct),
+    readPlaced: reading.placed,
+    readTotal: reading.total,
+    readSizes:
+      reading.sizes.length > 0
+        ? ((reading.sizesFrom === 'pieces'
+            ? reading.sizes.map((s) => ({ ...s, from: 'pieces' }))
+            : reading.sizes) as unknown as Prisma.JsonValue)
+        : null,
+    readTitle: reading.title,
+    readError: reading.error ?? null,
+    readAt: new Date(),
+  };
+}
 
 const PURPOSE_LABEL: Record<string, string> = {
   COSTING: 'Costing',
@@ -225,6 +262,18 @@ class CadFileService {
         }
       }
 
+      // A correction waiting for approval applies this image when it is approved — deleting it would approve the
+      // corrected values with no image and a reason given for it
+      const waitingCorrections = await prisma.cad_corrections.count({
+        where: { markerFileId: fileId, status: 'PENDING_APPROVAL' },
+      });
+      if (waitingCorrections > 0) {
+        throw new BusinessError(
+          'This image is the corrected marker of a CAD correction waiting for approval. Approve or reject the ' +
+            'correction first.'
+        );
+      }
+
       await prisma.cad_purpose_files.delete({
         where: { id: fileId },
       });
@@ -270,13 +319,29 @@ class CadFileService {
     return (maxSort._max.sortOrder ?? -1) + 1;
   }
 
+  /** Read an image (nothing stored) */
+  private async readImage(file: cad_purpose_files): Promise<MarkerReading> {
+    const fullPath = markerFilePath(file.fileUrl);
+    return fullPath
+      ? readMarkerFile(fullPath)
+      : normalizeReading({ status: 'UNREADABLE', error: 'The image file is not in the uploads folder' });
+  }
+
   /** Read an image and keep what was read on its record */
   private async readFile(file: cad_purpose_files): Promise<cad_purpose_files> {
-    const fullPath = markerFilePath(file.fileUrl);
-    const reading = fullPath
-      ? await readMarkerFile(fullPath)
-      : normalizeReading({ status: 'UNREADABLE', error: 'The image file is not in the uploads folder' });
+    const reading = await this.readImage(file);
     return prisma.cad_purpose_files.update({ where: { id: file.id }, data: readingColumns(reading) });
+  }
+
+  /**
+   * The efficiency the row's marker image shows becomes the row's (it was set only by a CAD-value save, so an
+   * image that already matched the row — nothing to save — never brought its efficiency)
+   */
+  private async takeEfficiency(cadId: string, file: Pick<cad_purpose_files, 'readEfficiencyPct'>): Promise<void> {
+    if (file.readEfficiencyPct === null) return;
+    // an approved (or price-approved) row keeps every CAD value, its efficiency included
+    if (await this.isLocked(cadId)) return;
+    await prisma.fabric_width_cad.update({ where: { id: cadId }, data: { markerEfficiency: file.readEfficiencyPct } });
   }
 
   /** A row whose CAD values are approved — or whose price is — keeps its values (validateCADModification's lock) */
@@ -376,6 +441,7 @@ class CadFileService {
     const read = await this.readFile(await this.storeUpload(styleId, row.purpose, upload, userId));
     if (await this.isLocked(cadId)) await this.assertApprovedRowMatches(cadId, read);
     const file = await this.makeCurrent(styleId, cadId, row.purpose, read, userId);
+    await this.takeEfficiency(cadId, file);
     await recordMarkerImage(cadId, userId, file);
     logInfo('Marker image attached to CAD row', { cadId, fileId: file.id });
     return { file, summary: await markerSummaryForRow(prisma, cadId) };
@@ -397,6 +463,7 @@ class CadFileService {
     }
     if (await this.isLocked(cadId)) await this.assertApprovedRowMatches(cadId, source);
     const file = await this.makeCurrent(styleId, cadId, row.purpose, source, userId);
+    await this.takeEfficiency(cadId, file);
     await recordMarkerImage(cadId, userId, file);
     logInfo('Existing CAD image linked to CAD row', { cadId, fileId: file.id, from: source.id });
     return { file, summary: await markerSummaryForRow(prisma, cadId) };
@@ -446,13 +513,60 @@ class CadFileService {
     return { file: source, reading: storedReading(source) };
   }
 
-  /** Read the row's current marker image again (after the reader was installed or updated) */
-  async rereadForRow(styleId: string, cadId: string, userId?: string): Promise<MarkerImageResult> {
+  /**
+   * Read the row's current marker image again (after the reader was installed or updated). The new reading is
+   * kept only when it is safe to:
+   *  - a reader that could not run (busy, timed out, not installed) never replaces a reading that worked;
+   *  - an approved row keeps its values, so its image is re-read only when the new reading finds no difference
+   *    the old one did not — otherwise a re-read alone would turn it "Differs";
+   *  - an image replaced on the row while it was being read is not written over.
+   * A re-read is not a new image: no history line.
+   */
+  async rereadForRow(styleId: string, cadId: string, _userId?: string): Promise<MarkerImageResult> {
     await this.rowOfStyle(styleId, cadId);
     const current = await currentMarkerFile(prisma, cadId);
     if (!current) throw new BusinessError('This CAD row has no marker image to read');
-    const file = await this.readFile(current);
-    await recordMarkerImage(cadId, userId, file);
+    const reading = await this.readImage(current);
+
+    // A read that did not happen — the reader busy, timed out, switched off, or installed but broken (it then
+    // answers UNREADABLE with the error) — never replaces a read that did (READ, PARTIAL, or a clean UNREADABLE):
+    // the row's reason was given for that one
+    // (nor an earlier failed one: a reason given for "the reader could not run" stays with that reading)
+    const readFailed = reading.status === 'READER_UNAVAILABLE' || (reading.status === 'UNREADABLE' && !!reading.error);
+    if (readFailed && current.readStatus !== null) {
+      throw new BusinessError(
+        `The marker reader could not read the image just now (${reading.error ?? 'it did not answer'}) — the ` +
+          'earlier reading is kept. Try again in a minute.'
+      );
+    }
+    const stillCurrent = await currentMarkerFile(prisma, cadId);
+    if (stillCurrent?.id !== current.id) {
+      throw new BusinessError("The row's CAD image was changed while it was being read — open it again.");
+    }
+    if (await this.isLocked(cadId)) {
+      // An approved row keeps its state: the new reading is kept only when the row then matches its image, or the
+      // reason the row holds still covers exactly what differs (a reading that drops one of two explained
+      // differences would leave the reason covering neither — "Differs" on a row nobody can edit)
+      const after = await rowDifferencesFromImage(prisma, cadId, {
+        ...current,
+        ...readingAsColumns(reading),
+      });
+      const row = await prisma.fabric_width_cad.findUnique({
+        where: { id: cadId },
+        select: { markerOverrideDifferences: true },
+      });
+      if (after.length > 0 && !reasonCovers(row?.markerOverrideDifferences, after)) {
+        throw new ConflictError(
+          `This row is approved and keeps its values — read again, its image would differ from them: ${after
+            .map((d) => d.label)
+            .join('; ')}. The earlier reading is kept.`,
+          { code: 'CAD_MARKER_APPROVED_DIFFERS', cadId, fileId: current.id, differences: after }
+        );
+      }
+    }
+
+    const file = await prisma.cad_purpose_files.update({ where: { id: current.id }, data: readingColumns(reading) });
+    await this.takeEfficiency(cadId, file);
     return { file, summary: await markerSummaryForRow(prisma, cadId) };
   }
 

@@ -32,6 +32,7 @@ import {
   currentMarkerFile,
   markerDifferences,
   markerRequired,
+  NO_IMAGE_DIFFERENCE,
   recordMarkerImage,
   recordMarkerOverride,
   storedReading,
@@ -89,7 +90,8 @@ interface CorrectionAfter extends CadMarker {
   wasCosted: boolean;
   /** The corrected marker's image — it becomes the row's marker when the correction applies */
   marker?: {
-    fileId: string;
+    /** null = corrected by hand with no image (NO_IMAGE_DIFFERENCE + a reason); the row keeps no image */
+    fileId: string | null;
     /** The image was the row's own when the correction was made (shown only — applying decides afresh) */
     fromRow?: boolean;
     overrideReason: string | null;
@@ -428,6 +430,22 @@ async function writeCad(
  */
 async function linkCorrectionMarker(tx: Tx, cadId: string, after: CorrectionAfter, userId: string): Promise<boolean> {
   if (!after.marker) return false;
+  if (after.marker.fileId === null) {
+    // Corrected by hand with no image: the reason is the row's marker override. An image attached to the row while
+    // the correction waited for approval is not the corrected marker (it matched the OLD values): it is kept as the
+    // row's earlier image, so the corrected values and their reason stand instead of reading "Differs" against it
+    await tx.cad_purpose_files.updateMany({ where: { cadId, replacedAt: null }, data: { replacedAt: new Date() } });
+    await tx.fabric_width_cad.update({
+      where: { id: cadId },
+      data: {
+        markerOverrideReason: after.marker.overrideReason,
+        markerOverrideById: userId,
+        markerOverrideAt: new Date(),
+        markerOverrideDifferences: JSON.stringify(after.marker.differences),
+      },
+    });
+    return false;
+  }
   const file = await tx.cad_purpose_files.findUnique({ where: { id: after.marker.fileId } });
   if (!file) {
     logError('[CadCorrection] the corrected marker image is gone — the row keeps its previous image', undefined, {
@@ -441,7 +459,21 @@ async function linkCorrectionMarker(tx: Tx, cadId: string, after: CorrectionAfte
     where: { cadId, replacedAt: null, NOT: { id: file.id } },
     data: { replacedAt: new Date() },
   });
-  await tx.cad_purpose_files.update({ where: { id: file.id }, data: { cadId, replacedAt: null } });
+  if (file.cadId !== null && file.cadId !== cadId) {
+    // Picked for another row's marker while this correction waited: that row keeps it, this one gets a record of
+    // its own on the same file (as cad-file.service makeCurrent does) — moving it left the other row with no image
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id, createdAt, readSizes, replacedAt, cadId: otherRow, ...rest } = file;
+    await tx.cad_purpose_files.create({
+      data: {
+        ...rest,
+        readSizes: readSizes === null ? Prisma.DbNull : (readSizes as Prisma.InputJsonValue),
+        cadId,
+      },
+    });
+  } else {
+    await tx.cad_purpose_files.update({ where: { id: file.id }, data: { cadId, replacedAt: null } });
+  }
   const differs = after.marker.differences.length > 0;
   await tx.fabric_width_cad.update({
     where: { id: cadId },
@@ -465,7 +497,7 @@ async function recordCorrectionMarker(
   newImage: boolean
 ): Promise<void> {
   if (!after.marker) return;
-  if (newImage) {
+  if (newImage && after.marker.fileId) {
     const file = await prisma.cad_purpose_files.findUnique({ where: { id: after.marker.fileId } });
     if (file) await recordMarkerImage(cadId, userId, file);
   }
@@ -616,6 +648,9 @@ async function prepare(styleId: string, cadId: string, input: CadCorrectionInput
       markerCheck.reading,
       await styleSizeNames(prisma, styleId)
     );
+  } else if (markerCheck.required) {
+    // No image: the corrected values can go in by hand with a reason (Submit enforces it)
+    markerCheck.differences = [NO_IMAGE_DIFFERENCE];
   }
   impact.markerCheck = markerCheck;
 
@@ -653,13 +688,15 @@ export async function submitCorrection(styleId: string, cadId: string, input: Ca
   // The corrected marker's image (cad-marker.helper): required when a Raw Mat marker changes; values that
   // differ from it need their own reason
   const markerCheck = impact.markerCheck!;
-  if (markerCheck.required && !markerCheck.fileId) {
+  const markerReason = input.markerOverrideReason?.trim() ?? '';
+  // No image to give: the corrected values go in by hand, with a reason (cad-marker.helper NO_IMAGE_DIFFERENCE)
+  if (markerCheck.required && !markerCheck.fileId && markerReason.length < 3) {
     throw new BusinessError(
-      "Attach the corrected marker's image — a Raw Mat CAD's layer length, sizes and width come from its marker.",
-      { code: 'CAD_MARKER_IMAGE_REQUIRED', cadId }
+      "Attach the corrected marker's image — a Raw Mat CAD's layer length, sizes and width come from its marker — " +
+        'or, if there is no marker image to give, say where the corrected values come from.',
+      { code: 'CAD_MARKER_IMAGE_REQUIRED', cadId, differences: [NO_IMAGE_DIFFERENCE] }
     );
   }
-  const markerReason = input.markerOverrideReason?.trim() ?? '';
   if (markerCheck.fileId && markerCheck.differences.length > 0 && markerReason.length < 3) {
     throw new ConflictError(
       `The corrected values differ from the corrected marker's image: ${markerCheck.differences
@@ -675,7 +712,9 @@ export async function submitCorrection(styleId: string, cadId: string, input: Ca
         overrideReason: markerCheck.differences.length > 0 ? markerReason : null,
         differences: markerCheck.differences,
       }
-    : null;
+    : markerCheck.required
+      ? { fileId: null, overrideReason: markerReason, differences: [NO_IMAGE_DIFFERENCE] }
+      : null;
 
   const beforeJson = {
     ...before,

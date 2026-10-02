@@ -7,9 +7,10 @@
  * - Auto-calculation of CAD values
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/query-client';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -57,7 +58,7 @@ import {
 import { notify } from '../lib/notify';
 import { cn } from '../lib/utils';
 import { StyleIdentity } from '@/components/StyleIdentity';
-import type { CADTableData } from '../types/cad-planning.types';
+import { ALL_PARTS_CODE, type CADTableData } from '../types/cad-planning.types';
 import CADSpreadsheetTable from '../components/cad/CADSpreadsheetTable';
 import { StockSummaryBanner } from '../components/cad/StockSummaryBanner';
 import { CADOrderHistoryTable } from '../components/cad/CADOrderHistoryTable';
@@ -138,6 +139,22 @@ interface StyleInfo {
 // ============================================
 // MAIN COMPONENT
 // ============================================
+/**
+ * The CAD plan: the Costing and Raw Mat rows that are not rejected. A Production CAD is approved on its own row (it
+ * needs its lot), and a rejected row is reworked and approved on its own — Approve CAD Plan used to send both, and
+ * the server approved one arbitrary row per fabric.
+ */
+function planRowsOf(data: CADTableData | null | undefined) {
+  const rows = (data?.cadRows ?? []).filter((row) => row.purpose !== 'PRODUCTION' && row.approvalStatus !== 'REJECTED');
+  // A Fabric Costing clone (approval status never set — table rows start PENDING) that twins an approved row (same
+  // fabric, part, width and purpose) is a costing option of approved geometry: the server may leave it pending (two
+  // approved rows on one key break the row's unique index), so it is not part of the plan either
+  const twin = (row: (typeof rows)[number]) =>
+    [row.styleFabricId, row.partId ?? row.partCode, Number(row.cutableWidth), row.purpose].join('|');
+  const approved = new Set(rows.filter((row) => row.approvalStatus === 'APPROVED').map(twin));
+  return rows.filter((row) => row.approvalStatus || !approved.has(twin(row)));
+}
+
 export default function CADPlanningPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -176,6 +193,11 @@ export default function CADPlanningPage() {
     enabled: !!id,
   });
 
+  // The CAD Planning list and its tab counts are cached (30 s / 2 min): after an approve, reject or delete here they
+  // are marked stale, so going back shows the style in its new tab (it stayed under Pending)
+  const queryClient = useQueryClient();
+  const invalidateCadLists = () => void queryClient.invalidateQueries({ queryKey: queryKeys.cadPlanning.all });
+
   // Corrections of this style's CAD rows waiting for an admin ("Correction pending" badges)
   const { data: pendingCorrections = [], refetch: refetchPendingCorrections } = useQuery({
     queryKey: ['cadPendingCorrections', id],
@@ -186,10 +208,18 @@ export default function CADPlanningPage() {
   // ============================================
   // DATA LOADING
   // ============================================
+  // The spinner (which replaces the table) shows only on the FIRST load. A reload after a save, delete or link
+  // refreshes in place: swapping the table out unmounted it, and with it the unsaved edits of any other row and
+  // the follow-up a "Save changes" prompt was about to run
+  const tableLoadedRef = useRef(false);
+  // another style opened in the same page (the route id changed): its first load shows the spinner again
+  useEffect(() => {
+    tableLoadedRef.current = false;
+  }, [id]);
   const loadCADTableData = useCallback(async () => {
     if (!id) return;
     try {
-      setLoadingTableData(true);
+      if (!tableLoadedRef.current) setLoadingTableData(true);
       setTableDataError(false);
       const response = await cadPlanningService.getCADTableData(id);
       const tableData = response.data;
@@ -197,6 +227,7 @@ export default function CADPlanningPage() {
         throw new Error(`CAD API returned unexpected structure: components=${typeof tableData?.components}`);
       }
       setCadTableData(tableData);
+      tableLoadedRef.current = true;
       // Extract style info from table data
       if (tableData.style) {
         setStyle({
@@ -210,7 +241,8 @@ export default function CADPlanningPage() {
       }
     } catch (error: unknown) {
       console.error('Failed to load CAD table data:', error);
-      setTableDataError(true);
+      // a failed reload keeps the table that is showing (and its unsaved edits); the toast says it failed
+      if (!tableLoadedRef.current) setTableDataError(true);
       const errMsg = error instanceof Error ? error.message : 'Failed to load CAD spreadsheet data';
       const axiosMsg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
       notify.error(axiosMsg || errMsg);
@@ -255,9 +287,10 @@ export default function CADPlanningPage() {
   // ============================================
   const handleApproveCAD = async () => {
     if (!cadTableData) return;
+    const planRows = planRowsOf(cadTableData);
 
-    // Check if all rows have Part assigned
-    const rowsWithoutPart = cadTableData.cadRows.filter((row) => !row.partId);
+    // Check if all rows have Part assigned (a legacy "All Parts" row has its part as ALL_PARTS, no part link)
+    const rowsWithoutPart = planRows.filter((row) => !row.partId && row.partCode !== ALL_PARTS_CODE);
     if (rowsWithoutPart.length > 0) {
       notify.error(
         `Please select a Part for all rows (${rowsWithoutPart.length} row${rowsWithoutPart.length > 1 ? 's' : ''} missing Part)`
@@ -266,7 +299,7 @@ export default function CADPlanningPage() {
     }
 
     // Check if all rows have CAD values
-    const incompleteRows = cadTableData.cadRows.filter((row) => !row.cadAverage || row.cadAverage <= 0);
+    const incompleteRows = planRows.filter((row) => !row.cadAverage || row.cadAverage <= 0);
 
     if (incompleteRows.length > 0) {
       notify.error(`Please complete CAD values for all rows (${incompleteRows.length} incomplete)`);
@@ -284,7 +317,7 @@ export default function CADPlanningPage() {
     // Combined-cutting rows cover several fabrics: styleFabricId is only the first one,
     // the full list lives in combinedFabricIds (same expansion as CADSpreadsheetTable)
     const coveredFabricIds = new Set<string>();
-    cadTableData.cadRows
+    planRows
       .filter((row) => row.cadAverage && row.cadAverage > 0)
       .forEach((row) => {
         if (row.styleFabricId) coveredFabricIds.add(row.styleFabricId);
@@ -316,7 +349,7 @@ export default function CADPlanningPage() {
       // primary styleFabricId, so the else-if avoids duplicates).
       const fabricCADMappings: Array<{ fabricId: string; fabricCADId: string }> = [];
 
-      cadTableData.cadRows.forEach((row) => {
+      planRows.forEach((row) => {
         if (!row.id) return;
         if (row.isCombinedCutting && Array.isArray(row.combinedFabricIds) && row.combinedFabricIds.length > 0) {
           row.combinedFabricIds.forEach((fabricId) => {
@@ -334,6 +367,7 @@ export default function CADPlanningPage() {
 
       notify.success('CAD plan approved! You can now generate cost sheet.', { duration: 5000 });
       setShowApproveDialog(false);
+      invalidateCadLists();
       navigate('/cad-planning');
     } catch (error: unknown) {
       console.error('Failed to approve CAD:', error);
@@ -362,6 +396,7 @@ export default function CADPlanningPage() {
       setRejectInUse(null);
       // loadCADTableData also refreshes style info (cadStatus, approvedCadDate)
       await loadCADTableData();
+      invalidateCadLists();
     } catch (error: unknown) {
       const inUse = cadInUseFromError(error);
       if (inUse) {
@@ -379,6 +414,8 @@ export default function CADPlanningPage() {
   // ============================================
   // CAD SPREADSHEET TABLE HANDLERS
   // ============================================
+  // The CAD table reports the outcome (one message for a batch, with the server's reason) — these only call the
+  // API and reload. Each used to toast too, so a combined row's refusal showed twice.
   const handleSpreadsheetAddRow = async (
     styleFabricId: string,
     partId?: string,
@@ -394,33 +431,21 @@ export default function CADPlanningPage() {
         purpose,
         fabricStockId,
       });
-      const purposeLabel = purpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Mat' : purpose || 'Costing';
-      notify.success(`${purposeLabel} row added successfully`);
+    } finally {
       await loadCADTableData();
-    } catch (error: unknown) {
-      console.error('Failed to add row:', error);
-      const axiosMsg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      notify.error(axiosMsg || 'Failed to add row');
-      throw error;
     }
   };
 
   const handleSpreadsheetAddCombinedRow = async (
     styleFabricIds: string[],
-    purpose?: 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION'
+    purpose?: 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION',
+    fabricStockId?: string
   ) => {
     if (!id) return;
-    try {
-      await cadPlanningService.addCombinedCADRow(id, styleFabricIds, purpose);
-      const purposeLabel = purpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Mat' : purpose || 'Costing';
-      notify.success(`Combined ${purposeLabel} row added successfully`);
-      await loadCADTableData();
-    } catch (error: unknown) {
-      console.error('Failed to add combined row:', error);
-      const axiosMsg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      notify.error(axiosMsg || 'Failed to add combined row');
-      throw error;
-    }
+    // A combined PRODUCTION row is the marker of one lot: the lot goes with it (it was dropped here, so the
+    // server refused every combined Production row)
+    await cadPlanningService.addCombinedCADRow(id, styleFabricIds, purpose, fabricStockId);
+    await loadCADTableData();
   };
 
   const handleSpreadsheetUpdateRow = async (
@@ -448,13 +473,11 @@ export default function CADPlanningPage() {
     try {
       await cadPlanningService.deleteCADTableRow(id, rowId);
       notify.success('Row deleted successfully');
-      // Update local state
-      if (cadTableData) {
-        setCadTableData({
-          ...cadTableData,
-          cadRows: cadTableData.cadRows.filter((row) => row.id !== rowId),
-        });
-      }
+      // Reload, not just drop the row here: the style's CAD status, the stock banner (a deleted Production CAD
+      // frees its lot for Create CAD) and pending corrections all change with it
+      await loadCADTableData();
+      void refetchPendingCorrections();
+      invalidateCadLists();
     } catch (error: unknown) {
       console.error('Failed to delete row:', error);
       const axiosMsg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -570,12 +593,19 @@ export default function CADPlanningPage() {
     );
   }
 
-  const isApproved = style.cadStatus === 'APPROVED';
+  // "CAD Plan Approved" = every Costing and Raw Mat row (not rejected) is approved. styles.cadStatus says APPROVED as
+  // soon as ANY row is — an approved Production CAD alone hid Approve CAD Plan while the planning rows were pending.
+  // A style with no rows at all keeps its stored status (legacy stamps).
+  const planRows = planRowsOf(cadTableData);
+  const isApproved =
+    cadTableData && cadTableData.cadRows.length > 0
+      ? planRows.length > 0 && planRows.every((row) => row.approvalStatus === 'APPROVED')
+      : style.cadStatus === 'APPROVED';
+  // Some planning rows approved, others (a new width variant) pending: Approve CAD Plan shows, and so do Push to
+  // Fabric Costing and Reject CAD Plan — the server rejects a plan with any approved planning row
+  const anyPlanApproved = planRows.some((row) => row.approvalStatus === 'APPROVED');
   const canApprove =
-    cadTableData &&
-    cadTableData.cadRows.length > 0 &&
-    cadTableData.cadRows.every((row) => row.cadAverage && row.cadAverage > 0) &&
-    !isApproved;
+    planRows.length > 0 && planRows.every((row) => row.cadAverage && row.cadAverage > 0) && !isApproved;
 
   return (
     <div className="p-4 w-full">
@@ -596,10 +626,14 @@ export default function CADPlanningPage() {
         <div className="flex items-center gap-2">
           <MiniMarkerBadge styleId={id!} count={miniMarkerCount} />
           <Badge
-            variant={isApproved ? 'default' : style.cadStatus === 'IN_PROGRESS' ? 'secondary' : 'outline'}
-            className={cn('text-sm px-3 py-1', isApproved && 'bg-success')}
+            variant={
+              style.cadStatus === 'APPROVED' ? 'default' : style.cadStatus === 'IN_PROGRESS' ? 'secondary' : 'outline'
+            }
+            className={cn('text-sm px-3 py-1', style.cadStatus === 'APPROVED' && 'bg-success')}
+            // the style's CAD status, as the CAD Planning list files it (APPROVED once any row is approved);
+            // the card below says whether the PLAN is approved
           >
-            {isApproved && <CheckCircle2 className="h-4 w-4 mr-1" />}
+            {style.cadStatus === 'APPROVED' && <CheckCircle2 className="h-4 w-4 mr-1" />}
             {style.cadStatus}
           </Badge>
         </div>
@@ -694,10 +728,29 @@ export default function CADPlanningPage() {
                 Approve CAD Plan
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              {anyPlanApproved && (
+                <DropdownMenuItem onClick={handleCheckAndShowPushModal} disabled={loadingPushStatus}>
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Push to Fabric Costing
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={() => navigate(`/fabric-costing?styleId=${id}`)}>
                 <ExternalLink className="h-4 w-4 mr-2" />
                 View Fabric Costing
               </DropdownMenuItem>
+              {anyPlanApproved && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => setShowRejectDialog(true)}
+                    disabled={rejecting}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Reject CAD Plan
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -772,6 +825,7 @@ export default function CADPlanningPage() {
                 onDataRefresh={() => {
                   void loadCADTableData();
                   void refetchPendingCorrections();
+                  invalidateCadLists();
                 }}
                 pendingCorrections={pendingCorrections}
               />

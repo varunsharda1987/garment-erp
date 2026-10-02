@@ -8,7 +8,11 @@ import { multiplyCurrency, toNumber } from '../utils/currency'; // BUG-FAB12 fix
 import { recomputeStyleCadStatus } from '../services/helpers/cad-status.helper';
 import { cadMarkerFields, copyCadChildren } from '../services/helpers/cad-copy.helper';
 import { checkMarkerOnApprove, copyMarkerImage } from '../services/helpers/cad-marker.helper';
-import { resolveProductionLot, CREATE_CAD_HINT } from '../services/helpers/production-cad-lot.helper';
+import {
+  resolveProductionLot,
+  CREATE_CAD_HINT,
+  PRODUCTION_PURPOSE_WHERE,
+} from '../services/helpers/production-cad-lot.helper';
 import { assertMarkerFitsLot, markerFitsLot } from '../services/helpers/lot-width.helper';
 import {
   EMPTY_CAD_SNAPSHOT,
@@ -162,6 +166,24 @@ export async function approveCADPurpose(req: Request, res: Response) {
           '(row menu → Link to Stock), or delete it and use Create CAD on the lot in the stock banner.'
       );
     }
+    // One live Production CAD per lot: a REJECTED one approved again would sit beside the lot's new one, and
+    // cutting would have two markers for it (Create CAD on a lot only skips REJECTED rows)
+    const other = await prisma.fabric_width_cad.findFirst({
+      where: {
+        AND: [
+          PRODUCTION_PURPOSE_WHERE,
+          { fabricStockId: cadRecord.fabricStockId, id: { not: rowId }, approvalStatus: { not: 'REJECTED' } },
+        ],
+      },
+      select: { id: true, approvalStatus: true },
+    });
+    if (other) {
+      throw new BusinessError(
+        `This lot already has another Production CAD (${other.approvalStatus === 'APPROVED' ? 'approved' : 'pending'}). ` +
+          'A lot has one marker: reject or delete that one first, or use it instead.',
+        { code: 'PRODUCTION_LOT_HAS_CAD', cadId: other.id }
+      );
+    }
     const pieces = cadRecord.piecesPerMarker ?? cadRecord.sizeBreakdowns.reduce((sum, s) => sum + (s.quantity || 0), 0);
     const average =
       cadRecord.cadAverage !== null
@@ -189,6 +211,9 @@ export async function approveCADPurpose(req: Request, res: Response) {
       approvalStatus: 'APPROVED',
       approvedBy: userId,
       approvedAt: new Date(),
+      // a row approved again after a rejection no longer reads "Rejected by …" (Approve CAD plan clears them too)
+      rejectedBy: null,
+      rejectedAt: null,
       approvalNotes: approvalNotes || null,
       ...(productionAverageToStore !== null ? { cadAverage: productionAverageToStore } : {}),
     },
@@ -667,9 +692,17 @@ export async function linkCADToStock(req: Request, res: Response) {
     throw new NotFoundError('CAD record', cadId);
   }
 
-  // Verify it's PRODUCTION purpose
-  if (cadRecord.purpose !== 'PRODUCTION') {
+  // Verify it's PRODUCTION purpose (either purpose column — Landmine №8)
+  if ((cadRecord.purposeEnum ?? cadRecord.purpose) !== 'PRODUCTION') {
     throw new BusinessError('Only PRODUCTION CAD can be linked to stock');
+  }
+  // An approved Production CAD is the marker cutting reads for its lot — it is not moved to another lot
+  // allow-cad-approval: the CAD-side lock
+  if (cadRecord.approvalStatus === 'APPROVED') {
+    throw new BusinessError(
+      'This Production CAD is approved for its lot, so it cannot be moved to another lot. Reject it first, or use ' +
+        'Create CAD on the other lot.'
+    );
   }
 
   // Fetch fabric stock
@@ -687,26 +720,38 @@ export async function linkCADToStock(req: Request, res: Response) {
   }
 
   // The lot must be this style's, on this row's fabric, with no other Production CAD — Create CAD's rule
-  await resolveProductionLot(
+  const lot = await resolveProductionLot(
     styleId,
     fabricStockId,
     { styleFabricId: cadRecord.styleFabricId },
     { excludeCadId: cadId }
   );
 
-  // Calculate variance if planning width provided
+  // Calculate variance against the planning width — the one sent, else the one the row already had (the CAD
+  // table sends none, and the link used to wipe it)
+  const planningWidth =
+    planningCadWidth && planningCadWidth > 0
+      ? planningCadWidth
+      : cadRecord.planningCadWidth !== null
+        ? Number(cadRecord.planningCadWidth)
+        : null;
   let widthVariance = null;
   let variancePercent = null;
 
-  if (planningCadWidth && planningCadWidth > 0) {
-    widthVariance = Number(fabricStock.cutableWidth) - planningCadWidth;
-    variancePercent = (widthVariance / planningCadWidth) * 100;
+  if (planningWidth && planningWidth > 0) {
+    widthVariance = Number(fabricStock.cutableWidth) - planningWidth;
+    variancePercent = (widthVariance / planningWidth) * 100;
   }
 
   // The row keeps its marker's width when that fits the lot (lot-width.helper); a row with no marker
   // yet takes the lot's width; a marker wider than the lot is refused — it would not fit
   const rowWidth = Number(cadRecord.cutableWidth);
-  const keepsOwnWidth = rowWidth > 0 && markerFitsLot(rowWidth, Number(fabricStock.cutableWidth)).fits;
+  // only a MARKER's width is kept: a row with no layer length yet holds a planning default (52", 40"…), not a
+  // marker, and takes the lot's width
+  const keepsOwnWidth =
+    Number(cadRecord.cadMeters ?? 0) > 0 &&
+    rowWidth > 0 &&
+    markerFitsLot(rowWidth, Number(fabricStock.cutableWidth)).fits;
   if (!keepsOwnWidth && cadRecord.cadMeters != null) {
     await assertMarkerFitsLot(prisma, rowWidth, fabricStockId, cadId);
   }
@@ -716,9 +761,13 @@ export async function linkCADToStock(req: Request, res: Response) {
     where: { id: cadId },
     data: {
       fabricStockId,
+      // the lot's own slot and greige (the CAD table used to write them through a row save first, which
+      // replaced the marker's width before this rule could keep it)
+      styleFabricId: cadRecord.styleFabricId ?? lot.styleFabricId,
+      ...(lot.lotGreigeId ? { greigeId: lot.lotGreigeId } : {}),
       procurementId: procurementId || null,
       cutableWidth: keepsOwnWidth ? cadRecord.cutableWidth : fabricStock.cutableWidth,
-      planningCadWidth: planningCadWidth || null,
+      planningCadWidth: planningWidth,
       widthVariance,
       variancePercent,
     },
@@ -732,6 +781,27 @@ export async function linkCADToStock(req: Request, res: Response) {
         },
       },
     },
+  });
+
+  // History: the row moved to a lot, and its width / greige with it (they used to be written by a row save, which
+  // recorded them)
+  await recordCadEvent({
+    cadId,
+    userId: req.user?.userId,
+    action: 'UPDATE',
+    oldValues: {
+      fabricStockId: cadRecord.fabricStockId,
+      styleFabricId: cadRecord.styleFabricId,
+      cutableWidth: Number(cadRecord.cutableWidth),
+      greigeId: cadRecord.greigeId,
+    },
+    newValues: {
+      fabricStockId,
+      styleFabricId: updated.styleFabricId,
+      cutableWidth: Number(updated.cutableWidth),
+      greigeId: updated.greigeId,
+    },
+    reason: `Linked to lot ${lot.lotLabel || fabricStockId}`,
   });
 
   return res.json({

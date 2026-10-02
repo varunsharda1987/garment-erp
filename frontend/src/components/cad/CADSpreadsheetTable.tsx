@@ -9,7 +9,7 @@
  * Cutable Width | Print Direction | Size Breakup | No. of Pcs | Layer Margin | Layer(M) | CAD Average
  */
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -91,6 +91,7 @@ import {
 } from '@/types/cad-planning.types';
 
 import { CopyCADConfirmationDialog } from './CopyCADConfirmationDialog';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { CADPartMultiSelect } from './CADPartMultiSelect';
 import { formatDate, formatDateTime } from '@/lib/date';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -186,6 +187,19 @@ export function CADSpreadsheetTable({
   pendingCorrections = [],
 }: CADSpreadsheetTableProps) {
   const [editingRow, setEditingRow] = useState<string | null>(null);
+  // Rows whose pending width was filled by a greige change, not typed (handleFieldChange)
+  const [autoFilledWidth, setAutoFilledWidth] = useState<Record<string, true>>({});
+  const markWidthAutoFilled = (rowId: string, filled: boolean) =>
+    setAutoFilledWidth((prev) => {
+      if (!!prev[rowId] === filled) return prev;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { [rowId]: _, ...rest } = prev;
+      return filled ? { ...rest, [rowId]: true } : rest;
+    });
+  // Another row was asked for while this one has unsaved changes (withEditOf): save / discard them, then go on
+  const [switchRowPrompt, setSwitchRowPrompt] = useState<{ from: string; then: () => void } | null>(null);
+  // The row whose Delete was clicked, waiting for the confirmation
+  const [deleteConfirmRowId, setDeleteConfirmRowId] = useState<string | null>(null);
   const [savingRow, setSavingRow] = useState<string | null>(null);
   const [deletingRow, setDeletingRow] = useState<string | null>(null);
   const [sizeBreakdownOpen, setSizeBreakdownOpen] = useState<string | null>(null);
@@ -213,9 +227,13 @@ export function CADSpreadsheetTable({
   // CAD image of each row (backend helpers/cad-marker.helper.ts): its state, what was read, the differences
   const [markerRowId, setMarkerRowId] = useState<string | null>(null);
   // A save refused because the values differ from the row's CAD image — asks for the reason, then saves
+  // (also when the row has NO image: its values are then saved by hand, with the reason — `noImage`)
   const [markerReasonPrompt, setMarkerReasonPrompt] = useState<{
     rowId: string;
     differences: MarkerDifference[];
+    noImage?: boolean;
+    /** what to do once the row is saved (the other row an "Unsaved changes" prompt was guarding) */
+    onSaved?: () => void;
   } | null>(null);
   const [markerReason, setMarkerReason] = useState('');
   const { data: rowMarkers, refetch: refetchMarkers } = useQuery({
@@ -426,12 +444,14 @@ export function CADSpreadsheetTable({
   const getDefaultCutableWidth = (greigeId: string | null): number | null => {
     if (!greigeId) return null;
     const greige = availableGreiges.find((g) => g.id === greigeId);
-    if (!greige || !greige.greigeWidth) return null;
+    if (!greige) return null;
 
-    const greigeWidth = Number(greige.greigeWidth);
+    // The server's rule (defaultCutableWidthForGreige, cad-planning.utils.ts) — the width a save with no width
+    // stores when the greige changes
+    const greigeWidth = greige.greigeWidth ? Number(greige.greigeWidth) : 0;
     if (greigeWidth >= 63) return 52;
     if (greigeWidth >= 48) return 40;
-    return null; // Let user select for other widths
+    return greige.expectedFinishedWidthMin ? Number(greige.expectedFinishedWidthMin) : 44;
   };
 
   // The greiges a row's Greige cell offers — those of the row's generic greige, searchable — plus the row's
@@ -464,31 +484,39 @@ export function CADSpreadsheetTable({
     return parts;
   };
 
-  // Get parts already used in other CAD rows for same style fabric at the SAME width AND SAME greige
-  // Same part CAN be used at different widths or different greiges (variants are allowed)
+  // Production CADs on DIFFERENT lots may share a part and width (one marker per lot) — the save allows it, so the
+  // picker must too: for a Production row only rows on the same lot count
+  const sameLotIfProduction = (row: CADSpreadsheetRow, currentRowId: string) => {
+    const current = rows.find((r) => r.id === currentRowId);
+    if (current?.purpose !== 'PRODUCTION') return true;
+    return (
+      ((row as CADSpreadsheetRowExtended).fabricStockId ?? null) ===
+      ((current as CADSpreadsheetRowExtended).fabricStockId ?? null)
+    );
+  };
+
+  // Get parts already used in other CAD rows for same style fabric at the SAME width and purpose
+  // Same part CAN be used at different widths or purposes (variants are allowed)
   const getUsedPartIds = (
     styleFabricId: string,
     currentRowId: string,
     currentWidth: number | null, // Width of the row being edited
-    currentGreigeId: string | null, // Greige of the row being edited
     currentPurpose: string | null // Purpose of the row being edited
   ): Set<string> => {
     const usedParts = new Set<string>();
     rows.forEach((row) => {
-      if (row.styleFabricId === styleFabricId && row.id !== currentRowId) {
+      if (row.styleFabricId === styleFabricId && row.id !== currentRowId && sameLotIfProduction(row, currentRowId)) {
         // Compare widths with type coercion (both could be string or number)
         const rowWidth = row.cutableWidth != null ? Number(row.cutableWidth) : null;
         const currWidth = currentWidth != null ? Number(currentWidth) : null;
         // Only mark as used if SAME width - width variants are allowed
         const sameWidth = currWidth !== null && rowWidth !== null && currWidth === rowWidth;
-        // Check if same greige - different greiges are allowed
-        const rowGreigeId = row.greigeId || null;
-        const sameGreige = currentGreigeId !== null && rowGreigeId !== null && currentGreigeId === rowGreigeId;
         // Check if same purpose - different purposes can reuse the same part
         const samePurpose = currentPurpose !== null && row.purpose === currentPurpose;
         // Don't count "All Parts" as a used part (it's a special grouping)
-        // Only mark as used if SAME width AND SAME greige AND SAME purpose
-        if (row.partId && row.partCode !== ALL_PARTS_CODE && sameWidth && sameGreige && samePurpose) {
+        // Used = SAME width AND SAME purpose, whatever the greige: the save refuses that pair (and the row's unique
+        // key — part, fabric, width, purpose — has no greige). Offering it on another greige led to "already exists".
+        if (row.partId && row.partCode !== ALL_PARTS_CODE && sameWidth && samePurpose) {
           usedParts.add(row.partId);
         }
       }
@@ -496,32 +524,28 @@ export function CADSpreadsheetTable({
     return usedParts;
   };
 
-  // Check if "All Parts" is already used for this style fabric at the SAME width AND SAME greige
-  // "All Parts" at one width/greige doesn't prevent using it at a different width/greige
+  // Check if "All Parts" is already used for this style fabric at the SAME width and purpose
+  // "All Parts" at one width doesn't prevent using it at a different width
   const isAllPartsUsed = (
     styleFabricId: string,
     currentRowId: string,
     currentPartCode: string | null,
     currentWidth: number | null, // Width of the row being edited
-    currentGreigeId: string | null, // Greige of the row being edited
     currentPurpose: string | null // Purpose of the row being edited
   ): boolean => {
     const currWidth = currentWidth != null ? Number(currentWidth) : null;
     return (
       rows.some((row) => {
         const rowWidth = row.cutableWidth != null ? Number(row.cutableWidth) : null;
-        const rowGreigeId = row.greigeId || null;
         return (
           row.styleFabricId === styleFabricId &&
           row.id !== currentRowId &&
+          sameLotIfProduction(row, currentRowId) &&
           row.partCode === ALL_PARTS_CODE &&
-          // Only consider "All Parts" as used if at SAME width AND SAME greige AND SAME purpose
+          // "All Parts" is used at the SAME width AND SAME purpose, whatever the greige (as the save checks)
           currWidth !== null &&
           rowWidth !== null &&
           currWidth === rowWidth &&
-          currentGreigeId !== null &&
-          rowGreigeId !== null &&
-          currentGreigeId === rowGreigeId &&
           currentPurpose !== null &&
           row.purpose === currentPurpose
         );
@@ -537,17 +561,15 @@ export function CADSpreadsheetTable({
     currentPartId: string | null,
     currentPartCode: string | null,
     currentWidth: number | null, // Width of the row being edited
-    currentGreigeId: string | null, // Greige of the row being edited
     currentPurpose: string | null // Purpose of the row being edited
   ) => {
     const allParts = getPatternParts(componentId);
-    const usedPartIds = getUsedPartIds(styleFabricId, currentRowId, currentWidth, currentGreigeId, currentPurpose);
+    const usedPartIds = getUsedPartIds(styleFabricId, currentRowId, currentWidth, currentPurpose);
     const allPartsAlreadyUsed = isAllPartsUsed(
       styleFabricId,
       currentRowId,
       currentPartCode,
       currentWidth,
-      currentGreigeId,
       currentPurpose
     );
 
@@ -570,49 +592,66 @@ export function CADSpreadsheetTable({
     field: keyof UpdateCADRowRequest,
     value: UpdateCADRowRequest[keyof UpdateCADRowRequest]
   ) => {
-    setPendingChanges((prev) => {
-      const newChanges = {
-        ...prev,
-        [rowId]: {
-          ...prev[rowId],
-          [field]: value,
-        },
-      };
+    // A width typed by the user is theirs from now on (a later greige change leaves it alone)
+    if (field === 'cutableWidth') markWidthAutoFilled(rowId, false);
 
-      // Auto-populate width from stock when greige is selected (if stock exists)
-      // Note: Default width (63"→52", 48"→40") is shown as placeholder, no need to auto-set
-      if (field === 'greigeId' && value) {
-        const row = rows.find((r) => r.id === rowId);
-        // Only auto-populate if width is not already set AND stock widths exist
-        if (row && !row.cutableWidth && !newChanges[rowId]?.cutableWidth) {
-          if (row.stockWidths && row.stockWidths.length > 0) {
-            // Use stock width (actual received fabric width)
-            newChanges[rowId] = {
-              ...newChanges[rowId],
-              cutableWidth: row.stockWidths[0],
-            };
-          }
-          // Default width shown as placeholder - backend applies it if width not provided on save
+    // A greige change with no width TYPED in this edit: the server stores that greige's default width (63" → 52",
+    // 48" → 40", else its minimum finished width), replacing the row's — so show it in the row now instead of a
+    // width that will not be saved. Each greige change refills a width this code filled; going back to the row's
+    // own greige drops it. A row with no width yet keeps the default as its placeholder (nothing is sent, the
+    // server applies it). Decided here, outside the state updater, which must stay pure (StrictMode runs it twice).
+    let widthPatch: { set: number } | { drop: true } | null = null;
+    if (field === 'greigeId' && value) {
+      const row = rows.find((r) => r.id === rowId);
+      const pendingWidth = pendingChanges[rowId]?.cutableWidth;
+      const typed = pendingWidth !== undefined && pendingWidth !== null && !autoFilledWidth[rowId];
+      if (row && !typed) {
+        const width = value !== row.greigeId && row.cutableWidth ? getDefaultCutableWidth(value as string) : null;
+        if (width !== null) {
+          widthPatch = { set: width };
+          markWidthAutoFilled(rowId, true);
+        } else if (autoFilledWidth[rowId]) {
+          widthPatch = { drop: true };
+          markWidthAutoFilled(rowId, false);
         }
       }
+    }
 
-      return newChanges;
+    setPendingChanges((prev) => {
+      const next: Partial<UpdateCADRowRequest> = { ...prev[rowId], [field]: value };
+      if (widthPatch && 'set' in widthPatch) next.cutableWidth = widthPatch.set;
+      if (widthPatch && 'drop' in widthPatch) delete next.cutableWidth;
+      return { ...prev, [rowId]: next };
     });
   };
 
   // Save row changes
-  const handleSaveRow = async (rowId: string) => {
+  /**
+   * true when the row was saved (or had nothing to save). `onSaved` runs once it is saved — now, or after the
+   * reason prompt when the CAD image rule asks for one (it used to be dropped there).
+   */
+  const handleSaveRow = async (rowId: string, onSaved?: () => void): Promise<boolean> => {
     const changes = pendingChanges[rowId];
     if (!changes || Object.keys(changes).length === 0) {
+      // Nothing typed, but the row still needs a reason for its CAD image (no image to give — a row copied from a
+      // Costing row with no image, or made from a hand-entered marker — or one that could not be read): Save
+      // asks for it. It used to close the row and send nothing, so Approve kept refusing.
+      const marker = markerByRow.get(rowId);
+      if (marker && (marker.state === 'NEEDS_IMAGE' || marker.state === 'DIFFERS')) {
+        setMarkerReason('');
+        setMarkerReasonPrompt({ rowId, differences: marker.differences, noImage: !marker.file, onSaved });
+        return false;
+      }
       setEditingRow(null);
-      return;
+      onSaved?.();
+      return true;
     }
 
     // Get current row data
     const currentRow = rows.find((r) => r.id === rowId);
     if (!currentRow) {
       notify.error('Row not found');
-      return;
+      return false;
     }
 
     // Get the values that will be saved (pending changes override current values)
@@ -676,7 +715,7 @@ export function CADSpreadsheetTable({
           duration: 6000, // Show for 6 seconds
           position: 'top-center', // Make sure it's visible
         });
-        return;
+        return false;
       }
     }
 
@@ -689,30 +728,59 @@ export function CADSpreadsheetTable({
         return rest;
       });
       setEditingRow(null);
+      markWidthAutoFilled(rowId, false);
       notify.success('CAD row updated successfully');
+      onSaved?.();
+      return true;
     } catch (error) {
       // The CAD image rule (cad-marker.helper): values that differ from the image ask for a reason; a row
       // with no image opens the image dialog. The pending edit stays so nothing typed is lost.
       const refusal = markerRefusalFromError(error);
       if (refusal?.code === 'CAD_MARKER_MISMATCH') {
         setMarkerReason('');
-        setMarkerReasonPrompt({ rowId, differences: refusal.differences });
+        setMarkerReasonPrompt({ rowId, differences: refusal.differences, onSaved });
       } else if (refusal?.code === 'CAD_MARKER_IMAGE_REQUIRED') {
-        notify.warning(refusal.message, { duration: 7000 });
-        setMarkerRowId(rowId);
+        // No image: attach one, or save these values by hand with a reason (the same prompt)
+        setMarkerReason('');
+        setMarkerReasonPrompt({ rowId, differences: refusal.differences, noImage: true, onSaved });
       }
       // allow-silent-catch: otherwise the page's handler has already shown the server's reason (it names the
       // next click); a second, vaguer toast here only buried it
+      return false;
     } finally {
       setSavingRow(null);
     }
   };
 
-  // Handle delete row
+  // ONE row is edited at a time. Starting on another row (Edit, its sizes, Use these values, Enter values by hand)
+  // while this one has unsaved changes asks first — they used to stay behind on a row out of edit mode, with no
+  // Save button, and came back into the next save of that row.
+  const hasPendingChanges = (rowId: string) => !!pendingChanges[rowId] && Object.keys(pendingChanges[rowId]).length > 0;
+  const discardPendingChanges = (rowId: string) => {
+    markWidthAutoFilled(rowId, false);
+    setPendingChanges((prev) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { [rowId]: _, ...rest } = prev;
+      return rest;
+    });
+  };
+  const withEditOf = (rowId: string, then: () => void) => {
+    if (editingRow && editingRow !== rowId && hasPendingChanges(editingRow)) {
+      setSwitchRowPrompt({ from: editingRow, then });
+      return;
+    }
+    then();
+  };
+
+  // Handle delete row — asked first (deleteConfirmRowId): the row menu deleted at one click, with no way back
   const handleDeleteRow = async (rowId: string) => {
+    setDeleteConfirmRowId(null);
     setDeletingRow(rowId);
     try {
-      await onDeleteRow(rowId); // the page confirms it
+      await onDeleteRow(rowId);
+      // the deleted row's own unsaved edits go with it (another row's stay — the page reloads in place)
+      discardPendingChanges(rowId);
+      if (editingRow === rowId) setEditingRow(null);
     } catch {
       // allow-silent-catch: the page's handler has already shown the server's reason (it names the next
       // click); a second, vaguer toast here only buried it
@@ -736,26 +804,51 @@ export function CADSpreadsheetTable({
   };
 
   // Load available stock for PRODUCTION purpose when style fabrics are selected
-  const loadProductionStock = async () => {
-    if (selectedStyleFabrics.length === 0) return;
+  // `fabricIds` = the ticks as they are about to be (a tick change reloads the lots before its state settles)
+  // Only the LATEST lot request may fill the list: ticks change faster than the lots come back
+  const productionStockRequest = useRef(0);
+  // Empty the lot list — and drop any request still on its way, so its reply cannot refill it
+  const clearProductionStock = () => {
+    productionStockRequest.current += 1;
+    setProductionStockOptions([]);
+    setLoadingProductionStock(false);
+  };
+  const loadProductionStock = async (fabricIds: string[] = selectedStyleFabrics) => {
+    if (fabricIds.length === 0) return;
+    const request = ++productionStockRequest.current;
 
     setLoadingProductionStock(true);
     try {
       // Get the first selected fabric to determine embroidery status
-      const firstFabric = styleFabrics.find((sf) => selectedStyleFabrics.includes(sf.id));
+      const firstFabric = styleFabrics.find((sf) => fabricIds.includes(sf.id));
+      // An embroidered fabric lists every lot (undefined = no filter): its embroidery is often done on cut panels,
+      // so its lots are plain; a plain fabric lists plain lots only
       const embroideryFilter = firstFabric?.hasEmbroidery ? undefined : null;
 
       const stock = await fabricStockService.getStockForStyle(styleId, {
         status: 'AVAILABLE',
         embroideryId: embroideryFilter,
       });
+      if (request !== productionStockRequest.current) return;
       setProductionStockOptions(stock);
     } catch (error: unknown) {
+      if (request !== productionStockRequest.current) return;
       // BUG-CAD11 fix: use error utility instead of inline extraction
       notify.error(`Failed to load stock: ${getErrorMessage(error)}`);
       setProductionStockOptions([]);
     } finally {
-      setLoadingProductionStock(false);
+      if (request === productionStockRequest.current) setLoadingProductionStock(false);
+    }
+  };
+
+  // The fabrics ticked in Add Row. For a Production row the lots offered depend on them (plain or embroidered), so
+  // they are reloaded — they used to load only when the purpose changed, from whatever was ticked then.
+  const changeFabricTicks = (next: string[]) => {
+    setSelectedStyleFabrics(next);
+    if (selectedPurpose === 'PRODUCTION') {
+      setSelectedStockForProduction(null);
+      if (next.length > 0) void loadProductionStock(next);
+      else clearProductionStock();
     }
   };
 
@@ -768,11 +861,20 @@ export function CADSpreadsheetTable({
       notify.error('PRODUCTION CAD requires stock selection. Please select available stock or use COSTING purpose.');
       return;
     }
+    // A Production CAD is the marker of ONE lot, on that lot's own fabric: one lot cannot be every ticked fabric's
+    // (all but one were refused). Several fabrics cut together are one combined row.
+    if (selectedPurpose === 'PRODUCTION' && selectedStyleFabrics.length > 1) {
+      notify.error(
+        'A Production CAD is for one fabric lot — tick one fabric, or use "Combine as 1 PRODUCTION Row" for fabrics cut together.'
+      );
+      return;
+    }
 
     setAddingRow(true);
     try {
       let successCount = 0;
       let failCount = 0;
+      let firstError: unknown = null;
 
       // Create CAD rows for all selected style_fabrics
       for (const styleFabricId of selectedStyleFabrics) {
@@ -786,17 +888,18 @@ export function CADSpreadsheetTable({
           successCount++;
         } catch (error) {
           console.error(`Failed to add CAD row for ${styleFabricId}:`, error);
+          firstError ??= error;
           failCount++;
         }
       }
 
-      // Show result notification
+      // Show result notification — one, with the server's reason (the page no longer toasts each row)
       if (failCount === 0) {
         notify.success(`Successfully created ${successCount} ${selectedPurpose} CAD row${successCount > 1 ? 's' : ''}`);
       } else if (successCount > 0) {
-        notify.warning(`Created ${successCount} row(s), ${failCount} failed`);
+        notify.warning(`Created ${successCount} row(s), ${failCount} failed: ${getErrorMessage(firstError)}`);
       } else {
-        notify.error('Failed to create CAD rows');
+        notify.error(getErrorMessage(firstError));
       }
 
       // Reset state
@@ -815,7 +918,7 @@ export function CADSpreadsheetTable({
     setSelectAllStyleFabrics(false);
     // Keep selectedPurpose - don't reset it so user can continue adding rows with same purpose
     setSelectedStockForProduction(null);
-    setProductionStockOptions([]);
+    clearProductionStock();
   };
 
   // Handle combined CAD row creation
@@ -865,7 +968,9 @@ export function CADSpreadsheetTable({
 
   // "Use these values" in the CAD image dialog: the marker's length, width and sizes go into the row's
   // pending edit; nothing is saved until the user clicks Save
-  const handleUseMarkerValues = (rowId: string, values: MarkerValuesForRow) => {
+  const handleUseMarkerValues = (rowId: string, values: MarkerValuesForRow) =>
+    withEditOf(rowId, () => applyMarkerValues(rowId, values));
+  const applyMarkerValues = (rowId: string, values: MarkerValuesForRow) => {
     if (values.layerLengthMeters !== null) handleFieldChange(rowId, 'layerLengthMeters', values.layerLengthMeters);
     if (values.cutableWidth !== null) handleFieldChange(rowId, 'cutableWidth', values.cutableWidth);
     if (values.sizeBreakdowns) {
@@ -883,8 +988,11 @@ export function CADSpreadsheetTable({
   // The reason given for saving values that differ from the row's CAD image
   const handleSaveWithMarkerReason = async () => {
     if (!markerReasonPrompt) return;
-    const { rowId } = markerReasonPrompt;
-    const changes = pendingChanges[rowId] ?? {};
+    const { rowId, onSaved } = markerReasonPrompt;
+    const changes: Partial<UpdateCADRowRequest> = pendingChanges[rowId] ?? {};
+    // Nothing typed (a reason for the values the row already holds): the reason goes alone — the server checks it
+    // against the row's stored values. Resending the sizes re-ran the Production variance check (resetting an
+    // admin's variance approval) and resending the length reset a custom margin.
     setSavingRow(rowId);
     try {
       await onUpdateRow(rowId, { ...changes, markerOverrideReason: markerReason.trim() });
@@ -894,13 +1002,17 @@ export function CADSpreadsheetTable({
         return rest;
       });
       setEditingRow(null);
+      markWidthAutoFilled(rowId, false);
       setMarkerReasonPrompt(null);
       setMarkerReason('');
       notify.success('CAD row saved with your reason');
+      onSaved?.();
     } catch (error) {
       const refusal = markerRefusalFromError(error);
       if (refusal?.code === 'CAD_MARKER_MISMATCH') {
-        setMarkerReasonPrompt({ rowId, differences: refusal.differences });
+        setMarkerReasonPrompt({ rowId, differences: refusal.differences, onSaved });
+      } else if (refusal?.code === 'CAD_MARKER_IMAGE_REQUIRED') {
+        setMarkerReasonPrompt({ rowId, differences: refusal.differences, noImage: true, onSaved });
       } else if (!refusal) {
         notify.error(getErrorMessage(error));
       }
@@ -913,15 +1025,14 @@ export function CADSpreadsheetTable({
   const handleSizeBreakdownSave = (rowId: string, breakdowns: CADSizeBreakdown[]) => {
     const totalPieces = breakdowns.reduce((sum, b) => sum + b.quantity, 0);
 
-    // Update the current row only (no sibling propagation - allows different Pcs per row)
-    handleFieldChange(rowId, 'sizeBreakdowns', breakdowns);
-    handleFieldChange(rowId, 'piecesPerMarker', totalPieces);
-
-    // The calculator button works outside edit mode too — enter edit mode so
-    // Save/Cancel are visible for the pending selection (only if nothing else is mid-edit)
-    if (!editingRow) {
+    // Update the current row only (no sibling propagation - allows different Pcs per row). The calculator button
+    // works outside edit mode too, so the row enters edit mode to show Save/Cancel for the new sizes — after
+    // asking about another row's unsaved changes (it used to leave these on a row with no Save button)
+    withEditOf(rowId, () => {
+      handleFieldChange(rowId, 'sizeBreakdowns', breakdowns);
+      handleFieldChange(rowId, 'piecesPerMarker', totalPieces);
       setEditingRow(rowId);
-    }
+    });
   };
 
   // STOCK INTEGRATION HANDLERS (for PRODUCTION CAD)
@@ -936,10 +1047,11 @@ export function CADSpreadsheetTable({
       const currentRow = rows.find((r) => r.id === rowId);
 
       // Filter stock based on embroidery status:
-      // - If CAD row is for embroidery (isEmbroidery=true), show only embroidered stock
+      // - If CAD row is for embroidery (isEmbroidery=true), show every lot (plain ones too: panels are often
+      //   embroidered after cutting)
       // - If CAD row is for plain fabric (isEmbroidery=false), show only plain stock
       const embroideryFilter = currentRow?.isEmbroidery
-        ? undefined // Show embroidered stock (any embroideryId)
+        ? undefined // Every lot: embroidery is often done on cut panels, so an embroidered row's lot can be plain
         : null; // Show only plain stock (embroideryId=null)
 
       const stock = await fabricStockService.getStockForStyle(styleId, {
@@ -1007,14 +1119,9 @@ export function CADSpreadsheetTable({
     if (!selectedRowForStock) return;
 
     try {
-      // Update CAD row with stock information
-      await onUpdateRow(selectedRowForStock, {
-        cutableWidth: selectedStock.cutableWidth,
-        greigeId: selectedStock.greigeId,
-        // Note: Backend will handle fabricStockId linkage via linkToStock endpoint
-      });
-
-      // Link CAD to stock (backend endpoint)
+      // ONE call: the link sets the lot, its greige and the width — keeping the marker's own width when it fits
+      // the lot. A row save first (width + greige) used to replace the marker's width before that rule could keep
+      // it, checked the fit against the OLD lot, and was left half-done when the link was refused.
       await cadPlanningService.linkCADToStock(styleId, {
         cadId: selectedRowForStock,
         fabricStockId: stockId,
@@ -1025,6 +1132,7 @@ export function CADSpreadsheetTable({
       setSelectedRowForStock(null);
       setVarianceWarningOpen(false);
       setPendingStockSelection(null);
+      onDataRefresh?.();
     } catch (error: unknown) {
       // BUG-CAD11 fix: use error utility instead of inline extraction
       notify.error(`Failed to link stock: ${getErrorMessage(error)}`);
@@ -1338,7 +1446,6 @@ export function CADSpreadsheetTable({
                       currentPartId,
                       currentPartCode,
                       currentWidth, // Pass current width to allow same part at different widths
-                      currentGreigeId, // Pass current greige to allow same part at different greiges
                       row.purpose // Pass purpose to allow same part across different purposes
                     );
                     // Merge pending size breakdowns so freshly-picked pcs show before the row is saved
@@ -1966,22 +2073,24 @@ export function CADSpreadsheetTable({
                             // a correction (Correct…) brings its marker image
                             const marker =
                               found && isRowLocked && (found.state === 'NEEDS_IMAGE' || found.state === 'UNUSED')
-                                ? { ...found, state: 'NONE' as const }
+                                ? { ...found, state: 'NONE' as const, differences: [] }
                                 : found;
-                            const tip = marker?.differences.length
-                              ? marker.differences.map((d) => d.label).join('\n') +
-                                (marker.overrideReason ? `\nReason: ${marker.overrideReason}` : '')
-                              : marker?.state === 'MATCHES'
-                                ? 'The row matches its CAD image'
-                                : marker?.state === 'UNUSED'
-                                  ? 'The CAD image is attached — open it and click Use these values to fill the row'
-                                  : marker?.state === 'NEEDS_IMAGE'
-                                    ? 'This row is saved from its marker — attach the CAD image'
-                                    : isRowLocked
-                                      ? marker?.file
-                                        ? 'The CAD image of this approved row'
-                                        : 'Approved without a CAD image — attach one that matches it exactly'
-                                      : 'Attach the CAD image (Nest EXPERT screenshot or PDF)';
+                            // NEEDS_IMAGE first: its one difference ("No marker image…") would hide what to do
+                            const tip =
+                              marker?.state === 'NEEDS_IMAGE'
+                                ? 'No CAD image — attach the Nest EXPERT screenshot, or, if there is none, edit the row and Save: it asks why, and keeps the values by hand'
+                                : marker?.differences.length
+                                  ? marker.differences.map((d) => d.label).join('\n') +
+                                    (marker.overrideReason ? `\nReason: ${marker.overrideReason}` : '')
+                                  : marker?.state === 'MATCHES'
+                                    ? 'The row matches its CAD image'
+                                    : marker?.state === 'UNUSED'
+                                      ? 'The CAD image is attached — open it and click Use these values to fill the row'
+                                      : isRowLocked
+                                        ? marker?.file
+                                          ? 'The CAD image of this approved row'
+                                          : 'Approved without a CAD image — attach one that matches it exactly'
+                                        : 'Attach the CAD image (Nest EXPERT screenshot or PDF)';
                             return (
                               <Button
                                 variant="ghost"
@@ -2039,11 +2148,7 @@ export function CADSpreadsheetTable({
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setEditingRow(null);
-                                    setPendingChanges((prev) => {
-                                      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                      const { [row.id]: _, ...rest } = prev;
-                                      return rest;
-                                    });
+                                    discardPendingChanges(row.id);
                                   }}
                                   disabled={isSaving}
                                   title="Cancel"
@@ -2167,13 +2272,16 @@ export function CADSpreadsheetTable({
                                     History
                                   </DropdownMenuItem>
                                   {/* Edit */}
-                                  <DropdownMenuItem onClick={() => setEditingRow(row.id)} disabled={isRowLocked}>
+                                  <DropdownMenuItem
+                                    onClick={() => withEditOf(row.id, () => setEditingRow(row.id))}
+                                    disabled={isRowLocked}
+                                  >
                                     <Pencil className="h-4 w-4 mr-2" />
                                     Edit
                                   </DropdownMenuItem>
                                   {/* Delete */}
                                   <DropdownMenuItem
-                                    onClick={() => handleDeleteRow(row.id)}
+                                    onClick={() => setDeleteConfirmRowId(row.id)}
                                     disabled={isDeleting || isRowLocked}
                                     className="text-destructive focus:text-destructive"
                                   >
@@ -2261,7 +2369,7 @@ export function CADSpreadsheetTable({
                   setSelectedPurpose(value);
                   // Reset stock selection when purpose changes
                   setSelectedStockForProduction(null);
-                  setProductionStockOptions([]);
+                  clearProductionStock();
                   // Load stock if switching to PRODUCTION and fabrics are selected
                   if (value === 'PRODUCTION' && selectedStyleFabrics.length > 0) {
                     loadProductionStock();
@@ -2308,11 +2416,7 @@ export function CADSpreadsheetTable({
                   checked={selectAllStyleFabrics}
                   onCheckedChange={(checked) => {
                     setSelectAllStyleFabrics(!!checked);
-                    if (checked) {
-                      setSelectedStyleFabrics(styleFabrics.map((sf) => sf.id));
-                    } else {
-                      setSelectedStyleFabrics([]);
-                    }
+                    changeFabricTicks(checked ? styleFabrics.map((sf) => sf.id) : []);
                   }}
                 />
                 <label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
@@ -2332,9 +2436,9 @@ export function CADSpreadsheetTable({
                     checked={selectedStyleFabrics.includes(sf.id)}
                     onCheckedChange={(checked) => {
                       if (checked) {
-                        setSelectedStyleFabrics([...selectedStyleFabrics, sf.id]);
+                        changeFabricTicks([...selectedStyleFabrics, sf.id]);
                       } else {
-                        setSelectedStyleFabrics(selectedStyleFabrics.filter((id) => id !== sf.id));
+                        changeFabricTicks(selectedStyleFabrics.filter((id) => id !== sf.id));
                         setSelectAllStyleFabrics(false);
                       }
                     }}
@@ -2430,7 +2534,7 @@ export function CADSpreadsheetTable({
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={loadProductionStock}
+                        onClick={() => void loadProductionStock()}
                         disabled={loadingProductionStock}
                         className="h-7 text-xs"
                       >
@@ -2587,11 +2691,11 @@ export function CADSpreadsheetTable({
                   return (
                     <>
                       <p className="text-muted-foreground">
-                        No available {isEmbroideryRow ? 'embroidered' : 'plain'} fabric stock found for this style.
+                        No available {isEmbroideryRow ? '' : 'plain '}fabric stock found for this style.
                       </p>
                       <p className="text-sm text-muted-foreground mt-2">
                         {isEmbroideryRow
-                          ? 'Please ensure embroidered fabric has been received from the embroidery vendor.'
+                          ? 'Please ensure the fabric (plain, or embroidered by the vendor) has been received and entered into stock.'
                           : 'Please ensure fabric has been received and entered into stock.'}
                       </p>
                     </>
@@ -2807,9 +2911,93 @@ export function CADSpreadsheetTable({
             onClose={() => setMarkerRowId(null)}
             onChanged={() => void refetchMarkers()}
             onUseValues={(values) => markerRow && handleUseMarkerValues(markerRow.id, values)}
+            onEnterByHand={() => {
+              if (!markerRow) return;
+              const rowId = markerRow.id;
+              withEditOf(rowId, () => {
+                setEditingRow(rowId);
+                notify.info(
+                  'Type the layer length, width and sizes in the row and click Save — you will be asked why',
+                  { duration: 7000 }
+                );
+              });
+            }}
           />
         );
       })()}
+
+      <ConfirmDialog
+        open={!!deleteConfirmRowId}
+        onOpenChange={(open) => !open && setDeleteConfirmRowId(null)}
+        title="Delete this CAD row?"
+        description={(() => {
+          const row = rows.find((r) => r.id === deleteConfirmRowId);
+          const purpose =
+            row?.purpose === 'RAW_MATERIAL_CALCULATION'
+              ? 'Raw Mat'
+              : row?.purpose === 'PRODUCTION'
+                ? 'Production'
+                : 'Costing';
+          const label = row
+            ? `${purpose} · ${row.componentName ?? ''}${row.partName ? ` · ${row.partName}` : ''}${row.cutableWidth ? ` · ${row.cutableWidth}"` : ''}`
+            : 'This row';
+          return `${label} — its values, size breakdown and costing are deleted. This cannot be undone.`;
+        })()}
+        confirmText="Delete row"
+        cancelText="Cancel"
+        variant="destructive"
+        onConfirm={() => deleteConfirmRowId && void handleDeleteRow(deleteConfirmRowId)}
+      />
+
+      {/* Unsaved changes on the row being edited, and another row was asked for */}
+      <Dialog open={!!switchRowPrompt} onOpenChange={(open) => !open && setSwitchRowPrompt(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Unsaved changes on another row</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {(() => {
+              const from = rows.find((r) => r.id === switchRowPrompt?.from);
+              const label = from
+                ? `${from.componentName ?? 'The row'}${from.partName ? ` · ${from.partName}` : ''}${from.cutableWidth ? ` · ${from.cutableWidth}"` : ''}`
+                : 'The row being edited';
+              return `${label} has changes that are not saved. Save them or discard them before editing another row.`;
+            })()}
+          </p>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" onClick={() => setSwitchRowPrompt(null)}>
+              Keep editing
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const prompt = switchRowPrompt;
+                if (!prompt) return;
+                discardPendingChanges(prompt.from);
+                setEditingRow(null);
+                setSwitchRowPrompt(null);
+                prompt.then();
+              }}
+            >
+              Discard changes
+            </Button>
+            <Button
+              disabled={savingRow === switchRowPrompt?.from}
+              onClick={async () => {
+                const prompt = switchRowPrompt;
+                if (!prompt) return;
+                setSwitchRowPrompt(null);
+                // runs once the row is saved — now, or after its reason prompt; a refused save (duplicate…) keeps
+                // that row open and nothing else moves
+                await handleSaveRow(prompt.from, prompt.then);
+              }}
+            >
+              {savingRow === switchRowPrompt?.from && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Save changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Values that differ from the row's CAD image are saved only with a reason */}
       <Dialog
@@ -2822,16 +3010,19 @@ export function CADSpreadsheetTable({
           {(() => {
             // A difference with neither an image nor a row value is one the image could not check (unreadable,
             // or its sizes / width not shown) — nothing to correct, only to explain
-            const all = markerReasonPrompt?.differences ?? [];
+            const noImage = !!markerReasonPrompt?.noImage;
+            const all = noImage ? [] : (markerReasonPrompt?.differences ?? []);
             const unchecked = all.filter((d) => d.image === null && d.row === null);
             const differing = all.filter((d) => !(d.image === null && d.row === null));
             return (
               <>
                 <DialogHeader>
                   <DialogTitle>
-                    {differing.length === 0
-                      ? 'The CAD image could not check these values'
-                      : 'These values differ from the CAD image'}
+                    {noImage
+                      ? 'This row has no CAD image'
+                      : differing.length === 0
+                        ? 'The CAD image could not check these values'
+                        : 'These values differ from the CAD image'}
                   </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-3">
@@ -2853,9 +3044,11 @@ export function CADSpreadsheetTable({
                     </div>
                   )}
                   <p className="text-sm text-muted-foreground">
-                    {differing.length === 0
-                      ? 'The image does not show these clearly enough to check them. Say where the values come from, and save.'
-                      : 'Correct them to match the marker (CAD image → Use these values), or say why they are right and save.'}
+                    {noImage
+                      ? 'Attach the Nest EXPERT screenshot (Open CAD image) and its values fill in. If there is no marker image to give, say where these values come from and save them as typed.'
+                      : differing.length === 0
+                        ? 'The image does not show these clearly enough to check them. Say where the values come from, and save.'
+                        : 'Correct them to match the marker (CAD image → Use these values), or say why they are right and save.'}
                   </p>
                   <div className="space-y-1.5">
                     <Label htmlFor="marker-reason">Reason</Label>
@@ -2864,9 +3057,11 @@ export function CADSpreadsheetTable({
                       value={markerReason}
                       onChange={(e) => setMarkerReason(e.target.value)}
                       placeholder={
-                        differing.length === 0
-                          ? "e.g. sizes counted from the piece list in Nest EXPERT; the screenshot's title bar was cut off"
-                          : 'e.g. the marker was re-made at 3.85 m after the fit sample; new screenshot to follow'
+                        noImage
+                          ? 'e.g. hand-laid marker on the cutting table, measured 3.85 m for S–XXL; no Nest EXPERT marker'
+                          : differing.length === 0
+                            ? "e.g. sizes counted from the piece list in Nest EXPERT; the screenshot's title bar was cut off"
+                            : 'e.g. the marker was re-made at 3.85 m after the fit sample; new screenshot to follow'
                       }
                       rows={3}
                     />

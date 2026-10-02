@@ -100,7 +100,7 @@ route: /fabric-costing
 
 ## Before you start
 
-- The style must have CAD data from **CAD Planning** (fabric consumption per piece). A Raw Mat row's Layer(M), width and sizes come from its marker image there (**CAD Image** column)
+- The style must have CAD data from **CAD Planning** (fabric consumption per piece). A Raw Mat row's Layer(M), width and sizes come from its marker image there (**CAD Image** column), or are typed by hand with a reason when there is no image to give
 - If CAD is not done, go to **Pre-Production > CAD Planning** first
 - CAD approval is NOT required for costing, but costing cannot be approved without CAD approval
 

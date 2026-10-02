@@ -124,6 +124,18 @@ keywords:
   - alag colour receive nahi ho raha
   - teen colour ek job
   - अलग रंग रिसीव नहीं
+  - receive one colour at a time
+  - receive style wise
+  - style wise receive
+  - colour wise receive
+  - which colour came back
+  - receive another colour
+  - do style ek job
+  - style wise maal aaya
+  - rang ke hisaab se receive
+  - स्टाइल वाइज रिसीव
+  - रंग के हिसाब से रिसीव
+  - एक रंग एक बार
   - एक जॉब में कई रंग
 sources:
   - frontend/src/config/navigation.ts
@@ -136,6 +148,9 @@ sources:
   - frontend/src/pages/JobWorkOrderList.tsx
   - frontend/src/components/job-work/ReceiveFromProcessorDialog.tsx
   - frontend/src/components/job-work/ReturnFromProcessorDialog.tsx
+  - frontend/src/components/job-work/JobWorkLinesTable.tsx
+  - frontend/src/lib/jwo-lines.ts
+  - backend/src/services/helpers/jwo-lines.helper.ts
   - frontend/src/components/job-work/ReceiptDetailRows.tsx
   - backend/src/services/helpers/jwo-return-unprocessed.helper.ts
   - frontend/src/components/WarehouseCombobox.tsx
@@ -180,6 +195,16 @@ Any of these opens the same dialog, titled **Receive from** followed by the proc
 9. **This is the final delivery — nothing more is expected from …** — ticks itself once what you are receiving, together with any earlier parts, reaches the expected quantity (less the processor's tolerance). Untick it if more is still to come: this part is booked into stock and the job stays open as **Partial Receipt**. If you tick it while the total is short, the line under it turns red: **Short by … Only tick this if nothing more is coming from …**.
 10. If the total is short beyond the job's tolerance and the box is ticked, a warning names the metres beyond the allowance and the debit note that will be needed against the processor before the job can close.
 11. Click **Receive & add to stock** (it reads **Receive part & add to stock** while the box is unticked) — once. The button stays disabled until you have a quantity, the measured width (fabric), a warehouse, a valid date and the processor's invoice (or **Invoice not received yet** ticked). When the total is short beyond the tolerance and the box is ticked, a confirmation titled **Close … short?** appears first: it states the total received against the expected quantity, how many metres short, how many beyond the allowance, and the debit note that is due. Click **Yes — nothing more is coming, close it short** only if you do not expect anything more from the processor on this job. Otherwise click **Go back**, untick the box and receive this delivery as a part.
+
+### A job for several styles or colours — receive one colour at a time
+One job can bring back several fabrics from one lot of greige — for example a printing job for ESSKY090LS Brown and ESSKY092LS Red. The job's **What comes back** card lists one line per fabric, with its order. Each colour is received on its own: it goes into stock as its own fabric for its own style, and counts only for its own order.
+1. Open **Receive from processor**. At the top, under **Which colour / order came back? \***, pick the line this delivery is (Buyer Style Code · colour, with its order and "… of … received"). A colour that is already complete or closed short is greyed out. When only one colour is still open it is already picked.
+2. **Expected back**, **Received so far** and **Maximum you can receive** are now that colour's own figures, and the **Measured width** box shows the width asked for that colour.
+3. Fill in the rest as above. The tick reads **This is the final delivery of … — nothing more of it is expected from …**: leave it ticked when that colour is complete. The colour is then marked **complete** and the job stays at **Partial Receipt** for its other colours. If that colour came back short, a note says how short — the loss is worked out on the whole job when its last colour is in.
+4. If the same truck brought another colour too, click **Receive, then another colour** instead of **Receive & add to stock**. The receipt is filed and the dialog stays open with the challan number, invoice, date and warehouse kept; pick the next colour and enter its metres and width.
+5. The last colour closes the job. Only then are shrinkage and the loss split worked out — on all the greige sent against all the fabric back — and if that total is short beyond the tolerance the **Close … short?** confirmation appears.
+
+**Close short — nothing more is coming** on such a job closes every colour still open. Reversing a colour's final receipt re-opens that colour only.
 
 ### What that one click does
 - Files the receipt, already accepted. It appears on **Procurement → GRN (Goods Receipt)** badged **Job work return**, and the job lists it under **Return receipts** in its Actions card with its date, metres and invoice ("· Inv …", or "· invoice to follow" in amber).
@@ -264,7 +289,10 @@ A job that has already been received cannot be received again: a second click is
 - A processor with no **… - Processing Unit** is not in the list. Open the processor in **Suppliers** and save it once — the unit is created.
 - If a receipt delivered to the next processor is reversed, its lot there is taken back and both challans are cancelled — refused once the next processor's job has used any of it.
 - A job whose finished fabric cannot be identified is refused with a message asking you to link the job to its greige lot or requirement, or set its finished fabric, then receive again. A lace job with no dyed variant is refused the same way.
-- A job made for several orders that come back as **different fabrics** (different colours, prints or styles — for example one dyeing job for a Red, a Black and a Teal order) cannot be received yet: "… expects 3 different fabrics back (…), and a receipt books only one — all of it would go into stock as a single fabric. Receiving a job colour by colour is being added; until then this job cannot be received." Nothing is written. Keep the processor's challan; do not receive it as one fabric some other way. A job whose orders share one colour of one style receives as usual.
+- A job that brings back several fabrics must be told which colour a delivery is. Without it the receipt is refused: "… brings back 2 different fabrics — choose which one this receipt is (the colour / order)." — reload the page if the **Which colour / order came back?** list does not show.
+- A colour already complete takes no more: "… is already closed — its final delivery is in. Reverse that receipt to receive more of it."
+- **Maximum you can receive** is per colour on such a job; the refusal names the colour.
+- Each colour gets its own receipt and its own inward challan, even when one truck brought them all — use **Receive, then another colour** so you type the challan, invoice and date once.
 - A dyed lace receipt lands on the **dyed variant**, not on the greige — the greige left stock when it was issued. Its cost per metre is all the greige money plus all the dyeing money, spread over the metres that actually came back.
 - A cancelled job blocks receiving. The error says the stock was already credited back; if the mill really returned material, ask the office to re-open the job first.
 - If the order was cancelled after material was issued, a disposition dialog appears asking what happened to the material. Complete that step first.

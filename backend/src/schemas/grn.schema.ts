@@ -153,6 +153,9 @@ export const receiveJwoToStockSchema = z.object({
   // A string, not .uuid(): the frontend's generateId() falls back to a non-UUID on plain-HTTP LAN.
   // Optional so an old open tab still posts; the job-row lock still protects it.
   submissionKey: z.string().trim().min(8).max(64).optional(),
+  // The job line (colour / order) this delivery is (2026-10-02) — required when the job brings back several
+  // fabrics; optional on a one-line job. "Final delivery" then closes this line; the job closes with its last.
+  lineId: z.string().uuid('Invalid job line').optional().nullable(),
   // Declared explicitly: processingQCSchema below never names these and they only survive through
   // .passthrough(), the silent-stripping class the smart-check exists to catch.
   processingQC: z

@@ -219,6 +219,8 @@ export interface RecordThansPayload {
 /** POST /api/grn/jwo/receive — the one-action job-work receipt. */
 export interface ReceiveToStockPayload {
   jobWorkOrderId: string;
+  /** The job line (colour / order) this delivery is — required when the job brings back several fabrics */
+  lineId?: string;
   qtyReceivedMeters?: number;
   thanCount?: number;
   foldLengthCm?: number;
@@ -520,8 +522,11 @@ export const jobWorkOrderService = {
    * Read-only: what a receipt of `qty` would mean — shortfall, abnormal loss, debit note, and
    * the most the job can accept. Drives the warning in the receive dialog before commit.
    */
-  async getReceivePreview(id: string, qty: number): Promise<JwoReceivePreview> {
-    const response = await api.get(`${BASE_URL}/${id}/receive-preview`, { params: { qty } });
+  async getReceivePreview(id: string, qty: number, lineId?: string | null): Promise<JwoReceivePreview> {
+    // qty = the job's total including this receipt; lineId = the line received (its own over-receipt ceiling)
+    const response = await api.get(`${BASE_URL}/${id}/receive-preview`, {
+      params: { qty, ...(lineId ? { lineId } : {}) },
+    });
     return response.data.data;
   },
 

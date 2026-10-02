@@ -20,6 +20,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { lineName } from '@/lib/jwo-lines';
 import ReceiptDetailRows, {
   sumDetailRows,
   type ReceiptDetailRow,
@@ -110,6 +111,9 @@ export default function ReceiveFromProcessorDialog({
   // preview ran, or a stale tab that posted no isFinal); otherwise the preview's figures are used.
   const [shortCloseOpen, setShortCloseOpen] = useState(false);
   const [serverShort, setServerShort] = useState<ShortCloseFigures | null>(null);
+  // The job line (colour / order) this delivery is. A job that brings back several fabrics is received one
+  // colour at a time; '' = not chosen yet (picked for you when only one line is still open).
+  const [lineId, setLineId] = useState('');
 
   const { data: jwo } = useQuery({
     queryKey: ['job-work-order', jobWorkOrderId],
@@ -133,6 +137,8 @@ export default function ReceiveFromProcessorDialog({
   //     same frame both got through.
   const submissionKey = useRef('');
   const inFlight = useRef(false);
+  // "Receive, then another colour" survives the short-close question: the answer sends what was pressed
+  const nextAfterConfirm = useRef(false);
 
   // Reset on the open edge. (The previous handler reset inside Radix's onOpenChange(true), which never
   // fires here — the parent controls `open` — so a second opening showed the last receipt's figures.)
@@ -160,6 +166,7 @@ export default function ReceiveFromProcessorDialog({
       setFinalOverride(null);
       setShortCloseOpen(false);
       setServerShort(null);
+      setLineId('');
     }
     wasOpen.current = open;
   }, [open, today]);
@@ -168,6 +175,14 @@ export default function ReceiveFromProcessorDialog({
   useEffect(() => {
     if (open && !toProcessor && !warehouseId && stores?.length === 1) setWarehouseId(stores[0].id);
   }, [open, toProcessor, warehouseId, stores]);
+
+  // The job's lines — one per fabric it brings back. Exactly one still open → it is this delivery.
+  const lines = jwo?.lines ?? [];
+  const severalLines = lines.length > 1;
+  const openLines = lines.filter((l) => !l.closedAt);
+  const line = lines.find((l) => l.id === lineId) ?? (openLines.length === 1 ? openLines[0] : null);
+  // Another colour is still to come after this one — the dialog can stay open for it
+  const anotherColourAfter = severalLines && !!line && openLines.some((l) => l.id !== line.id);
 
   // The quantity the receipt will book.
   //   Counted: the metres typed, or the sum of the than/bale rows (the server derives the than count
@@ -178,14 +193,20 @@ export default function ReceiveFromProcessorDialog({
   const countedQty = entryMode === 'TOTAL_METERS' ? qtyMeters : rowsValid ? sumDetailRows(rows) : 0;
   const effectiveQty = foldActual(countedQty, foldLengthCm);
 
-  // Parts: what earlier deliveries already booked. The split, the cap and the "final" tick all work
-  // on the CUMULATIVE figure — a short first delivery is not a loss until the last one is in.
-  const receivedSoFar = Number(jwo?.qtyReceivedMeters ?? 0);
-  const expected = jwo?.qtyBillable ?? null;
+  // Parts: what earlier deliveries already booked. The cap and the "final" tick work on the CUMULATIVE
+  // figure of the LINE (its own fabric — on a one-line job, the job's); the loss split on the JOB's total —
+  // a short first delivery is not a loss until the last one is in.
+  const jobReceivedSoFar = Number(jwo?.qtyReceivedMeters ?? 0);
+  const receivedSoFar = line ? Number(line.receivedQty ?? 0) : jobReceivedSoFar;
+  const expected =
+    line?.qtyExpected != null ? Number(line.qtyExpected) : severalLines ? null : (jwo?.qtyBillable ?? null);
+  const sentForExpected = line ? Number(line.qtySent) : jwo?.qtySentMeters;
+  const shrinkageForExpected = line ? line.expectedShrinkage : jwo?.expectedShrinkage;
   const cumulativeQty = receivedSoFar + effectiveQty;
 
   // Warn on a short return BEFORE commit. Debounced; the figures come from the server's own loss
-  // split so the dialog and the booked numbers cannot disagree. Asked for the cumulative total.
+  // split so the dialog and the booked numbers cannot disagree. Asked for the job's cumulative total,
+  // with the line for its over-receipt ceiling.
   const [previewQty, setPreviewQty] = useState(0);
   useEffect(() => {
     const t = setTimeout(() => setPreviewQty(effectiveQty), 300);
@@ -193,21 +214,32 @@ export default function ReceiveFromProcessorDialog({
   }, [effectiveQty]);
 
   const { data: preview } = useQuery({
-    queryKey: ['jwo-receive-preview', jobWorkOrderId, receivedSoFar, previewQty],
-    queryFn: () => jobWorkOrderService.getReceivePreview(jobWorkOrderId!, receivedSoFar + previewQty),
-    enabled: open && !!jobWorkOrderId && previewQty > 0,
+    queryKey: ['jwo-receive-preview', jobWorkOrderId, line?.id ?? null, jobReceivedSoFar, previewQty],
+    queryFn: () => jobWorkOrderService.getReceivePreview(jobWorkOrderId!, jobReceivedSoFar + previewQty, line?.id),
+    enabled: open && !!jobWorkOrderId && previewQty > 0 && (!severalLines || !!line),
   });
 
-  // "This is the final delivery": pre-ticked once the total reaches the expected quantity less the
+  // "This is the final delivery": pre-ticked once the line's total reaches its expected quantity less the
   // processor's tolerance (the server's own figure: job → process type → 0), editable either way.
   const tolerancePercent = preview?.tolerancePercent ?? jwo?.tolerancePercent ?? 0;
   const autoFinal = expected != null && expected > 0 ? cumulativeQty >= expected * (1 - tolerancePercent / 100) : true;
   const isFinal = finalOverride ?? autoFinal;
+  // A final delivery closes its line; the job closes with its last open line, and only then is the loss
+  // judged — on the whole job (closing an earlier colour short is noted, not a short close of the job).
+  const closesJob = isFinal && (!line || openLines.every((l) => l.id === line.id));
+  const jobShort = closesJob && !!preview?.isOverTolerance;
+  const lineShortBy =
+    isFinal && !closesJob && expected != null && cumulativeQty < expected * (1 - tolerancePercent / 100)
+      ? expected - cumulativeQty
+      : null;
+  const thisLineName = line && severalLines ? lineName(line) : null;
 
   const receiveMutation = useMutation({
-    mutationFn: ({ shortCloseConfirmed }: { shortCloseConfirmed: boolean }) =>
+    // `next`: "Receive, then another colour" — the dialog stays open for the next colour of this delivery
+    mutationFn: ({ shortCloseConfirmed }: { shortCloseConfirmed: boolean; next: boolean }) =>
       jobWorkOrderService.receiveToStock({
         jobWorkOrderId: jobWorkOrderId!,
+        ...(line ? { lineId: line.id } : {}),
         entryMode,
         ...(entryMode === 'TOTAL_METERS'
           ? {
@@ -247,9 +279,22 @@ export default function ReceiveFromProcessorDialog({
     onSettled: () => {
       inFlight.current = false;
     },
-    onSuccess: (result) => {
+    onSuccess: (result, { next }) => {
       const abnormal = Number(result.lossSplit?.qtyAbnormalLoss ?? 0);
-      if (result.replayed) {
+      if (thisLineName && !result.replayed) {
+        // One colour of a job that brings back several
+        handleApiSuccess(
+          `${thisLineName} received into stock`,
+          `Receipt ${result.data.grnNumber} filed on ${jwo?.jobWorkNumber ?? 'the job'}. ` +
+            (closesJob
+              ? abnormal > 0
+                ? `That was the last colour: the job is complete — ${abnormal.toFixed(2)} m abnormal loss, a debit note against the processor is needed before it can close.`
+                : 'That was the last colour: the job is complete.'
+              : isFinal
+                ? `${thisLineName} is complete; the job stays open for its other colours.`
+                : `More of ${thisLineName} is still to come.`)
+        );
+      } else if (result.replayed) {
         handleApiSuccess(
           `${jwo?.jobWorkNumber ?? 'Job'} was already received`,
           `Receipt ${result.data.grnNumber} was filed by the earlier press — no second receipt was made.`
@@ -286,6 +331,24 @@ export default function ReceiveFromProcessorDialog({
       // Receiving closes the outward challan and puts fabric in stock, so both halves of the
       // Control Center change: the vendor/challan alerts and any material-shortage blocker.
       invalidateControlCenter(queryClient);
+      if (next && !result.replayed) {
+        // The next colour of the same delivery: keep the challan, date, store, invoice and vehicle; clear what
+        // belongs to the colour just received, and take a fresh key — this is a new receipt, never a retry.
+        submissionKey.current = generateId();
+        setLineId('');
+        setEntryMode('TOTAL_METERS');
+        setQtyMeters(0);
+        setThanCount(0);
+        setRows([]);
+        setFoldLengthCm(0);
+        setWidthInches(0);
+        setQualityGrade('');
+        setDefectMeters(0);
+        setFinalOverride(null);
+        setServerShort(null);
+        onSuccess?.();
+        return;
+      }
       onOpenChange(false);
       onSuccess?.();
     },
@@ -346,6 +409,8 @@ export default function ReceiveFromProcessorDialog({
         : widthInches
       : null;
   const canSubmit =
+    // A job that brings back several fabrics: which colour this is, and it must still be open
+    (!severalLines || (!!line && !line.closedAt)) &&
     effectiveQty > 0 &&
     widthReady &&
     !!warehouseId &&
@@ -358,10 +423,10 @@ export default function ReceiveFromProcessorDialog({
   // about, in words, before anything is sent. The server refuses it anyway if the question was skipped.
   const shortClose: ShortCloseFigures | null =
     serverShort ??
-    (preview && preview.isOverTolerance
+    (preview && jobShort
       ? {
           qtyThisReceipt: effectiveQty,
-          cumulative: receivedSoFar + effectiveQty,
+          cumulative: jobReceivedSoFar + effectiveQty,
           expected: preview.qtyExpected,
           shortfall: preview.shortfall,
           beyondAllowance: preview.qtyAbnormalLoss,
@@ -370,19 +435,20 @@ export default function ReceiveFromProcessorDialog({
         }
       : null);
   // Every send goes through here: a press while one is already on its way is dropped.
-  const send = (shortCloseConfirmed: boolean) => {
+  const send = (shortCloseConfirmed: boolean, next = nextAfterConfirm.current) => {
     if (inFlight.current) return;
     inFlight.current = true;
-    receiveMutation.mutate({ shortCloseConfirmed });
+    receiveMutation.mutate({ shortCloseConfirmed, next });
   };
-  const handleSubmit = () => {
+  const handleSubmit = (next = false) => {
     if (inFlight.current) return;
-    if (isFinal && preview?.isOverTolerance) {
+    nextAfterConfirm.current = next;
+    if (jobShort) {
       setServerShort(null);
       setShortCloseOpen(true);
       return;
     }
-    send(false);
+    send(false, next);
   };
 
   return (
@@ -400,15 +466,69 @@ export default function ReceiveFromProcessorDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          {severalLines && (
+            // A job that brings back several fabrics is received one colour at a time: each is its own fabric
+            // lot and is credited to its own order only.
+            <div className="space-y-2">
+              <Label>Which colour / order came back? *</Label>
+              <RadioGroup
+                value={line?.id ?? ''}
+                onValueChange={(v) => {
+                  setLineId(v);
+                  setFinalOverride(null);
+                  setServerShort(null);
+                }}
+                className="space-y-2"
+              >
+                {lines.map((l) => {
+                  const closed = !!l.closedAt;
+                  const orders = l.requirementLinks
+                    .map((link) => link.materialRequirements.orders?.orderNumber)
+                    .filter(Boolean)
+                    .join(', ');
+                  return (
+                    <label
+                      key={l.id}
+                      htmlFor={`rfp-line-${l.id}`}
+                      className={`flex items-start gap-3 rounded-md border p-2 text-sm ${
+                        closed ? 'opacity-60' : 'cursor-pointer'
+                      } ${l.id === lineId ? 'border-primary bg-primary/5' : ''}`}
+                    >
+                      <RadioGroupItem value={l.id} id={`rfp-line-${l.id}`} disabled={closed} className="mt-0.5" />
+                      <span className="flex-1">
+                        <span className="font-medium">{lineName(l)}</span>
+                        {orders && <span className="text-muted-foreground"> — {orders}</span>}
+                        <span className="block text-xs text-muted-foreground">
+                          {fmt(Number(l.receivedQty ?? 0))} of{' '}
+                          {l.qtyExpected != null ? fmt(Number(l.qtyExpected)) : '-'} {uom} received
+                          {closed ? (l.closedHow === 'SHORT' ? ' · closed short' : ' · complete') : ''}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </RadioGroup>
+              {!line && (
+                <p className="text-xs text-amber-700">
+                  Choose the colour this delivery is — each comes back as its own fabric and counts only for its own
+                  order.
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="p-3 bg-muted/50 rounded-lg text-sm space-y-1">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">{isLace ? 'Expected dyed lace' : 'Expected back'}</span>
+              <span className="text-muted-foreground">
+                {isLace ? 'Expected dyed lace' : 'Expected back'}
+                {thisLineName ? ` — ${thisLineName}` : ''}
+              </span>
               <span className="font-medium">
                 {expected != null ? `${fmt(expected)} ${uom}` : '-'}
-                {jwo?.qtySentMeters != null && jwo?.expectedShrinkage != null && (
+                {sentForExpected != null && shrinkageForExpected != null && (!severalLines || !!line) && (
                   <span className="text-muted-foreground font-normal">
                     {' '}
-                    ({fmt(jwo.qtySentMeters)} sent − {jwo.expectedShrinkage}% shrinkage)
+                    ({fmt(Number(sentForExpected))} sent − {Number(shrinkageForExpected)}% shrinkage)
                   </span>
                 )}
               </span>
@@ -563,12 +683,23 @@ export default function ReceiveFromProcessorDialog({
             </div>
           )}
 
-          {preview?.isOverTolerance && isFinal && (
+          {lineShortBy != null && (
+            <div className="flex gap-2 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
+              <AlertTriangle className="h-4 w-4 mt-0.5 text-warning shrink-0" />
+              <div>
+                This completes {thisLineName} {fmt(lineShortBy)} {uom} short of its {fmt(expected)} {uom}. Any loss is
+                worked out on the whole job when its last colour is in.
+              </div>
+            </div>
+          )}
+
+          {preview && jobShort && (
             <div className="flex gap-2 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
               <AlertTriangle className="h-4 w-4 mt-0.5 text-warning shrink-0" />
               <div>
                 <span className="font-medium">
-                  {fmt(previewQty)} entered{receivedSoFar > 0 ? ` (${fmt(receivedSoFar + previewQty)} in total)` : ''}
+                  {fmt(previewQty)} entered
+                  {jobReceivedSoFar > 0 ? ` (${fmt(jobReceivedSoFar + previewQty)} on the job in total)` : ''}
                 </span>{' '}
                 — {fmt(preview.qtyAbnormalLoss)} {uom} beyond the {fmt(preview.tolerancePercent)}% allowance on{' '}
                 {fmt(preview.qtyExpected)} expected. This will need a debit note against{' '}
@@ -590,7 +721,11 @@ export default function ReceiveFromProcessorDialog({
                   step="any"
                   value={widthInches > 0 ? widthInches : ''}
                   onChange={(e) => setWidthInches(parseFloat(e.target.value) || 0)}
-                  placeholder={jwo?.sentWidthInches ? `asked ${jwo.sentWidthInches}"` : undefined}
+                  placeholder={
+                    (line?.sentWidthInches ?? jwo?.sentWidthInches)
+                      ? `asked ${Number(line?.sentWidthInches ?? jwo?.sentWidthInches)}"`
+                      : undefined
+                  }
                 />
                 <p className={`text-xs ${widthInches > 0 ? 'text-muted-foreground' : 'text-amber-700'}`}>
                   {widthInches > 0
@@ -765,16 +900,20 @@ export default function ReceiveFromProcessorDialog({
             />
             <div className="space-y-1">
               <Label htmlFor="rfp-final" className="font-normal">
-                This is the final delivery — nothing more is expected from {processorName}
+                {thisLineName
+                  ? `This is the final delivery of ${thisLineName} — nothing more of it is expected from ${processorName}`
+                  : `This is the final delivery — nothing more is expected from ${processorName}`}
               </Label>
-              <p
-                className={`text-xs ${isFinal && preview?.isOverTolerance ? 'text-destructive' : 'text-muted-foreground'}`}
-              >
-                {isFinal && preview?.isOverTolerance
+              <p className={`text-xs ${jobShort ? 'text-destructive' : 'text-muted-foreground'}`}>
+                {jobShort && preview
                   ? `Short by ${fmt(preview.shortfall)} ${uom}. Only tick this if nothing more is coming from ${processorName}: the job closes and the shortfall becomes a loss against them.`
-                  : isFinal
-                    ? 'The job closes on the total received: shrinkage and any loss against the processor are worked out now.'
-                    : 'More is still to come. This part is booked into stock and the job stays open for the next delivery.'}
+                  : isFinal && !closesJob
+                    ? `${thisLineName} is complete. The job stays open for its other colours, and closes when the last one is in.`
+                    : isFinal
+                      ? thisLineName
+                        ? 'This is the last colour: the job closes on the total received — shrinkage and any loss against the processor are worked out now.'
+                        : 'The job closes on the total received: shrinkage and any loss against the processor are worked out now.'
+                      : 'More is still to come. This part is booked into stock and the job stays open for the next delivery.'}
               </p>
             </div>
           </div>
@@ -784,7 +923,13 @@ export default function ReceiveFromProcessorDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={receiveMutation.isPending}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={!canSubmit}>
+          {anotherColourAfter && (
+            // Same truck, another colour: files this receipt and keeps the challan, date, store and invoice
+            <Button variant="outline" onClick={() => handleSubmit(true)} disabled={!canSubmit}>
+              Receive, then another colour
+            </Button>
+          )}
+          <Button onClick={() => handleSubmit(false)} disabled={!canSubmit}>
             {receiveMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {isFinal ? 'Receive & add to stock' : 'Receive part & add to stock'}
           </Button>

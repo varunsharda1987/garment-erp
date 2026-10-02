@@ -752,6 +752,25 @@ async function main() {
           });
         }
       }
+
+      // A job is finished (receivedDate) exactly when every line is closed — "final delivery" closes a line, the
+      // job closes with its last (2026-10-02). Cancelled jobs are skipped: their lines may never have closed. A
+      // one-line job finished by a legacy door (Dyeing / Printing receive, piece work) never closed its line, so
+      // "received with a line open" is checked on jobs with several lines only — they have one door.
+      const closure = await prisma.job_work_orders.findMany({
+        where: { jwoStatus: { not: 'CANCELLED' } },
+        select: { jobWorkNumber: true, receivedDate: true, lines: { select: { lineNo: true, closedAt: true } } },
+      });
+      for (const j of closure) {
+        if (j.lines.length === 0) continue;
+        const open = j.lines.filter((l) => !l.closedAt);
+        if (j.receivedDate && open.length > 0 && j.lines.length > 1) {
+          out.push({ job: j.jobWorkNumber, problem: `received, but line ${open.map((l) => l.lineNo).join(', ')} still open` });
+        }
+        if (!j.receivedDate && open.length === 0) {
+          out.push({ job: j.jobWorkNumber, problem: 'every line closed, but the job is not received' });
+        }
+      }
       return out;
     })()
   );

@@ -17,6 +17,9 @@ export type FabricProcessType = (typeof FABRIC_PROCESS_TYPES)[number];
 /** GET /api/job-work-orders/:id/receive-preview?qty= — a hypothetical received quantity. */
 export const receivePreviewQuerySchema = z.object({
   qty: z.coerce.number().positive('qty must be a positive number'),
+  // The job line being received (2026-10-02): the over-receipt ceiling is then that line's. The loss split stays
+  // on the job's total (`qty` = everything received on the job including this receipt).
+  lineId: z.string().uuid('Invalid job line').optional(),
 });
 
 /**

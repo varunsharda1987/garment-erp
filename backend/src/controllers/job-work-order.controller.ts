@@ -2380,11 +2380,21 @@ class JobWorkOrderController {
         ratePerMeter: jwo.agreedRatePerMeter,
       });
 
-      // The ceiling createGRNFromJWO enforces — surfaced here so the dialog never guesses it.
+      // The ceiling createGRNFromJWO enforces — surfaced here so the dialog never guesses it. With a line, the
+      // line's expected quantity is the basis (a job with several lines caps each fabric on its own).
+      const lineId = typeof req.query.lineId === 'string' ? req.query.lineId : null;
+      const line = lineId
+        ? await prisma.job_work_order_lines.findFirst({
+            where: { id: lineId, jobWorkOrderId: id },
+            select: { qtyExpected: true },
+          })
+        : null;
+      if (lineId && !line) {
+        return res.status(404).json({ success: false, message: 'That line is not on this job work order' });
+      }
+      const capBasis = line?.qtyExpected != null ? Number(line.qtyExpected) : split.qtyExpected.toNumber();
       const overReceiptTolerance = await systemSettingsService.getNumberDefault('GRN_OVER_RECEIPT_TOLERANCE_PERCENT');
-      const maxReceivable = roundToCent(
-        multiplyCurrency(split.qtyExpected.toNumber(), 1 + overReceiptTolerance / 100)
-      ).toNumber();
+      const maxReceivable = roundToCent(multiplyCurrency(capBasis, 1 + overReceiptTolerance / 100)).toNumber();
 
       res.json({
         success: true,

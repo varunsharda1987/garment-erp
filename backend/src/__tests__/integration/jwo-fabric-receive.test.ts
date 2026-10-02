@@ -599,7 +599,7 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     });
   };
 
-  it('refuses to receive a job whose requirements come back as different colours — nothing is written', async () => {
+  it('refuses to receive a LINE whose requirements come back as different colours — nothing is written', async () => {
     const mixedJwoId = await raiseAtProcessorJob();
     await linkRequirement(mixedJwoId, 'Red');
     await linkRequirement(mixedJwoId, 'Black');
@@ -614,7 +614,7 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     });
 
     expect(res.status).toBe(422);
-    expect(res.body.message).toMatch(/expects 2 different fabrics back \(.*Red.*Black.*\)/);
+    expect(res.body.message).toMatch(/One line of .* is for 2 different fabrics \(.*Red.*Black.*\)/);
     expect(await prisma.goods_receiving_notes.count({ where: { jobWorkOrderId: mixedJwoId } })).toBe(0);
     const jwo = await prisma.job_work_orders.findUnique({ where: { id: mixedJwoId } });
     expect(jwo!.jwoStatus).toBe('AT_PROCESSOR');

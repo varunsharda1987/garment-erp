@@ -286,6 +286,129 @@ export function lineReceivedQty(receiptRows: readonly GrnLineQtyInput[]): number
   return toNumber(roundToCent(addCurrency(0, ...receiptRows.map((row) => grnLineActualQty(row)))));
 }
 
+type JwoLineRow = Awaited<ReturnType<typeof jobLines>>[number];
+
+/** How a line is named to the person receiving it: "ESSKY092LS Red" (line 2 when it has neither) */
+export async function lineLabel(tx: Tx, line: Pick<JwoLineRow, 'lineNo' | 'styleId' | 'colorName'>): Promise<string> {
+  const style = line.styleId
+    ? await tx.styles.findUnique({ where: { id: line.styleId }, select: { styleCode: true, buyerStyleRef: true } })
+    : null;
+  const label = [style ? style.buyerStyleRef?.trim() || style.styleCode : null, line.colorName?.trim() || null]
+    .filter(Boolean)
+    .join(' ');
+  return label || `line ${line.lineNo}`;
+}
+
+/**
+ * The line a receipt brings back (2026-10-02): the one the dialog named, else the job's only line. A job with
+ * several lines must be told which — each comes back as its own fabric and credits only its own orders. A closed
+ * line takes no more receipts.
+ */
+export async function pickReceiptLine(
+  tx: Tx,
+  job: { id: string; jobWorkNumber: string },
+  lineId?: string | null
+): Promise<{ line: JwoLineRow; lines: JwoLineRow[]; label: string }> {
+  const lines = await jobLines(tx, job.id);
+  if (lines.length === 0) throw new BusinessError(`${job.jobWorkNumber} has no lines`);
+  let line: JwoLineRow | undefined;
+  if (lineId) {
+    line = lines.find((l) => l.id === lineId);
+    if (!line) {
+      throw new BusinessError(
+        `That colour / order is not on ${job.jobWorkNumber} — close the dialog and open it again.`
+      );
+    }
+  } else if (lines.length === 1) {
+    line = lines[0];
+  } else {
+    throw new BusinessError(
+      `${job.jobWorkNumber} brings back ${lines.length} different fabrics — choose which one this receipt is ` +
+        `(the colour / order).`,
+      { reason: 'JWO_LINE_REQUIRED', lines: lines.length }
+    );
+  }
+  const label = await lineLabel(tx, line);
+  if (line.closedAt) {
+    throw new BusinessError(
+      `${label} on ${job.jobWorkNumber} is already closed — its final delivery is in. Reverse that receipt to ` +
+        `receive more of it.`,
+      { reason: 'JWO_LINE_CLOSED', lineId: line.id }
+    );
+  }
+  return { line, lines, label };
+}
+
+/** What has come back on a line so far — its ACCEPTED receipt rows (never stored) */
+export async function lineReceivedSoFar(tx: Tx, lineId: string): Promise<number> {
+  const rows = await tx.grn_items.findMany({
+    where: { jobWorkOrderLineId: lineId, ...LINE_RECEIPTS_SELECT.where },
+    select: LINE_RECEIPTS_SELECT.select,
+  });
+  return lineReceivedQty(rows);
+}
+
+/**
+ * Close a line: its final delivery is in (FINAL, by that receipt row) or nothing more is coming (SHORT, Close
+ * short). Returns whether every line of the job is now closed — the job closes only then.
+ */
+export async function closeLine(
+  tx: Tx,
+  line: { id: string; jobWorkOrderId: string },
+  how: 'FINAL' | 'SHORT',
+  closedAt: Date,
+  closingGrnItemId: string | null
+): Promise<{ jobClosed: boolean }> {
+  await tx.job_work_order_lines.update({
+    where: { id: line.id },
+    data: { closedAt, closedHow: how, closingGrnItemId },
+  });
+  const open = await tx.job_work_order_lines.count({ where: { jobWorkOrderId: line.jobWorkOrderId, closedAt: null } });
+  return { jobClosed: open === 0 };
+}
+
+/** Close every open line of a job short (Close short — nothing more is coming on any colour) */
+export async function closeOpenLinesShort(tx: Tx, jobWorkOrderId: string, closedAt: Date): Promise<number> {
+  const { count } = await tx.job_work_order_lines.updateMany({
+    where: { jobWorkOrderId, closedAt: null },
+    data: { closedAt, closedHow: 'SHORT', closingGrnItemId: null },
+  });
+  return count;
+}
+
+/**
+ * A receipt is reversed: the line its row closed is open again, and so is a line closed SHORT that it was part
+ * of (the short close was confirmed on a total that no longer holds). A line a LATER receipt closed stays closed.
+ * Returns whether every line of the job is still closed afterwards (the job stays finished only then).
+ */
+export async function reopenLinesClosedBy(
+  tx: Tx,
+  jobWorkOrderId: string,
+  receiptRows: ReadonlyArray<{ id: string; jobWorkOrderLineId?: string | null }>
+): Promise<{ reopened: number; allClosed: boolean }> {
+  const itemIds = receiptRows.map((r) => r.id);
+  const lineIds = receiptRows.map((r) => r.jobWorkOrderLineId).filter((id): id is string => !!id);
+  const { count } = itemIds.length
+    ? await tx.job_work_order_lines.updateMany({
+        where: {
+          jobWorkOrderId,
+          OR: [{ closingGrnItemId: { in: itemIds } }, { id: { in: lineIds }, closedHow: 'SHORT' }],
+        },
+        data: { closedAt: null, closedHow: null, closingGrnItemId: null },
+      })
+    : { count: 0 };
+  const open = await tx.job_work_order_lines.count({ where: { jobWorkOrderId, closedAt: null } });
+  return { reopened: count, allClosed: open === 0 };
+}
+
+/** Every receipt of the job is gone: every line is open again, as before anything came back */
+export async function reopenAllLines(tx: Tx, jobWorkOrderId: string): Promise<void> {
+  await tx.job_work_order_lines.updateMany({
+    where: { jobWorkOrderId, closedAt: { not: null } },
+    data: { closedAt: null, closedHow: null, closingGrnItemId: null },
+  });
+}
+
 /** Tie a requirement to the line that brings back its fabric */
 export function linkRequirementToLine(
   tx: Tx,

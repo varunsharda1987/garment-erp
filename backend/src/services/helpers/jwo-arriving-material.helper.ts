@@ -177,16 +177,71 @@ export function jwoIdentityParams(
   };
 }
 
+/** The output columns of a job line a receipt is booked against */
+export interface JwoReceiptLine {
+  id: string;
+  styleId: string | null;
+  colorMasterId: string | null;
+  colorName: string | null;
+  finishedFabricId: string | null;
+  finishedLaceId: string | null;
+  sentWidthInches: Prisma.Decimal | null;
+  expectedShrinkage: Prisma.Decimal | null;
+}
+
 /**
- * A receipt books ONE finished fabric, so a job whose requirements come back as different fabrics cannot be
- * received: all of it would go into stock as one fabric and every order would be credited. MRP bundled the Red,
- * Black and Teal orders of SP27CK130 into DJ-EBEW-002-001 (30-Sep). Refused before anything is written, until a
- * job can carry one line per fabric. Lace (refused at creation) and fabric-lot reprocessing have one output.
+ * The job as ONE of its lines sees it (2026-10-02): the line's style, colour, finished fabric / lace, asked width
+ * and its own first requirement, over the job's shared facts (processor, greige lots, lab dip, rate). On a job
+ * with several lines the header's output fields are NULL by design, so the receipt reads them from here — the
+ * identity, the lot's style and the challan text are the line's. On a one-line job the view equals the job.
+ * Quantities stay the job's: the loss split and shrinkage are judged on the whole job.
  */
-export async function assertOneArrivingFabric(jwo: JwoGrnRow, tx?: Tx): Promise<void> {
+export async function jwoLineView(jwo: JwoGrnRow, line: JwoReceiptLine, tx?: Tx): Promise<JwoGrnRow> {
+  const client = tx ?? prisma;
+  const [style, colorMaster, link] = await Promise.all([
+    line.styleId
+      ? client.styles.findUnique({
+          where: { id: line.styleId },
+          select: { id: true, styleCode: true, buyerStyleRef: true },
+        })
+      : null,
+    line.colorMasterId
+      ? client.color_master.findUnique({
+          where: { id: line.colorMasterId },
+          select: { id: true, colorName: true, colorCode: true },
+        })
+      : null,
+    client.requirement_jwo_links.findFirst({
+      where: { lineId: line.id },
+      orderBy: { id: 'asc' },
+      select: { material_requirements: { select: REQUIREMENT_LINEAGE_SELECT } },
+    }),
+  ]);
+  return {
+    ...jwo,
+    styleId: line.styleId,
+    style,
+    colorMasterId: line.colorMasterId,
+    colorMaster,
+    colorName: line.colorName,
+    finishedFabricId: line.finishedFabricId,
+    finishedLaceId: line.finishedLaceId,
+    sentWidthInches: line.sentWidthInches,
+    expectedShrinkage: line.expectedShrinkage,
+    requirementLinks: link ? [link] : [],
+  };
+}
+
+/**
+ * A receipt books ONE finished fabric, so the orders of the line it is booked against must all come back as the
+ * same fabric — else all of it would go into stock as one fabric and every order would be credited. MRP had
+ * bundled the Red, Black and Teal orders of SP27CK130 onto one output (30-Sep); a job now carries one line per
+ * fabric, so this checks the LINE's orders. Lace (one line) and fabric-lot reprocessing have one output.
+ */
+export async function assertOneArrivingFabric(jwo: JwoGrnRow, lineId: string, tx?: Tx): Promise<void> {
   if (jwo.fabricType === 'LACE' || isFabricLotReprocessingJwo(jwo)) return;
   const links = await (tx ?? prisma).requirement_jwo_links.findMany({
-    where: { jobWorkOrderId: jwo.id },
+    where: { jobWorkOrderId: jwo.id, lineId },
     select: {
       material_requirements: {
         select: {
@@ -214,9 +269,9 @@ export async function assertOneArrivingFabric(jwo: JwoGrnRow, tx?: Tx): Promise<
 
   const names = [...outputs.values()];
   throw new BusinessError(
-    `${jwo.jobWorkNumber} expects ${names.length} different fabrics back (${names.join(', ')}), and a receipt books ` +
-      `only one — all of it would go into stock as a single fabric. Receiving a job colour by colour is being ` +
-      `added; until then this job cannot be received.`,
+    `One line of ${jwo.jobWorkNumber} is for ${names.length} different fabrics (${names.join(', ')}), and a ` +
+      `receipt books only one — all of it would go into stock as a single fabric. The job's lines need correcting ` +
+      `before it can be received.`,
     { reason: 'JWO_MIXED_OUTPUTS', outputs: names }
   );
 }
@@ -275,12 +330,19 @@ export async function resolveOrMintJwoArrivingMaterial(
 }
 
 /**
- * Persist the finished fabric a one-output job brings back — on its line, mirrored to the job — so approval
- * and every later reader find it. A job with several lines names each line's fabric instead (refused here).
+ * Persist the finished fabric a line brings back — on the line, mirrored to the job — so approval and every later
+ * reader find it. Without `lineId` the job must have one line (refused on a job with several).
  */
-export async function stampJwoFinishedFabric(jwoId: string, finishedFabricId: string, tx?: Tx): Promise<void> {
+export async function stampJwoFinishedFabric(
+  jwoId: string,
+  finishedFabricId: string,
+  tx?: Tx,
+  lineId?: string | null
+): Promise<void> {
   const client = tx ?? prisma;
-  const line = await theOnlyLine(client, jwoId, 'Naming the finished fabric');
+  const line = lineId
+    ? await client.job_work_order_lines.findUniqueOrThrow({ where: { id: lineId } })
+    : await theOnlyLine(client, jwoId, 'Naming the finished fabric');
   if (line.finishedFabricId === finishedFabricId) return;
   await stampLineFinishedFabric(client, line.id, finishedFabricId);
 }

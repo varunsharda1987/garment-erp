@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { StyleIdentity } from '@/components/StyleIdentity';
 import { formatQuantity } from '@/lib/formatters';
 import { isQtyZero } from '@/lib/quantity';
+import { lineColour } from '@/lib/jwo-lines';
 import type { JobWorkOrderLine } from '@/types/jobWorkOrder.types';
 
 interface JobWorkLinesTableProps {
@@ -15,9 +16,6 @@ interface JobWorkLinesTableProps {
   /** Issue dialog: what the greige is for — no received column */
   compact?: boolean;
 }
-
-const lineColour = (line: JobWorkOrderLine) =>
-  line.colorMaster?.colorName ?? line.colorName ?? line.finishedLace?.color ?? line.finishedFabric?.colorName ?? null;
 
 const sum = (lines: JobWorkOrderLine[], pick: (l: JobWorkOrderLine) => number | string | null | undefined) =>
   lines.reduce((total, l) => total + Number(pick(l) ?? 0), 0);
@@ -98,6 +96,11 @@ export function JobWorkLinesTable({ lines, uom, compact = false }: JobWorkLinesT
               {!compact && (
                 <TableCell className="text-right whitespace-nowrap">
                   {!isQtyZero(line.receivedQty) ? formatQuantity(line.receivedQty, uom) : '-'}
+                  {many && line.closedAt && (
+                    <div className="text-xs text-muted-foreground">
+                      {line.closedHow === 'SHORT' ? 'closed short' : 'complete'}
+                    </div>
+                  )}
                 </TableCell>
               )}
             </TableRow>

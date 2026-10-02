@@ -22,6 +22,7 @@ import { formatDate } from '../utils/date';
 import { isQtyZero } from '../utils/quantity';
 import { logWarn } from '../utils/logger';
 import { closeOutwardChallanForJwo } from './helpers/jwo-challan-lifecycle.helper';
+import { closeOpenLinesShort } from './helpers/jwo-lines.helper';
 import {
   toCurrency,
   multiplyCurrency,
@@ -431,6 +432,8 @@ class JobWorkOrderService {
       // Dated the day the last goods actually arrived — not the day of the click. §143 ageing and the
       // return document read receivedDate.
       const receivedDate = jwo.receivingGRNs[0].receivingDate;
+      // Nothing more is coming on any colour: every line still open closes short with the job (2026-10-02)
+      await closeOpenLinesShort(tx, jwoId, receivedDate ?? new Date());
       const note =
         `[CLOSED SHORT ${formatDate(new Date())}] nothing more expected from ${processorName}; ` +
         `total ${total.toFixed(2)} of ${split.qtyExpected.toFixed(2)} ${uom}` +

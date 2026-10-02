@@ -40,7 +40,14 @@ import {
   JWO_AT_PROCESSOR_STATUSES,
   JWO_GRN_UOMS,
 } from './helpers/jwo-status.helper';
-import { theOnlyLine } from './helpers/jwo-lines.helper';
+import {
+  closeLine,
+  lineReceivedSoFar,
+  pickReceiptLine,
+  reopenAllLines,
+  reopenLinesClosedBy,
+  theOnlyLine,
+} from './helpers/jwo-lines.helper';
 import { closeOutwardChallanForJwo, resyncOutwardChallanAfterReversal } from './helpers/jwo-challan-lifecycle.helper';
 import { updateGreigeLastPurchaseRate } from './helpers/greige-rate.helper';
 import { determineFinishType } from './helpers/processing-fabric.helper';
@@ -56,6 +63,7 @@ import {
   JWO_GRN_INCLUDE,
   assertOneArrivingFabric,
   isFabricLotReprocessingJwo,
+  jwoLineView,
   resolveOrMintJwoArrivingMaterial,
   stampJwoFinishedFabric,
 } from './helpers/jwo-arriving-material.helper';
@@ -711,6 +719,14 @@ class GRNService {
           if (jobUpdate.count === 0) {
             throw new Error('This processing PO has already been received via the Printing/Dyeing module');
           }
+          // A whole receive: the job's one line is complete with it (reversing it re-opens every line)
+          await closeLine(
+            tx,
+            await theOnlyLine(tx, processingJob.id, 'Receiving against a processing PO'),
+            'FINAL',
+            data.receivingDate ? new Date(data.receivingDate as string) : new Date(),
+            null
+          );
 
           // Close the OUTWARD challan the greige went out on. This PO-backed path is a whole
           // receive (no parts), so isFinal is always true here. After setJwoStatusMany, so the
@@ -3017,12 +3033,17 @@ class GRNService {
         await this.reverseProcessingGRNInTx(tx, grn, po ?? null, userId, reason);
         // Phase 4b: mirror the MRP receipt decrement for JWO-keyed GRNs
         if (!grn.poId && grn.jobWorkOrderId) {
-          const totalAccepted = (grn.grn_items || []).reduce(
-            (sum: number, i: any) => sum + grnLineActualQty(i).toNumber(),
-            0
-          );
+          // Per job line: a receipt credited only its own line's orders, so its reversal takes back only from them
+          const byLine = new Map<string | null, number>();
+          for (const i of (grn.grn_items || []) as any[]) {
+            const key: string | null = i.jobWorkOrderLineId ?? null;
+            byLine.set(key, (byLine.get(key) ?? 0) + grnLineActualQty(i).toNumber());
+          }
+          for (const [lineId, qty] of byLine) {
+            if (qty > 0) await mrpService.updateJwoReceivedQuantity(grn.jobWorkOrderId, -qty, tx, lineId);
+          }
+          const totalAccepted = [...byLine.values()].reduce((sum, q) => sum + q, 0);
           if (totalAccepted > 0) {
-            await mrpService.updateJwoReceivedQuantity(grn.jobWorkOrderId, -totalAccepted, tx);
             // Phase 5a: symmetric reversal for service-requirement links (no-op without links)
             await updateWosrReceivedQuantity(grn.jobWorkOrderId, -totalAccepted, tx);
           }
@@ -3102,6 +3123,11 @@ class GRNService {
       }>;
       /** The Receive dialog's per-opening key, stored on the receipt (unique) — see receiveJwoToStock. */
       submissionKey?: string | null;
+      /**
+       * The job line (colour / order) this delivery is — required on a job with several lines, else the job's
+       * only line (2026-10-02). `isFinal` then closes THIS line; the job closes when its last line does.
+       */
+      lineId?: string | null;
     },
     userId: string,
     // `tx`: join a caller's transaction (receiveJwoToStock). `acceptedBy`: file the row ACCEPTED at
@@ -3152,10 +3178,13 @@ class GRNService {
         `${jwo.jobWorkNumber} is piece-based (${jwo.uom}) — receive it from the Job Work Order's Receive action, not a GRN`
       );
     }
-    await assertOneArrivingFabric(jwo, opts?.tx);
-    // The line (output) this receipt brings back — receiving works on one-line jobs until a receipt can
-    // pick its line; a job with several lines is refused here, before anything is written.
-    const line = await theOnlyLine(client, jwo.id, 'Receiving');
+    // The line (output) this receipt brings back: the one named, else the job's only line. A job with several
+    // lines receives one colour at a time — each its own fabric, its own cap, its own orders (2026-10-02).
+    const { line, lines, label: lineName } = await pickReceiptLine(client, jwo, data.lineId);
+    await assertOneArrivingFabric(jwo, line.id, opts?.tx);
+    const severalLines = lines.length > 1;
+    // The job as this line sees it: the line's style, colour, fabric and asked width
+    const lineJob = await jwoLineView(jwo, line, opts?.tx);
 
     // A return cannot be dated before the day the greige went out (the owner's first receipt was
     // dated 27-Aug on a job sent 19-Sep — nothing refused it). Calendar-day compare, UTC.
@@ -3206,23 +3235,26 @@ class GRNService {
     // Expected FABRIC due back (billable = sent × (1 − shrinkage)) — the GRN's
     // "ordered" basis. The greige sent is NOT the expectation: measuring receipts
     // against it hid over-receipts up to sent × (1 + tolerance).
+    // ...of THIS line: a job with several lines expects each fabric separately (on a one-line job the line's
+    // figures are the job's).
     const expectedFabricMeters =
-      jwo.qtyBillable != null
-        ? Number(jwo.qtyBillable)
-        : toNumber(roundToCent(applyShrinkageLoss(jwo.qtySentMeters, jwo.expectedShrinkage ?? 0)));
+      line.qtyExpected != null
+        ? Number(line.qtyExpected)
+        : toNumber(roundToCent(applyShrinkageLoss(line.qtySent, line.expectedShrinkage ?? 0)));
 
     // Over-receipt cap (this path previously had NONE — the PO path caps at :86). CUMULATIVE: a
-    // return may come in parts, and the cap is on everything received against the job, so the
+    // return may come in parts, and the cap is on everything received against the line, so the
     // message names what is already in when there is any.
     const overReceiptTolerance = await systemSettingsService.getNumberDefault('GRN_OVER_RECEIPT_TOLERANCE_PERCENT');
     const maxReceivable = toNumber(roundToCent(multiplyCurrency(expectedFabricMeters, 1 + overReceiptTolerance / 100)));
-    const receivedSoFar = Number(jwo.qtyReceivedMeters ?? 0);
+    const receivedSoFar = await lineReceivedSoFar(client, line.id);
+    const ofLine = severalLines ? ` of ${lineName}` : '';
     // Quantity rule (utils/quantity): over the cap by rounding dust is not over (0% tolerance setting).
     if (qtyExceeds(receivedSoFar + actualReceived, maxReceivable)) {
       throw new BusinessError(
         (receivedSoFar > 0
-          ? `Received ${receivedText} on top of the ${receivedSoFar.toFixed(2)} MTR already received `
-          : `Received ${receivedText} `) +
+          ? `Received ${receivedText}${ofLine} on top of the ${receivedSoFar.toFixed(2)} MTR already received `
+          : `Received ${receivedText}${ofLine} `) +
           `exceeds the expected fabric ${expectedFabricMeters.toFixed(2)} MTR ` +
           `plus ${overReceiptTolerance}% over-receipt tolerance (max ${maxReceivable.toFixed(2)} MTR)`
       );
@@ -3234,8 +3266,12 @@ class GRNService {
     // same rule refuses a stale client that posts no isFinal at all. Same pure function and the same
     // tolerance precedence (job → process type → 0) as the preview and applyLossSplit — nothing is
     // re-derived here. Sits before the mint below so a refusal writes nothing.
-    if ((data.isFinal ?? true) && !data.shortCloseConfirmed) {
-      const cumulative = toNumber(roundToCent(addCurrency(receivedSoFar, actualReceived)));
+    // A job with several lines closes when its LAST line does, and loss is judged on the whole job then: closing
+    // an earlier colour is not a short close of the job (owner, 30-Sep).
+    const closesJob = (data.isFinal ?? true) && lines.every((l) => l.id === line.id || l.closedAt != null);
+    if (closesJob && !data.shortCloseConfirmed) {
+      const jobReceivedSoFar = Number(jwo.qtyReceivedMeters ?? 0);
+      const cumulative = toNumber(roundToCent(addCurrency(jobReceivedSoFar, actualReceived)));
       let split: ReturnType<typeof jobWorkOrderService.calculateLossSplit>;
       try {
         split = jobWorkOrderService.calculateLossSplit({
@@ -3290,14 +3326,15 @@ class GRNService {
     // For a greige job whose mint was deferred (MRP does this when lineage is missing at creation)
     // it mints here and stamps it on the job so approval and every later reader find the same
     // master — inside the caller's transaction, so a receipt that fails leaves no half-stamped job.
-    const arriving = await resolveOrMintJwoArrivingMaterial(jwo, {
+    // Resolved on the LINE's view of the job: on a job with several lines each line has its own fabric.
+    const arriving = await resolveOrMintJwoArrivingMaterial(lineJob, {
       userId,
       source: 'AUTO_FROM_MRP_GRN',
       receivedWidthInches: data.receivedWidthInches ?? null,
       tx: opts?.tx,
     });
     if (arriving.minted) {
-      await stampJwoFinishedFabric(jwo.id, arriving.id, opts?.tx);
+      await stampJwoFinishedFabric(jwo.id, arriving.id, opts?.tx, line.id);
     }
     const materialId = await ensureMaterialRecord(arriving.id, arriving.kind, opts?.tx);
 
@@ -3327,6 +3364,8 @@ class GRNService {
               id: randomUUID(),
               poItemId: null,
               jobWorkOrderLineId: line.id,
+              // The colour this delivery is — the line's (a job with several lines has one per line)
+              colorName: lineJob.colorMaster?.colorName ?? line.colorName ?? null,
               materialId,
               // Expected fabric due back (billable basis), not the greige sent
               orderedQuantity: expectedFabricMeters,
@@ -3373,6 +3412,7 @@ class GRNService {
       grnNumber,
       jobWorkOrderId: jwo.id,
       jobWorkNumber: jwo.jobWorkNumber,
+      line: lineName,
       qtyReceived,
       actualReceived,
     });
@@ -3461,6 +3501,13 @@ class GRNService {
         // with another job's receipt.
         throw new BusinessError(
           'This submission was already used for a different job. Close the dialog and open it again.'
+        );
+      }
+      // Same key, another colour: never a retry either — "Receive another colour" mints a fresh key
+      const filedLine = existing?.grn_items?.[0]?.jobWorkOrderLineId ?? null;
+      if (existing && data.lineId && filedLine && filedLine !== data.lineId) {
+        throw new BusinessError(
+          'This submission was already used for another colour of this job. Close the dialog and open it again.'
         );
       }
       return existing;
@@ -3580,6 +3627,13 @@ class GRNService {
     }
 
     const grnItem = grn.grn_items?.[0];
+    // The job line this receipt brings back (written on the receipt row at creation; a receipt filed before
+    // lines existed belongs to the job's only line). Its style, colour, fabric and asked width are the
+    // receipt's — on a job with several lines the header's are NULL by design.
+    const line = grnItem?.jobWorkOrderLineId
+      ? await tx.job_work_order_lines.findUniqueOrThrow({ where: { id: grnItem.jobWorkOrderLineId } })
+      : await theOnlyLine(tx, jobWorkOrder.id, 'Approving this receipt');
+    const lineJob = await jwoLineView(jobWorkOrder, line, tx);
     // ACTUAL metres (the counted figure converted at the line's fold length) — what enters stock.
     const qtyReceived = grnItem
       ? grnLineActualQty({
@@ -3601,15 +3655,16 @@ class GRNService {
     }
     // ---- LACE: the dyed variant arrives as lace_stock, and no fabric is minted -----------------
     if (jobWorkOrder.fabricType === 'LACE') {
-      await this.approveLaceJwoGrnInTx(tx, jobWorkOrder, processingQC, targetWarehouseId, userId, grnId, qtyReceived, {
+      await this.approveLaceJwoGrnInTx(tx, lineJob, processingQC, targetWarehouseId, userId, grnId, qtyReceived, {
         grnItemId: grnItem?.id ?? null,
         receivedAt: grn.receivingDate ? new Date(grn.receivingDate) : new Date(),
         isFinal: opts.isFinal,
+        line,
       });
       return;
     }
 
-    const receivedWidth = await resolveStockWidthInches(jobWorkOrder, receivedWidthProvided, tx);
+    const receivedWidth = await resolveStockWidthInches(lineJob, receivedWidthProvided, tx);
 
     // Phase 5b: fabric-lot JWOs (embroidery on a finished roll) keep the SAME fabric master —
     // the result lot is differentiated by embroideryId, not a new fabric (legacy parity).
@@ -3619,7 +3674,7 @@ class GRNService {
     // lineage when the JWO carries none, and THROWS when nothing is resolvable. Until 2026-09-15
     // this site logged a warning and returned — leaving the GRN ACCEPTED with no fabric_stock, no
     // status update and no MRP callback, which the user saw as a successful receipt (T0-B).
-    const arriving = await resolveOrMintJwoArrivingMaterial(jobWorkOrder, {
+    const arriving = await resolveOrMintJwoArrivingMaterial(lineJob, {
       userId,
       source: 'AUTO_FROM_MRP_GRN',
       receivedWidthInches: receivedWidthProvided,
@@ -3693,7 +3748,8 @@ class GRNService {
         quantityReserved: 0,
         quantityConsumed: 0,
         unit: 'meters',
-        originStyleId: jobWorkOrder.style?.id || null,
+        // The line's style — a job with several lines brings back one fabric per style
+        originStyleId: lineJob.style?.id || null,
         // Fabric-naming: pattern part from the BOM→CAD chain (feeds part display + needsEmbroidery)
         patternPartId: identity?.patternPartId ?? null,
         status: 'AVAILABLE',
@@ -3785,7 +3841,7 @@ class GRNService {
           {
             itemType: 'FABRIC',
             fabricId: finishedFabricId,
-            description: `Processed fabric received via GRN ${grn.grnNumber} - ${styleCodeLabel(jobWorkOrder.style, null, '')}`,
+            description: `Processed fabric received via GRN ${grn.grnNumber} - ${styleCodeLabel(lineJob.style, null, '')}`,
             quantity: qtyReceived,
             unit: Unit.METER,
             ...(hasFold(grnItem?.foldLengthCm) ? { foldLengthCm: Number(grnItem.foldLengthCm) } : {}),
@@ -3796,7 +3852,7 @@ class GRNService {
     );
 
     // The fabric that came back is the job line's (mirrored to the job) — jwo-lines.helper
-    await stampJwoFinishedFabric(jobWorkOrder.id, finishedFabricId, tx);
+    await stampJwoFinishedFabric(jobWorkOrder.id, finishedFabricId, tx, line.id);
     // What every part writes on the job: the running total, the latest receipt and its challan.
     const receiptFields: Prisma.job_work_ordersUncheckedUpdateInput = {
       qtyReceivedMeters: cumulativeReceived,
@@ -3809,8 +3865,9 @@ class GRNService {
       ...(receivedWidthProvided != null
         ? {
             receivedWidthInches: receivedWidthProvided,
-            ...(jobWorkOrder.sentWidthInches != null
-              ? { widthVariance: receivedWidthProvided - Number(jobWorkOrder.sentWidthInches) }
+            // ...against the width asked of THIS line
+            ...(lineJob.sentWidthInches != null
+              ? { widthVariance: receivedWidthProvided - Number(lineJob.sentWidthInches) }
               : {}),
           }
         : {}),
@@ -3825,7 +3882,13 @@ class GRNService {
         : {}),
     };
 
-    if (opts.isFinal) {
+    // "Final delivery" closes the LINE; the job closes when its last line does (2026-10-02). On a one-line job
+    // the two are the same moment.
+    const jobClosed = opts.isFinal
+      ? (await closeLine(tx, line, 'FINAL', receivedAt, grnItem?.id ?? null)).jobClosed
+      : false;
+
+    if (jobClosed) {
       await setJwoStatus(tx, jobWorkOrder.id, 'STOCK_UPDATED', {
         ...receiptFields,
         receivedDate: jobWorkOrder.receivedDate ?? receivedAt,
@@ -3853,7 +3916,7 @@ class GRNService {
     // stock-booking receipt over one would be the worse outcome.
     try {
       const outwardStatus = await closeOutwardChallanForJwo(tx, jobWorkOrder.id, {
-        isFinal: !!opts.isFinal,
+        isFinal: jobClosed,
         receivedById: userId,
         receivedAt,
       });
@@ -3870,8 +3933,8 @@ class GRNService {
       });
     }
 
-    // Phase 4b receipt bridge: advance MRP requirements via requirement_jwo_links
-    await mrpService.updateJwoReceivedQuantity(jobWorkOrder.id, qtyReceived, tx);
+    // Phase 4b receipt bridge: advance MRP requirements via requirement_jwo_links — this line's orders only
+    await mrpService.updateJwoReceivedQuantity(jobWorkOrder.id, qtyReceived, tx, line.id);
     // Phase 5a: same hook for service requirements (no-ops when no links exist)
     await updateWosrReceivedQuantity(jobWorkOrder.id, qtyReceived, tx);
 
@@ -3879,9 +3942,11 @@ class GRNService {
       grnId,
       jobWorkOrderId: jobWorkOrder.id,
       jobWorkNumber: jobWorkOrder.jobWorkNumber,
+      lineNo: line.lineNo,
       fabricId: finishedFabricId,
       qtyReceived,
       costPerMeter: totalCostPerMeter,
+      jobClosed,
     });
   }
 
@@ -3910,7 +3975,13 @@ class GRNService {
     userId: string,
     grnId: string,
     qtyReceived: number,
-    receipt: { grnItemId: string | null; receivedAt: Date; isFinal: boolean }
+    receipt: {
+      grnItemId: string | null;
+      receivedAt: Date;
+      isFinal: boolean;
+      /** The job line this receipt brings back (a lace job has exactly one) */
+      line: { id: string; jobWorkOrderId: string };
+    }
   ): Promise<void> {
     if (!jobWorkOrder.finishedLaceId) {
       throw new Error(
@@ -4005,7 +4076,12 @@ class GRNService {
         : {}),
     };
 
-    if (receipt.isFinal) {
+    // Final delivery closes the line, and with it the job (a lace job has one line)
+    const jobClosed = receipt.isFinal
+      ? (await closeLine(tx, receipt.line, 'FINAL', receivedAt, receipt.grnItemId)).jobClosed
+      : false;
+
+    if (jobClosed) {
       await setJwoStatus(tx, jobWorkOrder.id, 'STOCK_UPDATED', {
         ...receiptFields,
         receivedDate: jobWorkOrder.receivedDate ?? receivedAt,
@@ -4027,7 +4103,7 @@ class GRNService {
     // the goods still went out on an OUTWARD one and it must stop reading as "at the dyer".
     try {
       const outwardStatus = await closeOutwardChallanForJwo(tx, jobWorkOrder.id, {
-        isFinal: !!receipt.isFinal,
+        isFinal: jobClosed,
         receivedById: userId,
         receivedAt,
       });
@@ -4044,7 +4120,7 @@ class GRNService {
       });
     }
 
-    await mrpService.updateJwoReceivedQuantity(jobWorkOrder.id, qtyReceived, tx);
+    await mrpService.updateJwoReceivedQuantity(jobWorkOrder.id, qtyReceived, tx, receipt.line.id);
     await updateWosrReceivedQuantity(jobWorkOrder.id, qtyReceived, tx);
 
     logInfo('Lace JWO GRN approved — lace_stock created', {
@@ -4553,13 +4629,14 @@ class GRNService {
       }
     }
 
-    // 1. Reverse fabric_stock created from this job
-    if (jobWorkOrder.finishedFabricId) {
-      // The lot(s) this receipt booked — by the receipt line; date match only for pre-link lots.
-      let fabricStocks = await tx.fabric_stock.findMany({
-        where: { fabricId: jobWorkOrder.finishedFabricId, grnItemId: { in: receiptItemIds } },
-      });
-      if (fabricStocks.length === 0 && legacyDateMatch) {
+    // 1. Reverse fabric_stock created from this job — the lot(s) this receipt booked, by the receipt line,
+    //    whatever their fabric (a job with several lines books a different fabric per line, and its header names
+    //    none). The date match is only for lots booked before that link existed.
+    if (jobWorkOrder.fabricType !== 'LACE') {
+      let fabricStocks = receiptItemIds.length
+        ? await tx.fabric_stock.findMany({ where: { grnItemId: { in: receiptItemIds } } })
+        : [];
+      if (fabricStocks.length === 0 && legacyDateMatch && jobWorkOrder.finishedFabricId) {
         fabricStocks = await tx.fabric_stock.findMany({
           where: {
             fabricId: jobWorkOrder.finishedFabricId,
@@ -4584,12 +4661,12 @@ class GRNService {
           );
         }
         await tx.fabric_stock.delete({ where: { id: stock.id } });
-        await syncStockLevelQuantity(jobWorkOrder.finishedFabricId, -qty, stock.warehouseId ?? undefined, 'METER', tx);
+        await syncStockLevelQuantity(stock.fabricId, -qty, stock.warehouseId ?? undefined, 'METER', tx);
 
         logInfo(`Reversed processing fabric_stock: ${qty}m`, {
           grnId: grn.id,
           fabricStockId: stock.id,
-          fabricId: jobWorkOrder.finishedFabricId,
+          fabricId: stock.fabricId,
         });
       }
     }
@@ -4680,6 +4757,19 @@ class GRNService {
     //    if a middle part went, the job stays final and the split is re-run on the reduced total.
     const reversalNote = `[GRN REVERSED ${new Date().toISOString()}] ${reason}`;
     const remarks = jobWorkOrder.remarks ? `${jobWorkOrder.remarks}\n${reversalNote}` : reversalNote;
+    // The job's lines: the one this receipt closed (or closed short) is open again. The job stays finished only
+    // while every line is still closed. Lines that carry no closure at all belong to a job closed before closure
+    // was recorded on lines (or by the PO-backed receipt, which does not record it): there the old rule holds —
+    // the job stays finished unless this receipt was its closing one.
+    const lineClosure = await tx.job_work_order_lines.findMany({
+      where: { jobWorkOrderId: jobWorkOrder.id },
+      select: { closedAt: true },
+    });
+    const closureRecorded = lineClosure.some((l) => l.closedAt != null);
+    const { allClosed } = await reopenLinesClosedBy(tx, jobWorkOrder.id, grn.grn_items ?? []);
+    const stillFinal = closureRecorded
+      ? !!jobWorkOrder.receivedDate && allClosed
+      : !!jobWorkOrder.receivedDate && jobWorkOrder.grnId !== grn.id;
     const remaining = grn.jobWorkOrderId
       ? await tx.goods_receiving_notes.findMany({
           where: { jobWorkOrderId: jobWorkOrder.id, status: 'ACCEPTED', id: { not: grn.id } },
@@ -4689,7 +4779,8 @@ class GRNService {
       : [];
 
     if (remaining.length === 0) {
-      // Reset job work order to pre-receive state (ISSUED maps legacy back to AT_MILL)
+      // Reset job work order to pre-receive state (ISSUED maps legacy back to AT_MILL) — every line open again
+      await reopenAllLines(tx, jobWorkOrder.id);
       await setJwoStatus(tx, jobWorkOrder.id, 'ISSUED', {
         qtyReceivedMeters: null,
         receivedWidthInches: null,
@@ -4720,7 +4811,6 @@ class GRNService {
         .filter((n): n is number => n != null);
       const thanCount = thanCounts.length ? thanCounts.reduce((a, b) => a + b, 0) : null;
       const sentMeters = Number(jobWorkOrder.qtySentMeters ?? 0);
-      const stillFinal = !!jobWorkOrder.receivedDate && jobWorkOrder.grnId !== grn.id;
       const latest = remaining[remaining.length - 1];
       const latestChallan = await tx.challans.findFirst({
         where: { grnId: latest.id, challanType: 'INWARD' },
@@ -4773,7 +4863,7 @@ class GRNService {
     try {
       const outwardStatus = await resyncOutwardChallanAfterReversal(tx, jobWorkOrder.id, {
         remainingReceipts: remaining.length,
-        stillFinal: remaining.length > 0 && !!jobWorkOrder.receivedDate && jobWorkOrder.grnId !== grn.id,
+        stillFinal: remaining.length > 0 && stillFinal,
       });
       if (outwardStatus) {
         logInfo('[GRN] Outward challan reopened after reversal', {

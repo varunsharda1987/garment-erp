@@ -209,6 +209,8 @@ export interface Order {
     style?: { styleCode: string; styleName: string; buyerStyleRef?: string | null };
     _count?: { items: number };
   }>;
+  /** The order's requirement lines, when the endpoint includes them (read only for "are there any") */
+  materialRequirements?: unknown[];
   // ── Order page only (GET /orders/:id) ──
   /** Live requirement lines, one bucket each (CANCELLED / CONVERTED left out) */
   requirementsSummary?: { material: RequirementBuckets; processing: RequirementBuckets };

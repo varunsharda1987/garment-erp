@@ -1,7 +1,7 @@
 import { Page, Locator, expect } from '@playwright/test';
 import { BasePage } from './base-page';
 import { TestConfig, FieldType } from '../config/test-config';
-import { FieldValidator, FieldDefinition, FormDefinition } from '../core/field-validator';
+import { FieldValidator, FormDefinition } from '../core/field-validator';
 
 /**
  * Base Form Page Object

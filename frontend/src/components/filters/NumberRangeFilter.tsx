@@ -13,7 +13,7 @@
  *   onChange={({ min, max }) => updateURLParams({ minWidth: min, maxWidth: max, page: undefined })}
  * />
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 
@@ -69,7 +69,9 @@ export function NumberRangeFilter({
   // Held in a ref so the debounce effect does NOT list onChange as a dependency. SearchInput.tsx
   // does list it, which restarts its timer on every parent render — don't copy that.
   const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
+  useLayoutEffect(() => {
+    onChangeRef.current = onChange;
+  });
 
   // The last value this component and its parent agree on, so we can tell "the user typed" from
   // "the parent changed underneath us" (Clear Filters, a URL restore, the Back button).

@@ -35,6 +35,7 @@ import type { ExternalProcessSendOut, ExternalProcessStatus } from '../types/ext
 import { formatDate } from '@/lib/date';
 import { StyleIdentity } from '@/components/StyleIdentity';
 import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, ourStyleCode } from '@/lib/style-code';
+import type { ApiErrorLike } from '@/lib/api-error-handler';
 
 const STATUS_BADGES: Record<
   ExternalProcessStatus,
@@ -99,7 +100,7 @@ export default function SmockingDashboard() {
       setCancelId(null);
       setCancelReason('');
     },
-    onError: (error: any) => {
+    onError: (error: ApiErrorLike) => {
       toast.error(error?.response?.data?.message || 'Failed to cancel send-out');
     },
   });

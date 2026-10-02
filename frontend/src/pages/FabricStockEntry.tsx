@@ -16,6 +16,7 @@ import { formatCurrency } from '@/lib/currency';
 import { toast } from 'sonner';
 import { toDateInputValue } from '@/lib/date';
 import { styleCodeLabel } from '@/lib/style-code';
+import type { ApiErrorLike } from '@/lib/api-error-handler';
 
 /** A style the selected fabric is allocated to — one per style */
 interface LinkedStyle {
@@ -187,7 +188,8 @@ export default function FabricStockEntry() {
       setTimeout(() => {
         navigate('/fabric-stock');
       }, 2000);
-    } catch (err: any) {
+    } catch (caught) {
+      const err = caught as ApiErrorLike;
       const errorMsg = err?.response?.data?.message || err?.message || 'Failed to save fabric stock entry';
       console.error('Error in handleSave:', err);
       setError(errorMsg);

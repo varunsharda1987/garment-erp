@@ -18,7 +18,8 @@ import {
   DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu';
 import ConfirmDialog from '@/components/ConfirmDialog';
-import UnapproveImpactDialog, { getCostingInUseDetails } from '@/components/fabric-costing/UnapproveImpactDialog';
+import UnapproveImpactDialog from '@/components/fabric-costing/UnapproveImpactDialog';
+import { getCostingInUseDetails } from '@/components/fabric-costing/costing-in-use';
 import { fabricCostingService } from '../services/fabricCosting.service';
 import { styleService } from '../services/style.service';
 import type { CostingOption, CostingInUseErrorDetails } from '../types/fabricCosting.types';

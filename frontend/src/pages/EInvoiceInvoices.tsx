@@ -29,6 +29,7 @@ import { getEInvoiceInvoices, generateIrn, cancelIrn, preflightEInvoice } from '
 import type { EInvoiceInvoiceRow, EInvoicePreflightResult } from '@/types/einvoice.types';
 import { formatCurrency } from '@/lib/currency';
 import { formatDate } from '@/lib/date';
+import { useNow } from '@/hooks/useNow';
 
 const CANCEL_REASONS = [
   { value: '1', label: 'Duplicate' },
@@ -38,6 +39,7 @@ const CANCEL_REASONS = [
 ];
 
 export default function EInvoiceInvoicesPage() {
+  const now = useNow();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [irnStatus, setIrnStatus] = useState<'all' | 'not_generated' | 'generated' | 'cancelled' | 'error'>('all');
@@ -123,7 +125,7 @@ export default function EInvoiceInvoicesPage() {
 
   const withinCancelWindow = (row: EInvoiceInvoiceRow) => {
     if (!row.eInvoiceAckDate) return true;
-    return Date.now() - new Date(row.eInvoiceAckDate).getTime() < 24 * 60 * 60 * 1000;
+    return now - new Date(row.eInvoiceAckDate).getTime() < 24 * 60 * 60 * 1000;
   };
 
   const handleSelectAll = (checked: boolean) => {

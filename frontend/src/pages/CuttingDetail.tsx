@@ -182,7 +182,7 @@ export default function CuttingDetail() {
         defaults[f.fabricStockId] = f.balance;
       }
       setReturnQtys(defaults);
-    } catch (err) {
+    } catch {
       setIssuedFabrics([]);
       setReturnQtys({});
     } finally {

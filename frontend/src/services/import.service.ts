@@ -22,7 +22,8 @@ class ImportService {
       logApiError('Import preview error:', error);
       const axiosError = error as { response?: { data?: { message?: string; error?: string } } };
       throw new Error(
-        axiosError.response?.data?.message || axiosError.response?.data?.error || 'Failed to preview import'
+        axiosError.response?.data?.message || axiosError.response?.data?.error || 'Failed to preview import',
+        { cause: error }
       );
     }
   }
@@ -58,7 +59,8 @@ class ImportService {
       logApiError('Import execute error:', error);
       const axiosError = error as { response?: { data?: { message?: string; error?: string } } };
       throw new Error(
-        axiosError.response?.data?.message || axiosError.response?.data?.error || 'Failed to execute import'
+        axiosError.response?.data?.message || axiosError.response?.data?.error || 'Failed to execute import',
+        { cause: error }
       );
     }
   }
@@ -110,7 +112,8 @@ class ImportService {
       logApiError('Download template error:', error);
       const axiosError = error as { response?: { data?: { message?: string; error?: string } } };
       throw new Error(
-        axiosError.response?.data?.message || axiosError.response?.data?.error || 'Failed to download template'
+        axiosError.response?.data?.message || axiosError.response?.data?.error || 'Failed to download template',
+        { cause: error }
       );
     }
   }

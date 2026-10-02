@@ -21,10 +21,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import ReceiptDetailRows, {
-  sumDetailRows,
   type ReceiptDetailRow,
   type ReceiptEntryMode,
 } from '@/components/job-work/ReceiptDetailRows';
+import { sumDetailRows } from '@/components/job-work/receipt-detail-rows';
 import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
 import { warehouseService } from '@/services/warehouse.service';
 import type { WarehouseType } from '@/types/inventory.types';

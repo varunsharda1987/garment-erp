@@ -21,7 +21,8 @@ import {
 } from '../components/ui/dropdown-menu';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import Pagination from '@/components/Pagination';
-import UnapproveImpactDialog, { getCostingInUseDetails } from '@/components/fabric-costing/UnapproveImpactDialog';
+import UnapproveImpactDialog from '@/components/fabric-costing/UnapproveImpactDialog';
+import { getCostingInUseDetails } from '@/components/fabric-costing/costing-in-use';
 import { fabricCostingService } from '../services/fabricCosting.service';
 import { CustomerCombobox } from '@/components/CustomerCombobox';
 import { StyleCombobox } from '@/components/StyleCombobox';

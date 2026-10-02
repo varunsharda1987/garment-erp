@@ -1,8 +1,6 @@
 import { test as base, Page } from '@playwright/test';
 import {
   registerUser,
-  loginUser,
-  logoutUser,
   clearAuth,
   generateTestUser,
   type TestUser,

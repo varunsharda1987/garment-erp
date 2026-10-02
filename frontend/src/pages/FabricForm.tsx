@@ -373,7 +373,6 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     if (!preselectedStyleId || selectedStyleId) return;
 
     handleStyleChangeFromCombobox(preselectedStyleId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, fabricSource, preselectedStyleId, selectedStyleId]);
 
   // Auto-select component from URL params by ID (after style components load)

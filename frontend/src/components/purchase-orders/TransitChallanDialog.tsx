@@ -18,10 +18,10 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ReceiptDetailRows, {
-  sumDetailRows,
   type ReceiptDetailRow,
   type ReceiptEntryMode,
 } from '@/components/job-work/ReceiptDetailRows';
+import { sumDetailRows } from '@/components/job-work/receipt-detail-rows';
 import { challanService } from '@/services/challan.service';
 import { handleApiError } from '@/lib/api-error-handler';
 import { notify } from '@/lib/notify';

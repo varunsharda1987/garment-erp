@@ -1878,7 +1878,7 @@ export default function PurchaseOrderForm() {
           false
         );
       }
-    } catch (err) {
+    } catch {
       // Rate lookup failed - notify user to enter manually
       handleApiError(
         new Error('Could not fetch processor rate. Please enter the rate manually.'),
@@ -2590,6 +2590,7 @@ export default function PurchaseOrderForm() {
                                     blockedOn={shortcutBlockedOn('GREIGE')}
                                     target={PO_CATEGORY_LABELS.GREIGE}
                                     onClick={() =>
+                                      // eslint-disable-next-line react-hooks/refs -- runs on click; the compiler takes this handler, inside the render-time IIFE above, for a render-time call
                                       addStyleLine('GREIGE', createGreigeItem(row), row.greigeName || 'Greige')
                                     }
                                   >

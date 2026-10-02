@@ -14,7 +14,6 @@
  */
 
 import { useNavigate } from 'react-router-dom';
-import { AxiosError } from 'axios';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,20 +26,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { styleCodeLabel } from '@/lib/style-code';
-import type { CadCostingDependents, CostingInUseErrorDetails } from '../../types/fabricCosting.types';
-
-/**
- * Extract the COSTING_OPTION_IN_USE payload from an unapprove error, or null
- * when the error is something else (falls through to normal error handling).
- */
-export function getCostingInUseDetails(error: unknown): CostingInUseErrorDetails | null {
-  if (!error || typeof error !== 'object' || !('response' in error)) return null;
-  const axiosError = error as AxiosError<{ details?: CostingInUseErrorDetails }>;
-  if (axiosError.response?.status !== 409) return null;
-  const details = axiosError.response.data?.details;
-  if (!details || details.code !== 'COSTING_OPTION_IN_USE') return null;
-  return details;
-}
+import type { CadCostingDependents } from '../../types/fabricCosting.types';
 
 interface UnapproveImpactDialogProps {
   open: boolean;

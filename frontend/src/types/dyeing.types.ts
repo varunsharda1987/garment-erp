@@ -58,6 +58,8 @@ export interface DyeLabDip {
   buyerRemarks?: string;
 
   remarks?: string;
+  /** Times the lab dip went back to the processor (lab_dips.resubmissionCount, default 0) */
+  resubmissionCount?: number;
 
   createdById: string;
   createdAt: string;
@@ -82,6 +84,7 @@ export interface DyeLabDip {
     id: string;
     colorName: string;
     colorCode: string;
+    hexCode?: string | null;
   };
   processor?: {
     id: string;

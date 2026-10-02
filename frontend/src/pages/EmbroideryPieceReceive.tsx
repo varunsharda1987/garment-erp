@@ -20,6 +20,7 @@ import { ArrowLeft } from 'lucide-react';
 import type { ExternalProcessReceiveRequest } from '../types/external-process.types';
 import { formatCurrency } from '../lib/currency';
 import { toDateInputValue } from '@/lib/date';
+import type { ApiErrorLike } from '@/lib/api-error-handler';
 
 export default function EmbroideryPieceReceive() {
   const navigate = useNavigate();
@@ -65,7 +66,7 @@ export default function EmbroideryPieceReceive() {
       toast.success('Embroidered pieces received');
       navigate('/embroidery-stock/pieces');
     },
-    onError: (err: any) => {
+    onError: (err: ApiErrorLike) => {
       // BUG-EMB9 fix: show toast.error in addition to setting error state
       const message = err?.response?.data?.message || err?.message || 'Failed to record receipt';
       setError(message);

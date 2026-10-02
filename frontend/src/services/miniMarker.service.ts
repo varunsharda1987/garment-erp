@@ -23,8 +23,16 @@ export interface MarkerRefusal {
   differences: MarkerDifference[];
 }
 
+type MarkerRefusalDetails = { code?: string; differences?: MarkerDifference[] };
+
 export function markerRefusalFromError(error: unknown): MarkerRefusal | null {
-  const res = (error as { response?: { data?: any } })?.response;
+  const res = (
+    error as {
+      response?: {
+        data?: { message?: string; details?: MarkerRefusalDetails; error?: { details?: MarkerRefusalDetails } };
+      };
+    }
+  )?.response;
   const details = res?.data?.details ?? res?.data?.error?.details;
   const code = details?.code;
   if (code !== 'CAD_MARKER_MISMATCH' && code !== 'CAD_MARKER_IMAGE_REQUIRED' && code !== 'CAD_MARKER_NOT_USED')
@@ -32,7 +40,7 @@ export function markerRefusalFromError(error: unknown): MarkerRefusal | null {
   return {
     code,
     message: res?.data?.message ?? 'The CAD image does not allow this',
-    differences: Array.isArray(details.differences) ? details.differences : [],
+    differences: Array.isArray(details?.differences) ? details.differences : [],
   };
 }
 

@@ -183,7 +183,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
     setValue,
     watch,
     formState: { errors },
-  } = useForm<CustomerFormInput, any, CustomerFormData>({
+  } = useForm<CustomerFormInput, unknown, CustomerFormData>({
     resolver: zodResolver(customerFormSchema),
     defaultValues: {
       type: CustomerType.BUYER,

@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import { TestConfig } from '../../config/test-config';
 import { generateTestCustomer } from '../../fixtures/entity-fixtures';
 
 /**
@@ -104,7 +103,7 @@ test.describe('Level 1: Customer Management', () => {
 
       for (const label of fieldLabels) {
         const field = page.getByLabel(label);
-        const isVisible = await field.isVisible().catch(() => false);
+        await field.isVisible().catch(() => false);
         // Note: Some fields might be in tabs or collapsible sections
       }
 

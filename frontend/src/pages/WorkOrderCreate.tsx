@@ -19,6 +19,7 @@ import type { Priority } from '@/types/production.types';
 import type { Style } from '@/types/style.types';
 import { toDateInputValue } from '@/lib/date';
 import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, buyerStyleCode, ourStyleCode } from '@/lib/style-code';
+import type { ApiErrorLike } from '@/lib/api-error-handler';
 
 // GET /styles/:id returns the style's SKU grid as `styleVariants` with flat colour/size fields
 interface StyleVariantRow {
@@ -55,7 +56,7 @@ export default function WorkOrderCreate() {
   const submittingRef = useRef(false);
   const [selectedStyle, setSelectedStyle] = useState<Style | undefined>(undefined);
   const [plannedStartDate, setPlannedStartDate] = useState(toDateInputValue(new Date()));
-  const [plannedEndDate, setPlannedEndDate] = useState(
+  const [plannedEndDate, setPlannedEndDate] = useState(() =>
     toDateInputValue(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))
   );
   const [priority, setPriority] = useState<Priority>('MEDIUM');
@@ -119,7 +120,7 @@ export default function WorkOrderCreate() {
     }
   };
 
-  const updateBreakupRow = (index: number, field: keyof BreakupRow, value: any) => {
+  const updateBreakupRow = <K extends keyof BreakupRow>(index: number, field: K, value: BreakupRow[K]) => {
     const updated = [...breakup];
     updated[index] = { ...updated[index], [field]: value };
     setBreakup(updated);
@@ -190,7 +191,8 @@ export default function WorkOrderCreate() {
       });
       toast.success('Work order created successfully');
       navigate(`/production/work-orders/${created.id}`);
-    } catch (err: any) {
+    } catch (caught) {
+      const err = caught as ApiErrorLike;
       const message = err?.response?.data?.message || err?.message || 'Failed to create work order';
       setError(message);
       toast.error(message);

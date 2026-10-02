@@ -32,6 +32,7 @@ import { fabricService } from '@/services/fabricGreigeService';
 import { getAllSuppliers } from '@/services/supplier.service';
 import { useDefaultSettings } from '@/hooks/useDefaultSettings';
 import type { DyeLabDip } from '@/types/dyeing.types';
+import type { StyleFabric } from '@/types/style.types';
 import type { LabDip, CreateProcessPORequest, ProcessPO } from '@/types/printing.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { cn } from '@/lib/utils';
@@ -50,6 +51,15 @@ interface ProcessPOCreateFormProps {
 }
 
 type AnyLabDip = DyeLabDip | LabDip;
+type StyleOption = Awaited<ReturnType<typeof styleService.getAllStyles>>['data'][number];
+type FabricOption = Awaited<ReturnType<typeof fabricService.getAll>>['data'][number];
+type ProcessorOption = Awaited<ReturnType<typeof getAllSuppliers>>['data'][number];
+/** A dyed / printed fabric of the chosen style, with the component it belongs to and its process */
+type StyleFabricRow = StyleFabric & {
+  _componentType?: string;
+  _componentName?: string;
+  _processType: 'DYEING' | 'PRINTING';
+};
 
 export default function ProcessPOCreateForm({ processType, backPath, title }: ProcessPOCreateFormProps) {
   const navigate = useNavigate();
@@ -65,22 +75,22 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
   // Style-based selection (style-based mode)
   const [styleSearch, setStyleSearch] = useState('');
   const [styleOpen, setStyleOpen] = useState(false);
-  const [selectedStyle, setSelectedStyle] = useState<any | null>(null);
+  const [selectedStyle, setSelectedStyle] = useState<StyleOption | null>(null);
 
   // All fabrics from style (unified view - both DYED and PRINTED)
-  const [styleFabrics, setStyleFabrics] = useState<any[]>([]);
-  const [selectedStyleFabric, setSelectedStyleFabric] = useState<any | null>(null);
+  const [styleFabrics, setStyleFabrics] = useState<StyleFabricRow[]>([]);
+  const [selectedStyleFabric, setSelectedStyleFabric] = useState<StyleFabricRow | null>(null);
   const [isLoadingStyleFabrics, setIsLoadingStyleFabrics] = useState(false);
 
   // Fabric selection - styleFabrics table with fallback to search all fabrics
   const [useOtherFabric, setUseOtherFabric] = useState(false);
   const [fabricSearch, setFabricSearch] = useState('');
   const [fabricOpen, setFabricOpen] = useState(false);
-  const [selectedFabric, setSelectedFabric] = useState<any | null>(null);
+  const [selectedFabric, setSelectedFabric] = useState<FabricOption | null>(null);
 
   const [processorSearch, setProcessorSearch] = useState('');
   const [processorOpen, setProcessorOpen] = useState(false);
-  const [selectedProcessor, setSelectedProcessor] = useState<any | null>(null);
+  const [selectedProcessor, setSelectedProcessor] = useState<ProcessorOption | null>(null);
 
   // Greige stock selection
   const [greigeStockOpen, setGreigeStockOpen] = useState(false);
@@ -207,8 +217,8 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
       setIsLoadingStyleFabrics(true);
       styleService
         .getStyleById(selectedStyle.id)
-        .then((fullStyle: any) => {
-          const rows: any[] = [];
+        .then((fullStyle) => {
+          const rows: StyleFabricRow[] = [];
           const components = fullStyle.components || []; // serializer converts style_components → components
 
           for (const comp of components) {
@@ -239,13 +249,14 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
     if (selectedStyleFabric) {
       // Set the fabric for compatibility with existing form logic
       if (selectedStyleFabric.fabric) {
-        setSelectedFabric(selectedStyleFabric.fabric);
+        // A reference: the form reads only id / code / name of the selected fabric
+        setSelectedFabric(selectedStyleFabric.fabric as FabricOption);
       } else if (selectedStyleFabric.fabricId) {
         setSelectedFabric({
           id: selectedStyleFabric.fabricId,
           fabricCode: selectedStyleFabric.fabricName || 'Unknown',
           fabricName: selectedStyleFabric.fabricName || 'Unknown',
-        });
+        } as FabricOption);
       }
       // Asked finished width = CAD cutable width + selvedge deduction (NOT bare cutable —
       // finishing at the cutable width would leave too little after selvedge trim).
@@ -273,8 +284,9 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
     if (styleData && fabricIdToMatch) {
       // Find the style_fabric entry that matches the selected fabric
       // Serializer maps style_fabrics → fabrics
-      const fabrics = (styleData as any).fabrics || (styleData as any).components || [];
-      const matchingFabric = fabrics.find((sf: any) => sf.fabricId === fabricIdToMatch);
+      // Every fabric of every component (the style API nests style_fabrics under components)
+      const fabrics = (styleData.components || []).flatMap((c) => c.fabrics || []);
+      const matchingFabric = fabrics.find((sf) => sf.fabricId === fabricIdToMatch);
 
       if (matchingFabric?.cutableWidth) {
         setExpectedFinishedWidth(Number(matchingFabric.cutableWidth) + cutableWidthDeduction);
@@ -691,7 +703,7 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
                       )}
                       <CommandEmpty>No styles found</CommandEmpty>
                       <CommandGroup>
-                        {(stylesData || []).map((style: any) => (
+                        {(stylesData || []).map((style) => (
                           <CommandItem
                             key={style.id}
                             value={style.id}
@@ -779,7 +791,7 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
                             )}
                             <CommandEmpty>No fabrics found</CommandEmpty>
                             <CommandGroup>
-                              {(fabricsData?.data || []).map((fabric: any) => (
+                              {(fabricsData?.data || []).map((fabric) => (
                                 <CommandItem
                                   key={fabric.id}
                                   value={fabric.id}
@@ -932,7 +944,7 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
                         )}
                         <CommandEmpty>No processors found</CommandEmpty>
                         <CommandGroup>
-                          {(processorsData || []).map((processor: any) => (
+                          {(processorsData || []).map((processor) => (
                             <CommandItem
                               key={processor.id}
                               value={processor.id}

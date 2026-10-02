@@ -48,12 +48,15 @@ class ExportService {
       const axiosError = error as { response?: { data?: Blob | { message?: string } } };
       if (axiosError.response?.data instanceof Blob) {
         const text = await axiosError.response.data.text();
+        // The server's own message when the body is JSON. The throw used to sit inside this try, so
+        // its catch swallowed it and every failure read just "Export failed".
+        let message = 'Export failed';
         try {
-          const errorData = JSON.parse(text);
-          throw new Error(errorData.message || 'Export failed');
+          message = JSON.parse(text).message || message;
         } catch {
-          throw new Error('Export failed');
+          // not JSON — keep the generic message
         }
+        throw new Error(message, { cause: error });
       }
 
       throw error;

@@ -19,6 +19,7 @@ import { formatCurrency } from '../lib/currency';
 import { StyleIdentity } from '@/components/StyleIdentity';
 import { formatDate, toDateInputValue } from '@/lib/date';
 import { qtyExceeds, qtyRemaining, snapToLimit } from '@/lib/quantity';
+import type { ApiErrorLike } from '@/lib/api-error-handler';
 
 export default function EmbroideryStockReceive() {
   const navigate = useNavigate();
@@ -186,7 +187,8 @@ export default function EmbroideryStockReceive() {
       navTimeoutRef.current = setTimeout(() => {
         navigate('/embroidery-stock');
       }, 2000);
-    } catch (err: any) {
+    } catch (caught) {
+      const err = caught as ApiErrorLike;
       const errorMessage = err?.response?.data?.message || err?.message || 'Failed to receive embroidered fabric';
       setError(errorMessage);
       logError('Failed to receive embroidered fabric:', err);

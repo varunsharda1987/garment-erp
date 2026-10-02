@@ -30,6 +30,16 @@ export default defineConfig([
       // rules (refs, purity, static-components, …) stay errors.
       'react-hooks/immutability': 'warn',
       'react-hooks/set-state-in-effect': 'warn',
+      // "Compilation skipped: existing memoization could not be preserved" — advice for the React
+      // Compiler, which this build does not run (no babel-plugin-react-compiler in vite.config.ts);
+      // the useMemo works as written.
+      'react-hooks/preserve-manual-memoization': 'warn',
+      // Same convention as the backend: a leading `_` marks a deliberately unused name, and a key
+      // destructured only to leave it out of `...rest` is in use.
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_', ignoreRestSiblings: true },
+      ],
     },
   },
   {

@@ -1,14 +1,9 @@
-import { test, expect, Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { registerUser, generateTestUser, clearAuth } from './helpers/auth.helper';
-import { navigateToCustomers, navigateToCreateCustomer, waitForPageLoad } from './helpers/navigation.helper';
+import { navigateToCustomers, navigateToCreateCustomer } from './helpers/navigation.helper';
 import {
-  assertNoConsoleErrors,
   assertSuccessToast,
-  assertTableHasData,
-  assertTableHasRow,
-  assertEmptyState,
   assertPaginationExists,
-  assertValidationError,
   assertDialogOpen,
   assertDialogClosed,
 } from './helpers/assertions.helper';

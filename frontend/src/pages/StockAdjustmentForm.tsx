@@ -20,6 +20,7 @@ import stockLevelService from '../services/stockLevel.service';
 import { Unit, AdjustmentReason } from '../types/inventory-exports';
 import type { StockLevel } from '../types/inventory-exports';
 import { logError } from '../lib/logger';
+import type { ApiErrorLike } from '@/lib/api-error-handler';
 
 export default function StockAdjustmentForm() {
   const navigate = useNavigate();
@@ -107,7 +108,8 @@ export default function StockAdjustmentForm() {
 
       setSuccess(true);
       setTimeout(() => navigate('/inventory/movements'), 2000);
-    } catch (err: any) {
+    } catch (caught) {
+      const err = caught as ApiErrorLike;
       const errorMessage = err?.response?.data?.message || err?.message || 'Failed to create adjustment';
       setError(errorMessage);
     } finally {

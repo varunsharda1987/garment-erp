@@ -3,7 +3,7 @@
  * Focus on greige processing workflow with transportation costs and processor rate card integration
  */
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Eye,
@@ -2349,9 +2349,11 @@ export default function FabricCostingPage() {
     }
   };
 
-  // BUG-FC3 fix: Update saveRef so the unsaved changes dialog can call handleSave
-  // Direct assignment is fine since ref persists across renders
-  saveRef.current = handleSave;
+  // BUG-FC3 fix: Update saveRef so the unsaved changes dialog can call handleSave (refreshed after
+  // each render — the dialog only reads it on a click)
+  useLayoutEffect(() => {
+    saveRef.current = handleSave;
+  });
 
   // Create a new costing run from saved CAD IDs
   const handleCreateRun = async () => {

@@ -358,7 +358,7 @@ export default function StyleList() {
           const designColor = fab.printDesign || fab.colorMaster?.colorName || '';
 
           // Build display: "PRINTED Floral • Cambric" or "DYED Red • Cotton"
-          let displayName = '';
+          let displayName: string;
           if (finishType) {
             displayName = finishType;
             if (designColor) displayName += ` ${designColor}`;

@@ -431,7 +431,7 @@ export default function LabDipDetail({ processType, backPath, title }: LabDipDet
                   {labDip.targetColor && (
                     <div
                       className="w-4 h-4 rounded border"
-                      style={{ backgroundColor: (labDip.targetColor as any)?.hexCode || '#ccc' }}
+                      style={{ backgroundColor: labDip.targetColor?.hexCode || '#ccc' }}
                     />
                   )}
                   <p className="font-medium">{labDip.targetColor?.colorName || '-'}</p>
@@ -619,7 +619,7 @@ export default function LabDipDetail({ processType, backPath, title }: LabDipDet
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Resubmission Count</p>
-                <p className="font-medium">{(labDip as any).resubmissionCount || 0}</p>
+                <p className="font-medium">{labDip.resubmissionCount || 0}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Buyer Remarks</p>

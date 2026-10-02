@@ -1,5 +1,5 @@
 import { Page, Locator, expect } from '@playwright/test';
-import { FieldType, ValidationRules, TestConfig } from '../config/test-config';
+import { FieldType, TestConfig } from '../config/test-config';
 
 /**
  * Field Validator
@@ -209,7 +209,7 @@ export class FieldValidator {
       await this.fillTextField(label, gst);
       await this.page.keyboard.press('Tab');
 
-      const hasError = await this.hasError(/invalid.*gst|gst.*format/i);
+      await this.hasError(/invalid.*gst|gst.*format/i);
       // Some forms might not show error immediately
     }
 

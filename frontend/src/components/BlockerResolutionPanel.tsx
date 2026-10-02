@@ -31,7 +31,7 @@ export function BlockerResolutionPanel({ sampleId, onResolved, compact = false }
       setError(null);
       const data = await sampleService.getSampleById(sampleId);
       setSample(data);
-    } catch (err) {
+    } catch {
       setError('Failed to load sample');
     } finally {
       setLoading(false);

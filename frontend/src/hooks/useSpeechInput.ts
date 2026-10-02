@@ -10,7 +10,7 @@
  * `supported` is false when the API is unavailable so callers can hide the button.
  */
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react';
 
 // Minimal typings — the Web Speech API is not in the standard TS lib
 interface SpeechRecognitionResultItem {
@@ -50,7 +50,9 @@ export function useSpeechInput(onTranscript: (text: string, isFinal: boolean) =>
   const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const onTranscriptRef = useRef(onTranscript);
-  onTranscriptRef.current = onTranscript;
+  useLayoutEffect(() => {
+    onTranscriptRef.current = onTranscript;
+  });
 
   const supported = typeof window !== 'undefined' && getSpeechRecognition() !== null && window.isSecureContext;
 

@@ -173,6 +173,13 @@ export interface FabricWidthCAD {
 }
 
 export interface StyleFabric {
+  /** Legacy select-greige pick (style_fabrics.selectedGreigeId — rarely set; CAD rows hold the greige) */
+  selectedGreige?: { greigeName?: string | null } | null;
+  /** The style's CAD rows for this fabric, as the style API attaches them */
+  cadRows?: Array<{
+    greige?: { greigeName?: string | null } | null;
+    batchGroupColor?: { id: string; colorName?: string | null } | null;
+  }>;
   id: string;
   componentId: string;
 
@@ -213,6 +220,7 @@ export interface StyleFabric {
     colorCode: string;
     colorName: string;
     hexCode?: string | null;
+    colorFamily?: string | null;
   } | null;
 
   createdAt: string;

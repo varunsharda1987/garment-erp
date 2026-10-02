@@ -43,9 +43,11 @@ import {
 } from 'lucide-react';
 import { DocumentShareMenu } from '@/components/DocumentShareMenu';
 import { formatDate, formatDateTime, toDateInputValue } from '@/lib/date';
+import { useNow } from '@/hooks/useNow';
 import { StyleIdentity } from '@/components/StyleIdentity';
 
 export default function InvoiceDetail() {
+  const now = useNow();
   const navigate = useNavigate();
   const { id } = useParams();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
@@ -244,7 +246,7 @@ export default function InvoiceDetail() {
     ? new Date(new Date(invoice.eInvoiceAckDate).getTime() + 24 * 60 * 60 * 1000)
     : null;
   const canCancelIrn =
-    invoice.eInvoiceStatus === 'GENERATED' && (!irnCancelDeadline || irnCancelDeadline.getTime() > Date.now());
+    invoice.eInvoiceStatus === 'GENERATED' && (!irnCancelDeadline || irnCancelDeadline.getTime() > now);
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">

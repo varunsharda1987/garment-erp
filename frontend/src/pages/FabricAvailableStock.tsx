@@ -40,6 +40,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { piecesSummary } from '@/components/job-work/lot-rows';
 import { RecordLotPiecesDialog } from '@/components/job-work/RecordLotPiecesDialog';
 import { FabricLotPiecesDialog } from '@/components/fabric/FabricLotPiecesDialog';
+import type { ApiErrorLike } from '@/lib/api-error-handler';
 
 interface PatternPart {
   id: string;
@@ -253,7 +254,8 @@ export default function FabricAvailableStock() {
       setAdjustingStock(null);
       setAdjustForm({ type: 'DECREASE', quantity: '', reason: 'CORRECTION', remarks: '' });
       await loadFabricStock();
-    } catch (err: any) {
+    } catch (caught) {
+      const err = caught as ApiErrorLike;
       toast.error(err?.response?.data?.message || err?.message || 'Failed to adjust stock');
     } finally {
       setIsAdjusting(false);

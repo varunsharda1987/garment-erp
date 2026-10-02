@@ -32,6 +32,7 @@ import { Plus, PackageCheck, Clock, AlertTriangle, CheckCircle2, X, XCircle } fr
 import { differenceInCalendarDays } from 'date-fns';
 import type { ExternalProcessSendOut, ExternalProcessStatus } from '../types/external-process.types';
 import { formatDate } from '@/lib/date';
+import type { ApiErrorLike } from '@/lib/api-error-handler';
 
 const STATUS_BADGES: Record<
   ExternalProcessStatus,
@@ -94,7 +95,7 @@ export default function EmbroideryPieceDashboard() {
       setCancelId(null);
       setCancelReason('');
     },
-    onError: (error: any) => {
+    onError: (error: ApiErrorLike) => {
       toast.error(error?.response?.data?.message || 'Failed to cancel');
     },
   });

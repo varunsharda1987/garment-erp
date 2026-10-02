@@ -392,7 +392,7 @@ test.describe('Level 4: Invoice Management', () => {
   // ============================================
 
   test.describe('PDF Generation', () => {
-    test.skip('can download invoice PDF', async ({ page }) => {
+    test.skip('can download invoice PDF', async () => {
       // This test requires backend PDF endpoint to be set up
       // Will be implemented once PDF download route is added to controller
     });

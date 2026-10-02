@@ -9,6 +9,7 @@ import { logError } from '../lib/logger';
 import { notify } from '../lib/notify';
 import api from '@/lib/api';
 import { GenericGreigeSelector } from '../components/GenericGreigeSelector';
+import type { ApiErrorLike } from '@/lib/api-error-handler';
 
 interface GreigeFormProps {
   mode?: 'create' | 'edit';
@@ -222,7 +223,8 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
         notify.success('Greige master created successfully');
       }
       navigate('/greige');
-    } catch (error: any) {
+    } catch (caught) {
+      const error = caught as ApiErrorLike;
       logError('Error saving greige:', error);
       notify.error(error?.response?.data?.message || error?.response?.data?.error || 'Failed to save greige master');
     } finally {

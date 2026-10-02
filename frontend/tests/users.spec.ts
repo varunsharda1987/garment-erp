@@ -1,4 +1,4 @@
-import { test, expect, Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 
 /**
  * User Management E2E Tests for Kashaya Fabs ERP
@@ -13,8 +13,6 @@ import { test, expect, Page } from '@playwright/test';
  */
 
 test.describe('User Management', () => {
-  let adminToken: string;
-  let adminUserId: string;
 
   test.beforeEach(async ({ page }) => {
     // Clear localStorage before each test

@@ -169,12 +169,15 @@ export default function ThreadIssuanceSection({ workOrderId }: ThreadIssuanceSec
                       <TableCell className="text-sm">{item.colorName || '-'}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-xs">
-                          {item.ply ? (THREAD_PLY_LABELS as any)[item.ply] || item.ply : '-'}
+                          {item.ply
+                            ? (THREAD_PLY_LABELS as Record<string, string | undefined>)[item.ply] || item.ply
+                            : '-'}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm">
                         {item.packagingType
-                          ? (THREAD_PACKAGING_LABELS as any)[item.packagingType] || item.packagingType
+                          ? (THREAD_PACKAGING_LABELS as Record<string, string | undefined>)[item.packagingType] ||
+                            item.packagingType
                           : '-'}
                       </TableCell>
                       <TableCell className="text-right font-mono">

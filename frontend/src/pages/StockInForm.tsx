@@ -502,7 +502,7 @@ export default function StockInForm() {
     setLineItems((prev) => prev.filter((item) => item.tempId !== tempId));
   };
 
-  const updateLineItem = (tempId: string, field: keyof StockInLineItem, value: any) => {
+  const updateLineItem = <K extends keyof StockInLineItem>(tempId: string, field: K, value: StockInLineItem[K]) => {
     setLineItems((prev) => prev.map((item) => (item.tempId === tempId ? { ...item, [field]: value } : item)));
   };
 

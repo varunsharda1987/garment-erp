@@ -21,6 +21,16 @@ export interface ApiError {
 }
 
 /**
+ * What a failed API call carries for a handler that words its own fallback
+ * (`err.response?.data?.message || 'Failed to …'`) instead of calling getErrorMessage():
+ * Axios puts the API's JSON body on `response.data`; any thrown Error has its own `message`.
+ */
+export interface ApiErrorLike {
+  message?: string;
+  response?: { status?: number; data?: { message?: string; error?: string; code?: string; details?: unknown } };
+}
+
+/**
  * Turn a Zod issue path ("skuOutputs.0.colorId") into something an operator can read
  * ("Color (row 1)"). Array indices become 1-based row numbers, and the trailing "Id" of an FK
  * field is noise on screen — nobody types an id, they pick a colour.

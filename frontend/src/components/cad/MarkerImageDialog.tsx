@@ -160,7 +160,9 @@ function MarkerImageBody({
         notify.warning('The image was kept, but it could not be read — saving will ask for a reason');
       }
     } catch (error) {
-      const details = (error as { response?: { data?: any } })?.response?.data?.details;
+      const details = (
+        error as { response?: { data?: { details?: { code?: string; differences?: MarkerDifference[] } } } }
+      )?.response?.data?.details;
       if (details?.code === 'CAD_MARKER_APPROVED_DIFFERS') {
         setApprovedRefusal({
           message: getErrorMessage(error),

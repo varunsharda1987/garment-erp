@@ -111,7 +111,6 @@ export default function SampleForm() {
     } else {
       setStyles([]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.customerId]);
 
   // Fetch style details when style changes

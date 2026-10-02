@@ -1,5 +1,4 @@
 import { test, expect, Page } from '@playwright/test';
-import { TestConfig } from '../../config/test-config';
 import {
   generateTestCustomer,
   generateTestSupplier,
@@ -24,7 +23,6 @@ import {
 
 test.describe('Full Cycle Integration Test', () => {
   // Shared state across tests
-  let authToken: string;
   const createdEntities: {
     warehouse?: { id: string; name: string };
     customer?: { id: string; name: string };

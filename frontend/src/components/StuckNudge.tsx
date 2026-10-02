@@ -6,7 +6,7 @@
  * question pre-filled (handed over via router state). One nudge per page per ten minutes.
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { notify } from '@/lib/notify';
 import { getTrail, nudgeQuestion, shouldNudge, subscribe } from '@/lib/session-trail';
@@ -17,7 +17,9 @@ export default function StuckNudge() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const pathRef = useRef(pathname);
-  pathRef.current = pathname;
+  useLayoutEffect(() => {
+    pathRef.current = pathname;
+  });
   const nudgedAt = useRef(new Map<string, number>());
 
   useEffect(() => {

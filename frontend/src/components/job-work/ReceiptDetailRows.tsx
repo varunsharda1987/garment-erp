@@ -3,6 +3,7 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { sumDetailRows } from './receipt-detail-rows';
 
 export type ReceiptEntryMode = 'TOTAL_METERS' | 'THAN_WISE' | 'BALE_WISE' | 'ROLL_WISE';
 
@@ -27,8 +28,6 @@ interface ReceiptDetailRowsProps {
   /** Show inputs for the printed bale number and the than tag / roll number */
   withTags?: boolean;
 }
-
-export const sumDetailRows = (rows: ReceiptDetailRow[]) => rows.reduce((s, r) => s + (r.meters > 0 ? r.meters : 0), 0);
 
 export default function ReceiptDetailRows({
   mode,

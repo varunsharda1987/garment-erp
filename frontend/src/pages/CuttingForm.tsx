@@ -209,7 +209,7 @@ export default function CuttingForm() {
       } else {
         setBlockers([]);
       }
-    } catch (err) {
+    } catch {
       // BUG-MFG16 FIX: Surface error to user instead of silent console.error
       toast.warning('Could not verify stage transition requirements');
       setBlockers([]);
@@ -244,7 +244,7 @@ export default function CuttingForm() {
     try {
       const data = await cuttingSummaryService.getAvailableWorkOrders();
       setAvailableWorkOrders(data);
-    } catch (err) {
+    } catch {
       // BUG-MFG17 FIX: Surface error to user instead of silent console.error
       toast.error('Failed to fetch available work orders');
     }
@@ -278,7 +278,7 @@ export default function CuttingForm() {
           completedQuantity: b.completedQuantity || 0,
         }))
       );
-    } catch (err) {
+    } catch {
       // BUG-MFG18 FIX: Surface error to user instead of silent console.error
       toast.warning('Could not load work order breakdown');
     }

@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import { TestConfig } from '../../config/test-config';
 
 /**
  * LEVEL 0: Authentication Tests

@@ -95,6 +95,7 @@ import { StyleIdentity } from '@/components/StyleIdentity';
 import { JobWorkLinesTable } from '@/components/job-work/JobWorkLinesTable';
 import { section143Days, SECTION_143_CRITICAL_DAYS } from '@/lib/section143';
 import { isQtyZero, prefillQty, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit } from '@/lib/quantity';
+import type { ApiErrorLike } from '@/lib/api-error-handler';
 
 function formatCurrency(value?: number | null): string {
   if (value === null || value === undefined) return '-';
@@ -305,7 +306,7 @@ export default function JobWorkOrderDetail() {
       toast.success('Job work order approved');
       queryClient.invalidateQueries({ queryKey: ['job-work-order', id] });
     },
-    onError: (err: any) => {
+    onError: (err: ApiErrorLike) => {
       toast.error(err.response?.data?.message || 'Failed to approve');
     },
   });
@@ -481,10 +482,10 @@ export default function JobWorkOrderDetail() {
       queryClient.invalidateQueries({ queryKey: ['jwo-fabric-piece-record', id] });
       queryClient.invalidateQueries({ queryKey: ['fabric-lot-pieces'] });
     },
-    onError: (err: any) => {
+    onError: (err: ApiErrorLike) => {
       const code = err.response?.data?.code;
       const message = err.response?.data?.message;
-      if (message && DETAILED_ISSUE_ERROR_CODES.includes(code)) {
+      if (message && code && DETAILED_ISSUE_ERROR_CODES.includes(code)) {
         toast.error(message, { duration: 8000 });
       } else {
         toast.error(message || 'Failed to issue');
@@ -676,7 +677,7 @@ export default function JobWorkOrderDetail() {
       toast.success('Commercial totals computed');
       queryClient.invalidateQueries({ queryKey: ['job-work-order', id] });
     },
-    onError: (err: any) => {
+    onError: (err: ApiErrorLike) => {
       const code = err.response?.data?.code;
       if (code === 'GST_RATE_UNRESOLVED') {
         toast.error('Cannot compute totals: GST rate is unresolved for this process type.');
@@ -701,7 +702,7 @@ export default function JobWorkOrderDetail() {
 
       queryClient.invalidateQueries({ queryKey: ['job-work-order', id] });
     },
-    onError: (err: any) => {
+    onError: (err: ApiErrorLike) => {
       toast.error(err.response?.data?.message || 'Failed to receive material');
     },
   });
@@ -724,7 +725,7 @@ export default function JobWorkOrderDetail() {
       queryClient.invalidateQueries({ queryKey: ['job-work-order', id] });
       queryClient.invalidateQueries({ queryKey: ['job-work-order-reconciliation', id] });
     },
-    onError: (err: any) => {
+    onError: (err: ApiErrorLike) => {
       const code = err.response?.data?.code;
       if (code === 'DEBIT_NOTE_REQUIRED') {
         toast.error(err.response?.data?.message, { duration: 8000 });
@@ -762,7 +763,7 @@ export default function JobWorkOrderDetail() {
       queryClient.invalidateQueries({ queryKey: ['job-work-order-reconciliation', id] });
       queryClient.invalidateQueries({ queryKey: ['process-pos'] });
     },
-    onError: (err: any) => {
+    onError: (err: ApiErrorLike) => {
       toast.error(err.response?.data?.message || 'Could not close the job short');
     },
   });
@@ -784,7 +785,7 @@ export default function JobWorkOrderDetail() {
       <div className="container mx-auto py-6">
         <Alert variant="destructive">
           <AlertTitle>Error</AlertTitle>
-          <AlertDescription>Failed to load job work order. {(error as any)?.message}</AlertDescription>
+          <AlertDescription>Failed to load job work order. {error?.message}</AlertDescription>
         </Alert>
       </div>
     );

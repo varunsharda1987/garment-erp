@@ -191,7 +191,6 @@ export default function InvoiceForm() {
       dueDate,
       subtotal,
       remarks: remarks.trim() || undefined,
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       items: validItems.map(({ _key, ...rest }) => rest),
     };
 

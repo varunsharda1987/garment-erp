@@ -28,6 +28,7 @@ import {
   ourStyleCode,
   styleCodeIfDifferent,
 } from '@/lib/style-code';
+import type { ApiErrorLike } from '@/lib/api-error-handler';
 
 export default function SmockingReceive() {
   const navigate = useNavigate();
@@ -80,7 +81,7 @@ export default function SmockingReceive() {
       toast.success('Smocking material received successfully');
       navigate('/manufacturing/smocking');
     },
-    onError: (err: any) => {
+    onError: (err: ApiErrorLike) => {
       setError(err?.response?.data?.message || 'Failed to record receipt');
     },
   });

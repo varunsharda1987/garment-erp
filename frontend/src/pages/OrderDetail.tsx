@@ -987,6 +987,17 @@ function Stage({ label, icon, children }: { label: string; icon?: ReactNode; chi
   );
 }
 
+/** One label / value line of the costing card. Module scope: a component declared inside another
+ *  component's render is a new type every render, so React remounted every row each time. */
+function CostingRow({ label, value, strong, tone }: { label: string; value: string; strong?: boolean; tone?: string }) {
+  return (
+    <div className="flex justify-between py-1">
+      <span className={strong ? 'font-semibold' : 'text-muted-foreground'}>{label}</span>
+      <span className={`${strong ? 'font-semibold' : 'font-medium'} ${tone ?? ''}`}>{value}</span>
+    </div>
+  );
+}
+
 /**
  * The line's costing in the COST SHEET'S OWN WORDS (owner, 2026-09-28: a name must mean the same thing
  * on every page): the totals, Subtotal, Value Loss, Total After Value Loss, Markup, Total Product Cost —
@@ -1025,12 +1036,6 @@ function CostingDetails({
       ? `+${formatCurrency(diff)} above calculated cost (${((diff / closedCost) * 100).toFixed(1)}% margin)`
       : `${formatCurrency(-diff)} below calculated cost (${((-diff / cost) * 100).toFixed(1)}% loss)`;
   };
-  const Row = ({ label, value, strong, tone }: { label: string; value: string; strong?: boolean; tone?: string }) => (
-    <div className="flex justify-between py-1">
-      <span className={strong ? 'font-semibold' : 'text-muted-foreground'}>{label}</span>
-      <span className={`${strong ? 'font-semibold' : 'font-medium'} ${tone ?? ''}`}>{value}</span>
-    </div>
-  );
   const plannedMargin = vsClosed(totalProductCost);
   const actualMargin = costing.actualCostPerPiece != null ? vsClosed(Number(costing.actualCostPerPiece)) : null;
   return (
@@ -1047,25 +1052,30 @@ function CostingDetails({
       <div className="grid md:grid-cols-2 gap-x-10">
         <div>
           {parts.map(([label, value]) => (
-            <Row key={label} label={label} value={formatCurrency(value)} />
+            <CostingRow key={label} label={label} value={formatCurrency(value)} />
           ))}
           <div className="border-t my-1" />
-          <Row label="Subtotal" value={formatCurrency(subtotal)} strong />
+          <CostingRow label="Subtotal" value={formatCurrency(subtotal)} strong />
         </div>
         <div>
           {valueLoss != null && (
-            <Row
+            <CostingRow
               label={`Value Loss${valueLossPct != null ? ` (${valueLossPct}%)` : ''}`}
               value={`+ ${formatCurrency(valueLoss)}`}
             />
           )}
-          {valueLoss != null && <Row label="Total After Value Loss" value={formatCurrency(subtotal + valueLoss)} />}
+          {valueLoss != null && (
+            <CostingRow label="Total After Value Loss" value={formatCurrency(subtotal + valueLoss)} />
+          )}
           {markup != null && (
-            <Row label={`Markup${markupPct != null ? ` (${markupPct}%)` : ''}`} value={`+ ${formatCurrency(markup)}`} />
+            <CostingRow
+              label={`Markup${markupPct != null ? ` (${markupPct}%)` : ''}`}
+              value={`+ ${formatCurrency(markup)}`}
+            />
           )}
           <div className="border-t my-1" />
-          <Row label="Total Product Cost" value={formatCurrency(totalProductCost)} strong />
-          <Row
+          <CostingRow label="Total Product Cost" value={formatCurrency(totalProductCost)} strong />
+          <CostingRow
             label="Closed Cost per Piece"
             value={closedCost != null ? formatCurrency(closedCost) : 'not set on the cost sheet'}
             strong

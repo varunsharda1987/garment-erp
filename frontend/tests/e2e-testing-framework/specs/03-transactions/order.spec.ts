@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { TestConfig } from '../../config/test-config';
-import { generateTestCustomer, generateTestStyle, generateTestOrder } from '../../fixtures/entity-fixtures';
+import { generateTestCustomer } from '../../fixtures/entity-fixtures';
 
 /**
  * LEVEL 3: Order Management Tests
@@ -17,11 +16,6 @@ import { generateTestCustomer, generateTestStyle, generateTestOrder } from '../.
  */
 
 test.describe('Level 3: Order Management', () => {
-  let createdCustomerId: string;
-  let createdStyleId: string;
-  let customerName: string;
-  let styleName: string;
-
   // Setup: Create required dependencies before tests
   test.beforeAll(async ({ browser }) => {
     const context = await browser.newContext();
@@ -43,7 +37,6 @@ test.describe('Level 3: Order Management', () => {
 
     // Create a customer (dependency) - fill all required fields
     const customer = generateTestCustomer('OrderTestCustomer');
-    customerName = customer.name;
 
     await page.goto('/customers/new');
     await page.waitForLoadState('networkidle');
@@ -77,7 +70,6 @@ test.describe('Level 3: Order Management', () => {
       styleCode: `STY-ORDER-${timestamp}`,
       styleName: `Order Test Style ${timestamp}`,
     };
-    styleName = style.styleName;
 
     const styleCodeField = page.getByLabel(/style.*code|code/i);
     if (await styleCodeField.isVisible()) {
@@ -167,7 +159,7 @@ test.describe('Level 3: Order Management', () => {
         /delivery.*date|expected.*date/i,
       ];
 
-      for (const label of fieldLabels) {
+      for (const _label of fieldLabels) {
         // Fields might be in different formats (input, select, etc.)
       }
 
@@ -190,11 +182,10 @@ test.describe('Level 3: Order Management', () => {
 
     test('date fields have correct format', async ({ page }) => {
       const orderDateField = page.getByLabel(/order.*date/i);
-      const deliveryDateField = page.getByLabel(/delivery.*date|expected.*date/i);
 
       // Check date fields are present
       if (await orderDateField.isVisible()) {
-        const inputType = await orderDateField.getAttribute('type');
+        await orderDateField.getAttribute('type');
         // Should be date or text with date picker
       }
     });
@@ -304,8 +295,7 @@ test.describe('Level 3: Order Management', () => {
         await statusSelect.click();
         await page.waitForTimeout(500);
 
-        // Expected statuses
-        const expectedStatuses = ['PENDING', 'APPROVED', 'PROCESSING', 'COMPLETED', 'CANCELLED'];
+        // Expected statuses: PENDING, APPROVED, PROCESSING, COMPLETED, CANCELLED
         // Check if options are present
       }
     });
@@ -320,8 +310,7 @@ test.describe('Level 3: Order Management', () => {
         await prioritySelect.click();
         await page.waitForTimeout(500);
 
-        // Expected priorities
-        const expectedPriorities = ['LOW', 'MEDIUM', 'HIGH'];
+        // Expected priorities: LOW, MEDIUM, HIGH
       }
     });
   });
@@ -376,7 +365,7 @@ test.describe('Level 3: Order Management', () => {
         await page.waitForTimeout(500);
 
         // Check if total is calculated
-        const totalText = await page.getByText(/total/i).textContent();
+        await page.getByText(/total/i).textContent();
         // Total should be 10 * 100 = 1000
       }
     });

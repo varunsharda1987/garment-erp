@@ -272,7 +272,15 @@ export interface PendingCadCorrection {
 
 /** The 409 a Reject returns when approved cost sheets / order BOMs are built on the CAD */
 export function cadInUseFromError(error: unknown): { message: string; inUse: CadInUseEntry[] } | null {
-  const data = (error as { response?: { status?: number; data?: any } })?.response;
+  type CadInUseDetails = { code?: string; inUse?: CadInUseEntry[] };
+  const data = (
+    error as {
+      response?: {
+        status?: number;
+        data?: { message?: string; details?: CadInUseDetails; error?: { message?: string; details?: CadInUseDetails } };
+      };
+    }
+  )?.response;
   const details = data?.data?.details ?? data?.data?.error?.details;
   if (data?.status !== 409 || details?.code !== 'CAD_IN_USE') return null;
   return {

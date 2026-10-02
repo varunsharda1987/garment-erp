@@ -984,7 +984,6 @@ export default function StyleFormRedesigned() {
       // Reset if both are cleared
       setStyleCode('');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brandCategoryId, productCategoryId, isEditMode]);
 
   const loadCustomers = async () => {

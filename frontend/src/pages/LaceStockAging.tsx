@@ -39,7 +39,6 @@ export default function LaceStockAging() {
 
   useEffect(() => {
     fetchAging();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const bucketTotals = BUCKET_ORDER.map((bucket) => {

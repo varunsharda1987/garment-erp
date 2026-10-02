@@ -19,7 +19,7 @@ import { Alert, AlertDescription } from '../components/ui/alert';
 import type { CustomerSizePreset } from '../types/customerSizePreset.types';
 import type { Customer } from '../types/customer.types';
 import type { Style } from '../types/style.types';
-import type { CreateOrderItemBreakup } from '../types/order.types';
+import type { CreateOrderItemBreakup, UpdateOrderRequest } from '../types/order.types';
 import type { CostSheet } from '../types/costSheet.types';
 import { logError } from '../lib/logger';
 import { formatCurrency } from '../lib/currency';
@@ -422,10 +422,8 @@ export default function OrderForm() {
       }
 
       // Check for downstream dependencies (approved BOMs or active MRP requirements)
-      const hasApprovedBoms = (order as any).orderBoms?.some(
-        (b: any) => b.status === 'APPROVED' || b.status === 'LOCKED'
-      );
-      const hasActiveRequirements = ((order as any).materialRequirements?.length || 0) > 0;
+      const hasApprovedBoms = order.orderBoms?.some((b) => b.status === 'APPROVED' || b.status === 'LOCKED');
+      const hasActiveRequirements = (order.materialRequirements?.length || 0) > 0;
       setHasDownstreamDeps(hasApprovedBoms || hasActiveRequirements);
     } catch (err: unknown) {
       const errorObj = err as { response?: { data?: { message?: string } } };
@@ -1027,7 +1025,7 @@ export default function OrderForm() {
       // Also filter out entries with synthetic preset IDs (no matching size_options in DB)
       const validBreakup = breakup.filter((b) => b.quantity > 0 && !b.sizeId.startsWith('preset-'));
 
-      const orderData: Record<string, unknown> = {
+      const orderData: UpdateOrderRequest & { saleOrderId?: string } = {
         customerId,
         orderDate,
         expectedDeliveryDate,
@@ -1053,7 +1051,7 @@ export default function OrderForm() {
       }
 
       if (isEditMode && id) {
-        const updated = await updateOrder(id, orderData as any);
+        const updated = await updateOrder(id, orderData);
         // A style the server could not attach a costing baseline to has no variance anchor and
         // no agreed price. That must reach the user rather than only the server log.
         for (const failure of updated.costingInfo?.failures ?? []) {
@@ -1072,7 +1070,7 @@ export default function OrderForm() {
             },
           ];
         }
-        await createOrder(orderData as any);
+        await createOrder({ ...orderData, customerId, expectedDeliveryDate, items: orderData.items });
         navigate('/orders');
       }
     } catch (err: unknown) {

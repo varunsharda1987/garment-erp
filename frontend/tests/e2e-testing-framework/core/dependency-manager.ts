@@ -1,4 +1,4 @@
-import { Page, APIRequestContext, expect } from '@playwright/test';
+import { Page, APIRequestContext } from '@playwright/test';
 import { TestConfig, EntityDependencies } from '../config/test-config';
 
 /**

@@ -56,7 +56,7 @@ export default function ProtectedRoute({
   }
 
   // Check role/permission if specified
-  let hasAccess = true;
+  let hasAccess: boolean;
 
   if (permission) {
     // Explicit permission requirement

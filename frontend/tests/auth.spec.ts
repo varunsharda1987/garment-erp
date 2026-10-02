@@ -1,4 +1,4 @@
-import { test, expect, Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 
 /**
  * Authentication E2E Tests for Kashaya Fabs ERP
@@ -146,7 +146,7 @@ test.describe('Authentication Flow', () => {
 
     // Check for error message (this depends on your error display implementation)
     // Adjust selector based on your actual error message display
-    const errorVisible = await page.getByText(/invalid|error|incorrect|failed/i).isVisible().catch(() => false);
+    await page.getByText(/invalid|error|incorrect|failed/i).isVisible().catch(() => false);
 
     // Take screenshot showing error
     await page.screenshot({ path: 'test-results/login-error.png', fullPage: true });

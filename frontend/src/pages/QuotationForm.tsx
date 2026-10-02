@@ -34,7 +34,7 @@ export default function QuotationForm() {
   const [validUntil, setValidUntil] = useState('');
   const [remarks, setRemarks] = useState('');
   const [termsAndConditions, setTermsAndConditions] = useState('');
-  const [items, setItems] = useState<QuotationItemRow[]>([
+  const [items, setItems] = useState<QuotationItemRow[]>(() => [
     {
       tempId: Date.now().toString(),
       styleId: '',

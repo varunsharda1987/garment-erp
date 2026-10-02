@@ -27,6 +27,7 @@ import {
   ourStyleCode,
   styleCodeIfDifferent,
 } from '@/lib/style-code';
+import type { ApiErrorLike } from '@/lib/api-error-handler';
 
 export default function HandworkReceive() {
   const navigate = useNavigate();
@@ -72,7 +73,7 @@ export default function HandworkReceive() {
       toast.success('Handwork material received successfully');
       navigate('/manufacturing/handwork');
     },
-    onError: (err: any) => {
+    onError: (err: ApiErrorLike) => {
       setError(err?.response?.data?.message || 'Failed to record receipt');
     },
   });

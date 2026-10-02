@@ -36,7 +36,8 @@ import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
 import { foldActual, hasFold } from '@/lib/fold-length';
 import { formatQuantity } from '@/lib/formatters';
 import { isQtyZero, qtyExceeds } from '@/lib/quantity';
-import ReceiptDetailRows, { sumDetailRows, type DetailEntryMode, type ReceiptDetailRow } from './ReceiptDetailRows';
+import ReceiptDetailRows, { type DetailEntryMode, type ReceiptDetailRow } from './ReceiptDetailRows';
+import { sumDetailRows } from './receipt-detail-rows';
 import { THAN_PICK_TOLERANCE_PCT, pieceKindOf, pieceWord, thanLabel } from './lot-rows';
 
 export interface RecordLotPiecesDialogProps {

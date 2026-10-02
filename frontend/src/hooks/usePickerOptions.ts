@@ -13,7 +13,7 @@
  *     until a page reload (2026-09-19, the receive dialog's warehouse box).
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ComboboxOption } from '@/components/ui/combobox';
 
 /** What a picker asks for when the endpoint allows it (the API's own maximum page). */
@@ -72,10 +72,11 @@ export function usePickerOptions<T extends { id: string }>({
   const requestSeq = useRef(0);
   // The search the list answers, so a filter change reloads for the typed text rather than for ''
   const lastSearch = useRef('');
-  const toOptionRef = useRef(toOption);
-  toOptionRef.current = toOption;
+  // Read only in the async load's error path, never while rendering: refreshed after each render.
   const onErrorRef = useRef(onError);
-  onErrorRef.current = onError;
+  useLayoutEffect(() => {
+    onErrorRef.current = onError;
+  });
 
   const load = useCallback(
     async (search: string) => {
@@ -115,9 +116,12 @@ export function usePickerOptions<T extends { id: string }>({
 
   const byId = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
 
+  // Callers pass `toOption` inline (a new function every render) and it only maps a record to its
+  // label, so the list is re-mapped when the records change, not on every render.
   const options = useMemo(() => {
-    const opts = items.map((item) => toOptionRef.current(item));
+    const opts = items.map((item) => toOption(item));
     return sortAlphabetically ? [...opts].sort(byLabel) : opts;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- toOption is a fresh inline function each render
   }, [items, sortAlphabetically]);
 
   const shown = items.length;

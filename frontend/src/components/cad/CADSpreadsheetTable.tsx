@@ -684,7 +684,6 @@ export function CADSpreadsheetTable({
     try {
       await onUpdateRow(rowId, changes);
       setPendingChanges((prev) => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { [rowId]: _, ...rest } = prev;
         return rest;
       });
@@ -889,7 +888,6 @@ export function CADSpreadsheetTable({
     try {
       await onUpdateRow(rowId, { ...changes, markerOverrideReason: markerReason.trim() });
       setPendingChanges((prev) => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { [rowId]: _, ...rest } = prev;
         return rest;
       });
@@ -2040,7 +2038,6 @@ export function CADSpreadsheetTable({
                                     e.stopPropagation();
                                     setEditingRow(null);
                                     setPendingChanges((prev) => {
-                                      // eslint-disable-next-line @typescript-eslint/no-unused-vars
                                       const { [row.id]: _, ...rest } = prev;
                                       return rest;
                                     });

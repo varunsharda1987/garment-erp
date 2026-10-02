@@ -44,6 +44,7 @@ import { formatDate, toDateInputValue } from '@/lib/date';
 import { formatQuantity } from '@/lib/formatters';
 import { foldCounted, hasFold } from '@/lib/fold-length';
 import { qtyExceeds, snapToLimit } from '@/lib/quantity';
+import type { ApiErrorLike } from '@/lib/api-error-handler';
 
 const PAGE_SIZE = 25;
 // BUG-GR10 fix: Default aging threshold; overridden by STOCK_AGING_THRESHOLD_DAYS system setting
@@ -289,7 +290,7 @@ export default function GreigeAvailableStock() {
     setIsSaving(true);
     try {
       // If a new warehouse was selected, look up its name
-      let finalForm = { ...editForm };
+      const finalForm = { ...editForm };
       if (editWarehouseId) {
         const warehouse = await warehouseService.getById(editWarehouseId);
         finalForm.warehouseLocation = warehouse.warehouseName;
@@ -299,7 +300,8 @@ export default function GreigeAvailableStock() {
       setEditingEntry(null);
       await refreshExpandedRow(editingEntry.greigeId);
       await loadData();
-    } catch (err: any) {
+    } catch (caught) {
+      const err = caught as ApiErrorLike;
       toast.error(err?.response?.data?.message || 'Failed to update');
     } finally {
       setIsSaving(false);
@@ -329,7 +331,8 @@ export default function GreigeAvailableStock() {
       setAdjustForm({ type: 'DECREASE', quantity: '', reason: 'CORRECTION', remarks: '' });
       await refreshExpandedRow(adjustingEntry.greigeId);
       await loadData();
-    } catch (err: any) {
+    } catch (caught) {
+      const err = caught as ApiErrorLike;
       toast.error(err?.response?.data?.message || 'Failed to adjust stock');
     } finally {
       setIsAdjusting(false);

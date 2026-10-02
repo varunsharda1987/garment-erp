@@ -18,7 +18,7 @@ import { colorService } from '@/services/colorService';
 import { dyeLabDipService } from '@/services/dyeing.service';
 import { labDipService as printLabDipService } from '@/services/printing.service';
 import type { CreateLabDipRequest, PrintMethod, PrintChemistry } from '@/types/printing.types';
-import type { Style } from '@/types/style.types';
+import type { Style, StyleFabric } from '@/types/style.types';
 import type { FabricMaster } from '@/types/fabric-greige.types';
 import type { Supplier } from '@/types/supplier.types';
 import type { ColorSearchResult } from '@/types/color.types';
@@ -27,6 +27,9 @@ import { cn } from '@/lib/utils';
 import { styleCodeLabel } from '@/lib/style-code';
 import { StyleIdentity } from '@/components/StyleIdentity';
 import { toDateInputValue } from '@/lib/date';
+
+/** A style fabric offered for the lab dip, with the component it belongs to */
+type StyleFabricOption = StyleFabric & { _componentType?: string; _componentName?: string };
 
 export type ProcessType = 'DYEING' | 'PRINTING';
 
@@ -60,14 +63,14 @@ export default function LabDipCreateForm({ processType, backPath, title }: LabDi
   const [selectedStyle, setSelectedStyle] = useState<Style | null>(null);
 
   // Style's fabrics (extracted from style details)
-  const [styleFabrics, setStyleFabrics] = useState<any[]>([]);
+  const [styleFabrics, setStyleFabrics] = useState<StyleFabricOption[]>([]);
   const [useOtherFabric, setUseOtherFabric] = useState(false);
 
   // Fabric selection
   const [fabricSearch, setFabricSearch] = useState('');
   const [fabricOpen, setFabricOpen] = useState(false);
   const [selectedFabric, setSelectedFabric] = useState<FabricMaster | null>(null);
-  const [selectedStyleFabric, setSelectedStyleFabric] = useState<any | null>(null);
+  const [selectedStyleFabric, setSelectedStyleFabric] = useState<StyleFabricOption | null>(null);
 
   // Processor selection
   const [processorSearch, setProcessorSearch] = useState('');
@@ -127,9 +130,9 @@ export default function LabDipCreateForm({ processType, backPath, title }: LabDi
   // Fetch full style details when style is selected to get style_fabrics
   useEffect(() => {
     if (selectedStyle) {
-      styleService.getStyleById(selectedStyle.id).then((fullStyle: any) => {
+      styleService.getStyleById(selectedStyle.id).then((fullStyle) => {
         // Extract fabrics from components → fabrics (serializer converts style_components/style_fabrics)
-        const allStyleFabrics: any[] = [];
+        const allStyleFabrics: StyleFabricOption[] = [];
         const components = fullStyle.components || [];
 
         for (const comp of components) {
@@ -175,7 +178,7 @@ export default function LabDipCreateForm({ processType, backPath, title }: LabDi
           id: selectedStyleFabric.colorMaster.id,
           colorCode: selectedStyleFabric.colorMaster.colorCode,
           colorName: selectedStyleFabric.colorMaster.colorName,
-          hexCode: selectedStyleFabric.colorMaster.hexCode,
+          hexCode: selectedStyleFabric.colorMaster.hexCode ?? null,
           colorFamily: selectedStyleFabric.colorMaster.colorFamily || null,
         });
       }
@@ -185,7 +188,7 @@ export default function LabDipCreateForm({ processType, backPath, title }: LabDi
       }
       // Set the fabric reference
       if (selectedStyleFabric.fabric) {
-        setSelectedFabric(selectedStyleFabric.fabric);
+        setSelectedFabric(selectedStyleFabric.fabric as FabricMaster);
       } else if (selectedStyleFabric.fabricId) {
         // If fabric object not included, create minimal reference
         setSelectedFabric({

@@ -8,6 +8,7 @@ import { Upload, Download, FileSpreadsheet, CheckCircle, XCircle, AlertTriangle 
 import * as XLSX from '@e965/xlsx';
 import { logDebug, logError } from '../lib/logger';
 import api from '@/lib/api';
+import type { ApiErrorLike } from '@/lib/api-error-handler';
 
 interface ImportResult {
   success: number;
@@ -318,7 +319,8 @@ export default function FabricBulkImport() {
             failed: importResult.failed || 0,
             errors: importResult.errors || [],
           });
-        } catch (error: any) {
+        } catch (caught) {
+          const error = caught as ApiErrorLike;
           logError('Import error:', error);
           const errorMessage =
             error?.response?.data?.message || error?.message || 'Failed to import fabrics. Please try again.';

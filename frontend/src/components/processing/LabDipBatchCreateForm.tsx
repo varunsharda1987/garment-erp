@@ -98,7 +98,7 @@ export default function LabDipBatchCreateForm({ backPath }: LabDipBatchCreateFor
       setIsLoadingFabrics(true);
       styleService
         .getStyleById(selectedStyle.id)
-        .then((fullStyle: any) => {
+        .then((fullStyle) => {
           // Extract ALL fabrics from components → fabrics (serializer converts style_components/style_fabrics)
           const rows: FabricRow[] = [];
           const components = fullStyle.components || [];
@@ -190,7 +190,7 @@ export default function LabDipBatchCreateForm({ backPath }: LabDipBatchCreateFor
       handleApiSuccess(result.message);
       navigate(backPath);
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       handleApiError(error, 'Failed to create lab dips');
     },
   });

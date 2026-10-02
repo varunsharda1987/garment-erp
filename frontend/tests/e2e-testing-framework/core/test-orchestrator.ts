@@ -27,7 +27,7 @@ export const test = base.extend<TestFixtures>({
   },
 
   // Authenticated page with test user
-  authenticatedPage: async ({ page, request }, use) => {
+  authenticatedPage: async ({ page }, use) => {
     // Register and login a test user
     const timestamp = Date.now();
     const testEmail = `e2e_${timestamp}@kashayafabs.com`;
@@ -56,7 +56,7 @@ export const test = base.extend<TestFixtures>({
   },
 
   // Test user credentials
-  testUser: async ({ page, request }, use) => {
+  testUser: async ({ request }, use) => {
     const timestamp = Date.now();
     const email = `e2e_${timestamp}@kashayafabs.com`;
     const password = 'Test@123';

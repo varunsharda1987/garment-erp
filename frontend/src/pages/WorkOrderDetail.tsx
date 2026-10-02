@@ -178,7 +178,7 @@ export default function WorkOrderDetail() {
         stitching: { issues: stitchingIssues.length, totalStitched, pending: stitchingIssues.length === 0 },
         finishing: { issues: finishingIssues.length, totalFinished, pending: finishingIssues.length === 0 },
       });
-    } catch (err) {
+    } catch {
       // BUG-MFG11 FIX: Surface error to user with toast instead of silent console.error
       notify.warning('Could not load manufacturing progress');
     }
@@ -190,7 +190,7 @@ export default function WorkOrderDetail() {
       setIsLoadingMaterials(true);
       const readiness = await workOrderService.checkMaterialReadiness(id);
       setMaterialReadiness(readiness);
-    } catch (err) {
+    } catch {
       // BUG-MFG11 FIX: Surface error to user with toast instead of silent console.error
       notify.warning('Could not load material readiness data');
     } finally {

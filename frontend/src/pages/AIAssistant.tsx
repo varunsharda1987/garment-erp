@@ -55,7 +55,7 @@ export default function AIAssistant() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   // The assistant is its own page, so "current page" is the one the user came from
-  const pageRouteRef = useRef<string | undefined>(lastPageBefore('/ai-assistant'));
+  const [pageRoute] = useState<string | undefined>(() => lastPageBefore('/ai-assistant'));
   // The "Stuck? Ask the assistant" nudge hands its question over via router state — send it once
   const autoAskedRef = useRef(false);
 
@@ -79,11 +79,11 @@ export default function AIAssistant() {
     toggleSpeech();
   };
 
-  // Check AI status on mount
+  // Check AI status on mount (pageRoute is fixed at mount, so this runs once)
   useEffect(() => {
     checkAIStatus();
-    fetchSuggestions();
-  }, []);
+    fetchSuggestions(pageRoute);
+  }, [pageRoute]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -104,9 +104,9 @@ export default function AIAssistant() {
     }
   };
 
-  const fetchSuggestions = async () => {
+  const fetchSuggestions = async (route: string | undefined) => {
     try {
-      const result = await getSuggestions(pageRouteRef.current);
+      const result = await getSuggestions(route);
       setSuggestions(result.suggestions);
       setPageSuggestions(result.pageSuggestions ?? []);
     } catch (error) {
@@ -155,7 +155,7 @@ export default function AIAssistant() {
 
     try {
       const response = await sendChatMessage(currentInput, activeConversation?.id, {
-        pageRoute: pageRouteRef.current,
+        pageRoute: pageRoute,
         ...getTrail(),
       });
 
@@ -371,7 +371,7 @@ export default function AIAssistant() {
               {pageSuggestions.length > 0 && (
                 <div className="space-y-2 w-full max-w-md mb-6">
                   <p className="text-sm text-muted-foreground font-medium">
-                    On this page <span className="font-mono text-xs">({pageRouteRef.current})</span>:
+                    On this page <span className="font-mono text-xs">({pageRoute})</span>:
                   </p>
                   <div className="grid gap-2">
                     {pageSuggestions.map((guide) => {

@@ -232,7 +232,7 @@ export default function StockOutForm() {
   tileCounts['GREIGE'] = greigeStocks.length;
   tileCounts['FABRIC'] = fabricStocks.length;
   for (const sl of allStockLevels) {
-    const matType = (sl.materials as any)?.materialType || 'GENERIC';
+    const matType = sl.materials?.materialType || 'GENERIC';
     for (const [tileType, dbTypes] of Object.entries(MATERIAL_TYPE_DB_FILTER)) {
       if (dbTypes.includes(matType)) {
         tileCounts[tileType] = (tileCounts[tileType] || 0) + 1;
@@ -249,7 +249,7 @@ export default function StockOutForm() {
       if (stockType !== 'GENERAL') return allStockLevels;
       const dbTypes = MATERIAL_TYPE_DB_FILTER[materialType] || [];
       return allStockLevels.filter((sl) => {
-        const matType = (sl.materials as any)?.materialType || 'GENERIC';
+        const matType = sl.materials?.materialType || 'GENERIC';
         return dbTypes.includes(matType);
       });
     },
@@ -273,7 +273,7 @@ export default function StockOutForm() {
     setLineItems((prev) => prev.filter((item) => item.tempId !== tempId));
   };
 
-  const updateLineItem = (tempId: string, field: keyof LineItem, value: any) => {
+  const updateLineItem = <K extends keyof LineItem>(tempId: string, field: K, value: LineItem[K]) => {
     setLineItems((prev) => prev.map((item) => (item.tempId === tempId ? { ...item, [field]: value } : item)));
   };
 
@@ -398,7 +398,7 @@ export default function StockOutForm() {
         category: supplierCategory || undefined,
         limit: 200,
       });
-      const data = (result as any).data || [];
+      const data = result.data || [];
       // Filter by selected category if one is chosen (show all suppliers including processors)
       const filtered = supplierCategory
         ? data.filter((s: Supplier) => s.supplierCategories?.includes(supplierCategory as SupplierCategory))
@@ -431,8 +431,8 @@ export default function StockOutForm() {
       const data = result.data || [];
       setFabricStocks(
         data
-          .filter((f: any) => Number(f.quantityAvailable) > 0)
-          .map((f: any) => ({
+          .filter((f) => Number(f.quantityAvailable) > 0)
+          .map((f) => ({
             id: f.id,
             fabricId: f.fabricId,
             fabricCode: f.fabric?.fabricCode || f.fabricMaster?.fabricCode || '',

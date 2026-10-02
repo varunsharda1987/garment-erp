@@ -257,6 +257,22 @@ export function resolveStyleImageUrl(style: StyleDocRecord): string | null {
   return null;
 }
 
+/**
+ * The garment photo for a single-style document (cutting chart, cost sheet, job work order):
+ * `styles.imageUrl`, else the legacy bare `styles.image` filename → absolute file:// URL, or null
+ * when the file is not on disk (the template then prints no photo rather than a broken box).
+ * A gallery photo marked MAIN is copied to `styles.imageUrl` (style-image.service), so this is
+ * the same picture every screen shows.
+ */
+export function garmentPhotoSrc(style: { imageUrl?: string | null; image?: string | null } | null | undefined): string | null {
+  if (!style) return null;
+  for (const candidate of [style.imageUrl, style.image]) {
+    const abs = toExistingUploadPath(candidate);
+    if (abs) return pathToFileURL(abs).href;
+  }
+  return null;
+}
+
 function toExistingUploadPath(candidate: string | null | undefined): string | null {
   if (!candidate) return null;
   const cleaned = candidate.trim().replace(/\\/g, '/').replace(/^\/+/, '');

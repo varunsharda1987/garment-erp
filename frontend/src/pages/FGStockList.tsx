@@ -33,6 +33,7 @@ interface FGStockItem {
     styleCode: string;
     styleName: string;
     buyerStyleRef: string | null;
+    imageUrl?: string | null; // the garment photo (styles.imageUrl)
   } | null;
   color: {
     id: string;
@@ -231,6 +232,8 @@ export default function FGStockList() {
                             layout="stacked"
                             showStyleCode={false}
                             fallback="-"
+                            imageUrl={item.style?.imageUrl}
+                            showImage
                           />
                         </TableCell>
                         <TableCell>

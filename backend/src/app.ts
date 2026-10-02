@@ -22,6 +22,7 @@ import { logInfo, logWarn } from './utils/logger';
 import { generalLimiter } from './middleware/security.middleware';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
 import { fileAccessMiddleware, createFileAccessMiddleware } from './middleware/file-access.middleware';
+import { createStyleThumbnailMiddleware } from './middleware/style-thumbnail.middleware';
 import { httpLogger } from './middleware/logging.middleware';
 import { transformResponse } from './middleware/transform.middleware';
 
@@ -191,6 +192,9 @@ app.use('/uploads/po-documents', createFileAccessMiddleware('authenticated'));
 
 // File access control middleware
 app.use('/uploads', fileAccessMiddleware);
+
+// Garment photo thumbnails for lists (?thumb=1) — falls through to the original when it cannot make one
+app.use('/uploads/styles', createStyleThumbnailMiddleware(path.join(__dirname, '../uploads/styles')));
 
 app.use(
   '/uploads',

@@ -12,6 +12,7 @@ import { NotFoundError } from '../../errors';
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtMoney, fmtQty, fmtPct } from './format';
 import { buyerStyleCode, styleCodeIfDifferent, styleCodeLabel } from '../../utils/style-code';
+import { garmentPhotoSrc } from './style-doc-common';
 
 const costSheetDocInclude = {
   styles: {
@@ -20,6 +21,8 @@ const costSheetDocInclude = {
       styleCode: true,
       buyerStyleRef: true,
       styleName: true,
+      imageUrl: true,
+      image: true,
       customerName: true,
       numberOfComponents: true,
       brand_categories: {
@@ -204,6 +207,8 @@ export interface CostSheetDocData {
     name: string;
     ourCode: string | null; // our Style Code — only when it differs from `code`
     label: string; // 'SP27DR27 (EBWW-021)'
+    /** The garment photo (file:// URL), or null when none is on disk. */
+    photo: string | null;
   };
   customer: string;
   costingModeLabel: string;
@@ -748,6 +753,7 @@ export async function buildCostSheetDocData(costingId: string): Promise<CostShee
       name: style?.styleName || EM_DASH,
       ourCode: styleCodeIfDifferent(style),
       label: styleCodeLabel(style, null, EM_DASH),
+      photo: garmentPhotoSrc(style),
     },
     customer: style?.customerName || EM_DASH,
     costingModeLabel: formatPurpose(costSheet.purpose),

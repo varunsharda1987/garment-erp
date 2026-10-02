@@ -131,6 +131,7 @@ export interface DeliveryNoteItem {
     styleCode: string;
     styleName: string;
     buyerStyleRef?: string | null;
+    imageUrl?: string | null; // the garment photo (styles.imageUrl)
   };
   color?: {
     id: string;

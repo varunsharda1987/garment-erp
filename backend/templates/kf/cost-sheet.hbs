@@ -14,6 +14,7 @@
   <!-- 01 — Basic Information (matches form header) -->
   <div class="sec">
     <div class="sec-h"><span>{{sec.basic}} — Basic Information</span></div>
+    <div class="with-photo">
     <div class="kv">
       <div>
         <div class="row"><span class="k">Style</span><span class="v">{{style.code}}{{#if style.ourCode}} · <span class="muted">{{style.ourCode}}</span>{{/if}}</span></div>
@@ -25,6 +26,8 @@
         <div class="row"><span class="k">Components</span><span class="v">{{numberOfComponents}}</span></div>
         <div class="row"><span class="k">Category</span><span class="v">{{category}}{{#if subCategory}} · {{subCategory}}{{/if}}</span></div>
       </div>
+    </div>
+    {{#if style.photo}}<img class="garment" src="{{style.photo}}" alt="{{style.label}}">{{/if}}
     </div>
   </div>
 

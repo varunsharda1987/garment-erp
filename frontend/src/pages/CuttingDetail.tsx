@@ -50,6 +50,7 @@ import {
 
 import { formatDate, toDateInputValue } from '@/lib/date';
 import { styleCodeLabel } from '@/lib/style-code';
+import { StyleThumbnail } from '@/components/StyleThumbnail';
 import { foldActual } from '@/lib/fold-length';
 import { formatQuantity } from '@/lib/formatters';
 import { isQtyZero, qtyExceeds, qtyRemaining } from '@/lib/quantity';
@@ -529,7 +530,15 @@ export default function CuttingDetail() {
             Back
           </Button>
           <div className="flex items-center gap-3">
-            <Scissors className="h-8 w-8 text-primary" />
+            {batch.workOrder?.style?.imageUrl ? (
+              <StyleThumbnail
+                imageUrl={batch.workOrder.style.imageUrl}
+                alt={`${styleCodeLabel(batch.workOrder.style)} - ${batch.workOrder.style.styleName}`}
+                size="md"
+              />
+            ) : (
+              <Scissors className="h-8 w-8 text-primary" />
+            )}
             <div>
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-display font-medium text-foreground">{batch.batchNumber}</h1>

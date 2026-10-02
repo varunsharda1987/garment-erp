@@ -235,6 +235,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           styleCode: true,
           buyerStyleRef: true,
           styleName: true,
+          imageUrl: true, // the garment photo
         },
       },
       users_order_bom_createdByIdTousers: {

@@ -306,6 +306,8 @@ export default function SampleList() {
             layout="stacked"
             showStyleCode={false}
             codeClassName="text-sm text-foreground"
+            imageUrl={item.style.imageUrl}
+            showImage
           />
         ) : (
           <span className="text-muted-foreground">No style</span>

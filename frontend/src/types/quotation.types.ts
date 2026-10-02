@@ -58,6 +58,7 @@ export interface QuotationItem {
     styleCode: string;
     styleName: string;
     buyerStyleRef?: string | null;
+    imageUrl?: string | null; // the garment photo (styles.imageUrl)
   };
 }
 

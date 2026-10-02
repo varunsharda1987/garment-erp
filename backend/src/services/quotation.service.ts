@@ -141,6 +141,7 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
               styleCode: true,
               buyerStyleRef: true,
               styleName: true,
+              imageUrl: true, // the garment photo
             },
           },
         },

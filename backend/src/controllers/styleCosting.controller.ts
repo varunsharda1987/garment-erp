@@ -635,6 +635,7 @@ export const getCostSheetById = async (req: Request, res: Response): Promise<voi
           buyerStyleRef: true,
           styleName: true,
           categoryId: true,
+          imageUrl: true, // the garment photo
         },
       },
       users_style_costing_createdByIdTousers: {

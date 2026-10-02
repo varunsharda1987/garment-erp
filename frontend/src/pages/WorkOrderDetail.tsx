@@ -58,7 +58,8 @@ import WipSummarySection from '@/components/WipSummarySection';
 import { formatDate } from '@/lib/date';
 import { formatCurrency } from '@/lib/currency';
 import { qtyExceeds } from '@/lib/quantity';
-import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, buyerStyleCode, ourStyleCode } from '@/lib/style-code';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, buyerStyleCode, ourStyleCode, styleCodeLabel } from '@/lib/style-code';
+import { StyleThumbnail } from '@/components/StyleThumbnail';
 
 interface ManufacturingProgress {
   cutting: { batches: number; totalCut: number; pending: boolean };
@@ -945,6 +946,11 @@ export default function WorkOrderDetail() {
                 <span className="text-muted-foreground">Customer</span>
                 <span className="font-medium">{workOrder.orders?.customer?.name || '-'}</span>
               </div>
+              {workOrder.style?.imageUrl && (
+                <div className="flex justify-center pb-2">
+                  <StyleThumbnail imageUrl={workOrder.style.imageUrl} alt={styleCodeLabel(workOrder.style)} size="lg" />
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">{BUYER_STYLE_CODE_LABEL}</span>
                 <span className="font-medium">{buyerStyleCode(workOrder.style, null, '-')}</span>

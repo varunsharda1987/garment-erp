@@ -36,6 +36,7 @@ export const transformCuttingBatch = (batch: any) => ({
               styleCode: batch.workOrder.styles.styleCode,
               buyerStyleRef: batch.workOrder.styles.buyerStyleRef ?? null,
               styleName: batch.workOrder.styles.styleName,
+              imageUrl: batch.workOrder.styles.imageUrl ?? null, // the garment photo
             }
           : null,
         order: batch.workOrder.orders

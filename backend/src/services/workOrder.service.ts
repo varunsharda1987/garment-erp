@@ -354,6 +354,7 @@ class WorkOrderService {
             buyerStyleRef: true,
             styleName: true,
             categoryId: true,
+            imageUrl: true, // the garment photo beside each row
           },
         },
         warehouses: {

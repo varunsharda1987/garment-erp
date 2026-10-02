@@ -1,3 +1,4 @@
+import { getUploadUrl } from '@/config/api.config';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Calendar, Package, TrendingUp, AlertCircle } from 'lucide-react';
@@ -51,7 +52,7 @@ export default function StatusListItem({ item }: StatusListItemProps) {
         <div className="flex-shrink-0">
           {item.imageUrl ? (
             <img
-              src={`http://localhost:5000${item.imageUrl}`}
+              src={getUploadUrl(item.imageUrl)}
               alt={item.styleName}
               className="w-[180px] h-[180px] object-cover rounded-lg border-2 border-border shadow-sm"
               loading="lazy"

@@ -180,6 +180,7 @@ export interface OrderBOM {
     styleCode: string;
     styleName: string;
     buyerStyleRef?: string | null;
+    imageUrl?: string | null; // the garment photo (styles.imageUrl)
     [key: string]: unknown;
   };
   items?: OrderBOMItem[];

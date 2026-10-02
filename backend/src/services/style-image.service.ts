@@ -5,7 +5,7 @@
 import prisma from '../config/database';
 import { NotFoundError } from '../errors';
 import { logError, logInfo, logDebug } from '../utils/logger';
-import { StyleImageType } from '@prisma/client';
+import { Prisma, StyleImageType } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
 
@@ -18,6 +18,20 @@ export interface CreateStyleImageDTO {
 export interface UpdateStyleImageDTO {
   imageType?: StyleImageType;
   caption?: string;
+}
+
+/**
+ * `styles.imageUrl` is THE garment photo every screen, list and printout shows. A gallery image
+ * marked MAIN becomes it, and a style keeps one MAIN: the previous MAIN is demoted to OTHER.
+ * (Until 2026-10-01 the two were never linked, so the gallery's Main and the photo on screen
+ * could be different pictures.)
+ */
+async function makeMainPhoto(tx: Prisma.TransactionClient, styleId: string, imageId: string, imageUrl: string) {
+  await tx.style_images.updateMany({
+    where: { styleId, imageType: StyleImageType.MAIN, id: { not: imageId } },
+    data: { imageType: StyleImageType.OTHER },
+  });
+  await tx.styles.update({ where: { id: styleId }, data: { imageUrl } });
 }
 
 class StyleImageService {
@@ -41,14 +55,20 @@ class StyleImageService {
       });
       const sortOrder = (maxSort._max.sortOrder ?? -1) + 1;
 
-      const image = await prisma.style_images.create({
-        data: {
-          styleId,
-          imageUrl: data.imageUrl,
-          imageType: data.imageType || StyleImageType.OTHER,
-          caption: data.caption,
-          sortOrder,
-        },
+      const image = await prisma.$transaction(async (tx) => {
+        const created = await tx.style_images.create({
+          data: {
+            styleId,
+            imageUrl: data.imageUrl,
+            imageType: data.imageType || StyleImageType.OTHER,
+            caption: data.caption,
+            sortOrder,
+          },
+        });
+        if (created.imageType === StyleImageType.MAIN) {
+          await makeMainPhoto(tx, styleId, created.id, created.imageUrl);
+        }
+        return created;
       });
 
       logInfo('Style image created successfully', { id: image.id, styleId });
@@ -97,12 +117,19 @@ class StyleImageService {
         throw new NotFoundError('Style Image', imageId);
       }
 
-      const image = await prisma.style_images.update({
-        where: { id: imageId },
-        data: {
-          imageType: data.imageType,
-          caption: data.caption,
-        },
+      const image = await prisma.$transaction(async (tx) => {
+        const updated = await tx.style_images.update({
+          where: { id: imageId },
+          data: {
+            imageType: data.imageType,
+            caption: data.caption,
+          },
+        });
+        // Only a change TO Main moves the style's photo; un-marking Main leaves the photo as it is.
+        if (updated.imageType === StyleImageType.MAIN && existing.imageType !== StyleImageType.MAIN) {
+          await makeMainPhoto(tx, styleId, updated.id, updated.imageUrl);
+        }
+        return updated;
       });
 
       logInfo('Style image updated successfully', { id: image.id });
@@ -136,8 +163,13 @@ class StyleImageService {
         }
       }
 
-      await prisma.style_images.delete({
-        where: { id: imageId },
+      await prisma.$transaction(async (tx) => {
+        await tx.style_images.delete({ where: { id: imageId } });
+        // The file is gone: a style whose photo it was shows "no photo" rather than a broken image.
+        await tx.styles.updateMany({
+          where: { id: styleId, imageUrl: existing.imageUrl },
+          data: { imageUrl: null },
+        });
       });
 
       logInfo('Style image deleted successfully', { id: imageId });

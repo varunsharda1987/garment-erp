@@ -48,6 +48,7 @@ export const getAllFGStock = async (req: Request, res: Response) => {
             styleCode: true,
             styleName: true,
             buyerStyleRef: true,
+            imageUrl: true, // the garment photo
           },
         },
         color_options: {

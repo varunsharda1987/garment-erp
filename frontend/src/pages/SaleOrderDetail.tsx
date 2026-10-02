@@ -766,6 +766,9 @@ export default function SaleOrderDetail() {
                 lineRef={so.items?.find((i) => i.styleId === so.styleId && i.buyerStyleRef)?.buyerStyleRef}
                 fallback="-"
                 codeClassName="font-bold"
+                imageUrl={so.style?.imageUrl}
+                showImage={!!so.style}
+                imageSize="sm"
               />
             </div>
             <div className="text-sm text-muted-foreground truncate">{so.style?.styleName || 'No primary style'}</div>
@@ -1010,6 +1013,8 @@ export default function SaleOrderDetail() {
                         layout="stacked"
                         showStyleCode={false}
                         codeClassName="font-mono text-sm"
+                        imageUrl={item.style?.imageUrl}
+                        showImage
                       />
                     </TableCell>
                     <TableCell className="font-mono text-sm">{ourStyleCode(item.style)}</TableCell>

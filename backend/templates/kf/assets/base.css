@@ -72,6 +72,13 @@ body{
 .kv .row .k{width:92px; flex:none; color:var(--ink-2); font-family:'IBM Plex Mono',monospace;
             font-size:8.5px; text-transform:uppercase; letter-spacing:.5px; padding-top:1px;}
 .kv .row .v{font-weight:500;}
+/* The garment photo beside a section's key/values (cutting chart, cost sheet, job work order).
+   Printed only when the file is on disk — the data builder sends null otherwise. */
+.with-photo{display:flex; gap:14px; align-items:flex-start;}
+.with-photo > .kv{flex:1; min-width:0;}
+.garment{flex:none; width:30mm; height:30mm; object-fit:contain; border:1px solid var(--rule);
+         background:var(--wash);}
+.garment.sm{width:22mm; height:22mm;} /* one-page documents */
 
 /* ---------- tables ---------- */
 table{width:100%; border-collapse:collapse; font-size:10px;}

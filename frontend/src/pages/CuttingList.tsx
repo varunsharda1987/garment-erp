@@ -325,6 +325,8 @@ export default function CuttingList() {
                             layout="stacked"
                             showStyleCode={false}
                             fallback="-"
+                            imageUrl={batch.workOrder?.style?.imageUrl}
+                            showImage
                           />
                         </TableCell>
                         <TableCell>

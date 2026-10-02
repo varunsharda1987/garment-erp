@@ -41,14 +41,11 @@ jobs:
         working-directory: backend
         run: npm run type-check # runs tsc with a raised heap so it can't OOM-crash into a false "clean"
 
-      # Report-only: ESLint findings are hygiene (no-explicit-any, unused vars) with zero
-      # real runtime bugs per the pre-existing-error triage. They print in the log but do
-      # NOT block, so a red lint no longer makes the whole pipeline (and the deploy gate)
-      # permanently fail. The blocking quality gates are TypeScript + guardrails + build.
-      - name: Run ESLint (report-only)
+      # Blocking since the backlog was cleared (2026-10-02): 0 errors and 0 warnings
+      # (`npm run lint` runs with --max-warnings 0), so any new finding fails the job.
+      - name: Run ESLint
         working-directory: backend
         run: npm run lint
-        continue-on-error: true
 
   lint-frontend:
     name: Lint Frontend
@@ -73,11 +70,11 @@ jobs:
         working-directory: frontend
         run: npx tsc --noEmit
 
-      # Report-only (see lint-backend note above): hygiene, does not block.
-      - name: Run ESLint (report-only)
+      # Blocking on errors (0 since 2026-10-02). Warnings — the two React Compiler rules kept
+      # as warnings, test-file `any` — print but do not fail the job.
+      - name: Run ESLint
         working-directory: frontend
         run: npm run lint
-        continue-on-error: true
 
   format-check:
     name: Check Formatting

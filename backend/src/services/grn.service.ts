@@ -220,6 +220,53 @@ async function grnLineStockMaterialId(
   return ensureThreadPackMaterialRecord(material.threadId, pack.packagingType, pack.ply, tx);
 }
 
+/** One colour's job-work return, as the one-colour door (POST /grn/jwo/receive) takes it */
+type JwoReceiptInput = Parameters<GRNService['createGRNFromJWO']>[0] & {
+  warehouseId: string;
+  processingQC?: ProcessingQCData;
+  /** Phase 4d: the processor delivered the finished goods straight to the processor whose unit this is */
+  deliveredToProcessor?: boolean;
+  vehicleNumber?: string | null;
+};
+
+/** What a job-work return is checked against once per delivery: the job, and the next processor's unit if any */
+interface JwoReceiptTarget {
+  job: { processorId: string; jobWorkNumber: string; fabricType: string | null; processor: { name: string } | null };
+  nextProcessor: ReturnType<typeof resolveNextProcessorUnit>;
+}
+
+/** The fields that are typed once per truck */
+const JWO_DELIVERY_FIELDS = [
+  'jobWorkOrderId',
+  'warehouseId',
+  'deliveredToProcessor',
+  'vehicleNumber',
+  'receivedDate',
+  'receivedChallan',
+  'invoiceNumber',
+  'invoiceDate',
+  'invoiceToFollow',
+  'remarks',
+  'shortCloseConfirmed',
+] as const;
+
+/**
+ * The receipts of one delivery share their key's prefix: receipt n of a delivery keyed K stores `K:n`
+ * (receiveJwoDelivery). Null for a receipt filed alone.
+ */
+export function deliveryKeyPrefix(submissionKey: string | null | undefined): string | null {
+  const match = submissionKey?.match(/^(.+:)\d+$/);
+  return match ? match[1] : null;
+}
+
+/** One delivery from a processor (POST /grn/jwo/receive-delivery): the truck's details once, a row per colour */
+export type JwoDeliveryInput = Pick<JwoReceiptInput, (typeof JWO_DELIVERY_FIELDS)[number]> & {
+  submissionKey?: string | null;
+  lines: Array<
+    Omit<JwoReceiptInput, (typeof JWO_DELIVERY_FIELDS)[number] | 'submissionKey' | 'lineId'> & { lineId: string }
+  >;
+};
+
 class GRNService {
   /**
    * Generate unique GRN number - Format: GRN2511-0001
@@ -998,7 +1045,15 @@ class GRNService {
   async updateInvoice(id: string, input: { invoiceNumber: string; invoiceDate: Date }, userId: string) {
     const grn = await prisma.goods_receiving_notes.findUnique({
       where: { id },
-      select: { id: true, grnNumber: true, status: true, invoiceNumber: true, invoiceDate: true },
+      select: {
+        id: true,
+        grnNumber: true,
+        status: true,
+        invoiceNumber: true,
+        invoiceDate: true,
+        submissionKey: true,
+        jobWorkOrderId: true,
+      },
     });
     if (!grn) throw new NotFoundError('GRN', id);
     if (!isInvoiceOpenStatus(grn.status)) {
@@ -1008,24 +1063,60 @@ class GRNService {
       );
     }
     const invoice = resolveReceiptInvoice(input, 'supplier');
-    const updated = await prisma.goods_receiving_notes.update({
-      where: { id },
-      data: {
-        invoiceNumber: invoice.invoiceNumber,
-        invoiceDate: invoice.invoiceDate,
-      },
-      select: { id: true, grnNumber: true, invoiceNumber: true, invoiceDate: true, status: true },
-    });
-    await createAuditLog({
+    // A processor sends ONE bill for a truck that brought several colours, and each colour is its own receipt
+    // (receiveJwoDelivery): the bill also goes on the delivery's other receipts that are still waiting for it.
+    const prefix = grn.jobWorkOrderId ? deliveryKeyPrefix(grn.submissionKey) : null;
+    const siblings = prefix
+      ? await prisma.goods_receiving_notes.findMany({
+          where: {
+            id: { not: id },
+            jobWorkOrderId: grn.jobWorkOrderId,
+            submissionKey: { startsWith: prefix },
+            invoiceNumber: null,
+          },
+          select: { id: true, grnNumber: true, status: true },
+        })
+      : [];
+    const alsoBilled = siblings.filter((s) => isInvoiceOpenStatus(s.status));
+    const [updated] = await prisma.$transaction([
+      prisma.goods_receiving_notes.update({
+        where: { id },
+        data: {
+          invoiceNumber: invoice.invoiceNumber,
+          invoiceDate: invoice.invoiceDate,
+        },
+        select: { id: true, grnNumber: true, invoiceNumber: true, invoiceDate: true, status: true },
+      }),
+      ...alsoBilled.map((s) =>
+        prisma.goods_receiving_notes.update({
+          where: { id: s.id },
+          data: {
+            invoiceNumber: invoice.invoiceNumber,
+            invoiceDate: invoice.invoiceDate,
+          },
+          select: { id: true },
+        })
+      ),
+    ]);
+    for (const receipt of [{ id, invoiceNumber: grn.invoiceNumber, invoiceDate: grn.invoiceDate }, ...alsoBilled]) {
+      await createAuditLog({
+        userId,
+        action: 'UPDATE',
+        entityType: 'GRN',
+        entityId: receipt.id,
+        oldValues:
+          receipt.id === id
+            ? { invoiceNumber: grn.invoiceNumber, invoiceDate: grn.invoiceDate }
+            : { invoiceNumber: null, invoiceDate: null },
+        newValues: { invoiceNumber: updated.invoiceNumber, invoiceDate: updated.invoiceDate },
+      });
+    }
+    logInfo(`Invoice ${updated.invoiceNumber} recorded on ${updated.grnNumber}`, {
+      grnId: id,
       userId,
-      action: 'UPDATE',
-      entityType: 'GRN',
-      entityId: id,
-      oldValues: { invoiceNumber: grn.invoiceNumber, invoiceDate: grn.invoiceDate },
-      newValues: { invoiceNumber: updated.invoiceNumber, invoiceDate: updated.invoiceDate },
+      ...(alsoBilled.length ? { sameDelivery: alsoBilled.map((s) => s.grnNumber) } : {}),
     });
-    logInfo(`Invoice ${updated.invoiceNumber} recorded on ${updated.grnNumber}`, { grnId: id, userId });
-    return updated;
+    return { ...updated, alsoBilled: alsoBilled.map((s) => s.grnNumber) };
   }
 
   async getGRNById(id: string) {
@@ -3441,53 +3532,9 @@ class GRNService {
    *     arriving again returns the receipt it already filed, `replayed: true`, and books nothing. Only
    *     the key tells a repeated PART from a genuine second part — two parts can both fit the cap.
    */
-  async receiveJwoToStock(
-    data: Parameters<typeof grnService.createGRNFromJWO>[0] & {
-      warehouseId: string;
-      processingQC?: ProcessingQCData;
-      /** Phase 4d: the processor delivered the finished goods straight to the processor whose unit this is */
-      deliveredToProcessor?: boolean;
-      vehicleNumber?: string | null;
-    },
-    userId: string
-  ) {
-    const warehouse = await prisma.warehouses.findUnique({
-      where: { id: data.warehouseId },
-      select: {
-        id: true,
-        isActive: true,
-        warehouseType: true,
-        warehouseName: true,
-        supplierId: true,
-        supplier: { select: { name: true } },
-      },
-    });
-    if (!warehouse || !warehouse.isActive) {
-      throw new BusinessError('Invalid or inactive warehouse');
-    }
-    // Delivered straight to the next processor (Phase 4d): the lot is booked at B's unit and A → B is
-    // challaned below, in the same transaction. Refused before anything is written when it cannot be.
-    const job = await prisma.job_work_orders.findUnique({
-      where: { id: data.jobWorkOrderId },
-      select: { processorId: true, jobWorkNumber: true, fabricType: true, processor: { select: { name: true } } },
-    });
-    const nextProcessor = job
-      ? resolveNextProcessorUnit(
-          warehouse,
-          { processorId: job.processorId, processorName: job.processor?.name ?? 'the processor' },
-          data.deliveredToProcessor === true
-        )
-      : null;
-
-    // A fabric lot's widths come from what was MEASURED on arrival (lot-width.helper): the asked width or the
-    // greige band are not the fabric's width (ESSKY076LS: both lots booked at 57", the fabric was 55")
-    if (job && job.fabricType !== 'LACE' && !(Number(data.receivedWidthInches) > 0)) {
-      throw new BusinessError(
-        `Enter the measured width of the fabric received on ${job.jobWorkNumber} — the lot's cutable width is ` +
-          'worked out from it.',
-        { code: 'MEASURED_WIDTH_REQUIRED' }
-      );
-    }
+  async receiveJwoToStock(data: JwoReceiptInput, userId: string) {
+    const target = await this.resolveJwoReceiptTarget(data.jobWorkOrderId, data.warehouseId, data.deliveredToProcessor);
+    this.assertMeasuredWidth(target.job, data.receivedWidthInches);
 
     const submissionKey = data.submissionKey || null;
     const alreadyFiled = async (client: Prisma.TransactionClient | typeof prisma) => {
@@ -3521,27 +3568,7 @@ class GRNService {
           await lockJobWorkOrder(tx, data.jobWorkOrderId);
           const existing = await alreadyFiled(tx);
           if (existing) return { grn: existing, replayed: true };
-
-          const created = await this.createGRNFromJWO(data, userId, { tx, acceptedBy: userId });
-          await this.approvePolessJwoGrnInTx(tx, created, data.processingQC, data.warehouseId, userId, created.id, {
-            isFinal: data.isFinal ?? true,
-          });
-          if (nextProcessor && job?.processorId && created.grn_items?.[0]?.id) {
-            await sendReceiptOnToProcessor(tx, {
-              grnId: created.id,
-              grnNumber: created.grnNumber,
-              grnItemId: created.grn_items[0].id,
-              lotType: job.fabricType === 'LACE' ? 'LACE' : 'FABRIC',
-              fromProcessorId: job.processorId,
-              fromName: job.processor?.name ?? 'the processor',
-              jobWorkNumber: job.jobWorkNumber,
-              to: nextProcessor,
-              receivedAt: created.receivingDate ? new Date(created.receivingDate) : new Date(),
-              userId,
-              vehicleNumber: data.vehicleNumber ?? null,
-            });
-          }
-          return { grn: created, replayed: false };
+          return { grn: await this.fileJwoReceiptInTx(tx, data, userId, target), replayed: false };
         },
         { timeout: 30000, maxWait: 10000 }
       );
@@ -3557,16 +3584,7 @@ class GRNService {
 
     // The split applyLossSplit wrote inside the transaction — returned so the dialog can say
     // "abnormal loss, debit note needed" the moment it commits, as the piece-work receive does.
-    const jwo = await prisma.job_work_orders.findUniqueOrThrow({
-      where: { id: data.jobWorkOrderId },
-      select: {
-        jobWorkNumber: true,
-        qtyNormalLoss: true,
-        qtyAbnormalLoss: true,
-        tolerancePercent: true,
-        actualShrinkage: true,
-      },
-    });
+    const jwo = await this.jobLossFigures(data.jobWorkOrderId);
 
     // Delivered straight to the next processor: the A → B challan filed with this receipt (a replay
     // answers with the one the first submission filed)
@@ -3589,6 +3607,224 @@ class GRNService {
       }
     );
     return { grn, jwo, replayed, onwardChallan };
+  }
+
+  /**
+   * One delivery from a processor, every colour it brought, in one action (2026-10-02 — the Receive page).
+   *
+   * The truck's details (date, their challan, the bill or "to follow", the store or the next processor) are given
+   * once; each row is one job line (colour / order) with its own metres, width, fold, pieces, quality and "final".
+   * Each row files its own receipt — its own GRN number, lot and inward challan, credited to its own orders — exactly
+   * as the one-colour door does, and all of them commit together or not at all: a row over its cap, a short close
+   * not confirmed, a missing width refuses the whole delivery with nothing written. Every row re-reads the job and
+   * its lines through the transaction, so running totals, the per-line cap and "the last open line closes the job"
+   * (with the loss on the whole job) work as they do for one receipt at a time.
+   *
+   * Replay: the page sends one key per opening; receipt n stores `${key}:${lineNo}`. The same delivery sent again
+   * answers with the receipts already filed, `replayed: true`, and books nothing.
+   */
+  async receiveJwoDelivery(input: JwoDeliveryInput, userId: string) {
+    const { lines: rows, submissionKey, ...delivery } = input;
+    const target = await this.resolveJwoReceiptTarget(
+      delivery.jobWorkOrderId,
+      delivery.warehouseId,
+      delivery.deliveredToProcessor
+    );
+    const jobLines = await prisma.job_work_order_lines.findMany({
+      where: { jobWorkOrderId: delivery.jobWorkOrderId },
+      select: { id: true, lineNo: true },
+    });
+    const lineNoOf = new Map(jobLines.map((l) => [l.id, l.lineNo]));
+    if (rows.length === 0) throw new BusinessError('Enter at least one colour that came back.');
+    if (new Set(rows.map((r) => r.lineId)).size !== rows.length) {
+      throw new BusinessError('A colour is entered twice — enter each colour of the delivery once.');
+    }
+    for (const row of rows) {
+      if (!lineNoOf.has(row.lineId)) {
+        throw new BusinessError(
+          `That colour / order is not on ${target.job.jobWorkNumber} — reload the page and enter the delivery again.`
+        );
+      }
+      this.assertMeasuredWidth(target.job, row.receivedWidthInches);
+    }
+    // Line order, so receipt numbers, keys and challans follow the job's lines
+    const ordered = [...rows].sort((a, b) => lineNoOf.get(a.lineId)! - lineNoOf.get(b.lineId)!);
+
+    const keyPrefix = submissionKey ? `${submissionKey}:` : null;
+    const alreadyFiled = async (client: Prisma.TransactionClient | typeof prisma) => {
+      if (!keyPrefix) return [];
+      const existing = await client.goods_receiving_notes.findMany({
+        where: { submissionKey: { startsWith: keyPrefix } },
+        include: this.getFullInclude(),
+        orderBy: { submissionKey: 'asc' },
+      });
+      if (existing.some((g) => g.jobWorkOrderId !== delivery.jobWorkOrderId)) {
+        throw new BusinessError(
+          'This submission was already used for a different job. Reload the page and enter the delivery again.'
+        );
+      }
+      return existing;
+    };
+
+    type Filed = Awaited<ReturnType<GRNService['createGRNFromJWO']>>;
+    let result: { receipts: Filed[]; replayed: boolean };
+    try {
+      result = await prisma.$transaction(
+        async (tx) => {
+          // FIRST: a second submit for this job waits here until the first commits.
+          await lockJobWorkOrder(tx, delivery.jobWorkOrderId);
+          const existing = await alreadyFiled(tx);
+          if (existing.length > 0) return { receipts: existing, replayed: true };
+          const receipts: Filed[] = [];
+          for (const { lineId, ...perColour } of ordered) {
+            receipts.push(
+              await this.fileJwoReceiptInTx(
+                tx,
+                {
+                  ...delivery,
+                  ...perColour,
+                  lineId,
+                  submissionKey: keyPrefix ? `${keyPrefix}${lineNoOf.get(lineId)}` : null,
+                },
+                userId,
+                target
+              )
+            );
+          }
+          return { receipts, replayed: false };
+        },
+        // One receipt takes up to ~30 s on a busy server; each further colour gets 15 s more (the page waits 120 s)
+        { timeout: Math.min(30000 + 15000 * (ordered.length - 1), 90000), maxWait: 10000 }
+      );
+    } catch (err) {
+      const existing =
+        err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002' ? await alreadyFiled(prisma) : [];
+      if (existing.length === 0) throw err;
+      result = { receipts: existing, replayed: true };
+    }
+    const { receipts, replayed } = result;
+
+    const jwo = await this.jobLossFigures(delivery.jobWorkOrderId);
+    const onwardChallans = await prisma.challans.findMany({
+      where: { grnId: { in: receipts.map((g) => g.id) }, challanType: 'OUTWARD', status: { not: 'CANCELLED' } },
+      select: { id: true, challanNumber: true, toName: true },
+      orderBy: { challanNumber: 'asc' },
+    });
+    const filed = receipts.map((g) => {
+      const item = g.grn_items?.[0];
+      return {
+        id: g.id,
+        grnNumber: g.grnNumber,
+        lineId: item?.jobWorkOrderLineId ?? null,
+        colorName: item?.colorName ?? null,
+        qty: item ? grnLineActualQty(item).toNumber() : 0,
+      };
+    });
+
+    logInfo(
+      replayed
+        ? 'Job-work delivery submitted again — answered with the receipts already filed, nothing booked'
+        : `Job-work delivery booked to stock in one action — ${receipts.length} receipt(s)`,
+      {
+        jobWorkNumber: jwo.jobWorkNumber,
+        receipts: filed.map((r) => r.grnNumber),
+        ...(onwardChallans.length ? { onwardChallans: onwardChallans.map((c) => c.challanNumber) } : {}),
+      }
+    );
+    return { receipts: filed, jwo, replayed, onwardChallans };
+  }
+
+  /** Where a job-work delivery goes — our store, or (Phase 4d) straight on to the next processor — checked once */
+  private async resolveJwoReceiptTarget(
+    jobWorkOrderId: string,
+    warehouseId: string,
+    deliveredToProcessor?: boolean
+  ): Promise<JwoReceiptTarget> {
+    const warehouse = await prisma.warehouses.findUnique({
+      where: { id: warehouseId },
+      select: {
+        id: true,
+        isActive: true,
+        warehouseType: true,
+        warehouseName: true,
+        supplierId: true,
+        supplier: { select: { name: true } },
+      },
+    });
+    if (!warehouse || !warehouse.isActive) {
+      throw new BusinessError('Invalid or inactive warehouse');
+    }
+    // Delivered straight to the next processor (Phase 4d): the lot is booked at B's unit and A → B is
+    // challaned in the same transaction. Refused before anything is written when it cannot be.
+    const job = await prisma.job_work_orders.findUnique({
+      where: { id: jobWorkOrderId },
+      select: { processorId: true, jobWorkNumber: true, fabricType: true, processor: { select: { name: true } } },
+    });
+    if (!job) throw new BusinessError('Job work order not found');
+    const nextProcessor = resolveNextProcessorUnit(
+      warehouse,
+      { processorId: job.processorId, processorName: job.processor?.name ?? 'the processor' },
+      deliveredToProcessor === true
+    );
+    return { job, nextProcessor };
+  }
+
+  /**
+   * A fabric lot's widths come from what was MEASURED on arrival (lot-width.helper): the asked width or the greige
+   * band are not the fabric's width (ESSKY076LS: both lots booked at 57", the fabric was 55")
+   */
+  private assertMeasuredWidth(job: JwoReceiptTarget['job'], receivedWidthInches: unknown): void {
+    if (job.fabricType !== 'LACE' && !(Number(receivedWidthInches) > 0)) {
+      throw new BusinessError(
+        `Enter the measured width of the fabric received on ${job.jobWorkNumber} — the lot's cutable width is ` +
+          'worked out from it.',
+        { code: 'MEASURED_WIDTH_REQUIRED' }
+      );
+    }
+  }
+
+  /** One colour's receipt, inside the caller's locked transaction: filed ACCEPTED, booked, and sent on if asked */
+  private async fileJwoReceiptInTx(
+    tx: Prisma.TransactionClient,
+    data: JwoReceiptInput,
+    userId: string,
+    { job, nextProcessor }: JwoReceiptTarget
+  ) {
+    const created = await this.createGRNFromJWO(data, userId, { tx, acceptedBy: userId });
+    await this.approvePolessJwoGrnInTx(tx, created, data.processingQC, data.warehouseId, userId, created.id, {
+      isFinal: data.isFinal ?? true,
+    });
+    if (nextProcessor && job.processorId && created.grn_items?.[0]?.id) {
+      await sendReceiptOnToProcessor(tx, {
+        grnId: created.id,
+        grnNumber: created.grnNumber,
+        grnItemId: created.grn_items[0].id,
+        lotType: job.fabricType === 'LACE' ? 'LACE' : 'FABRIC',
+        fromProcessorId: job.processorId,
+        fromName: job.processor?.name ?? 'the processor',
+        jobWorkNumber: job.jobWorkNumber,
+        to: nextProcessor,
+        receivedAt: created.receivingDate ? new Date(created.receivingDate) : new Date(),
+        userId,
+        vehicleNumber: data.vehicleNumber ?? null,
+      });
+    }
+    return created;
+  }
+
+  /** The loss split a receipt's transaction wrote — returned so the screen can say "debit note needed" at once */
+  private jobLossFigures(jobWorkOrderId: string) {
+    return prisma.job_work_orders.findUniqueOrThrow({
+      where: { id: jobWorkOrderId },
+      select: {
+        jobWorkNumber: true,
+        receivedDate: true,
+        qtyNormalLoss: true,
+        qtyAbnormalLoss: true,
+        tolerancePercent: true,
+        actualShrinkage: true,
+      },
+    });
   }
 
   /**

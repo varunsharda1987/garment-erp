@@ -6,6 +6,7 @@
 import { unitPer, unitShort } from '@/lib/units';
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { lineName } from '@/lib/jwo-lines';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { toast } from 'sonner';
@@ -54,7 +55,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { jobWorkOrderService, type IssueJwoPayload } from '@/services/jobWorkOrder.service';
 import { fabricStockService } from '@/services/fabricStockService';
 import { GreigeLotRows } from '@/components/job-work/GreigeLotRows';
-import ReceiveFromProcessorDialog from '@/components/job-work/ReceiveFromProcessorDialog';
 import ReturnFromProcessorDialog from '@/components/job-work/ReturnFromProcessorDialog';
 import MoveHeldStockDialog, { type MoveLot } from '@/components/job-work/MoveHeldStockDialog';
 import {
@@ -170,7 +170,6 @@ export default function JobWorkOrderDetail() {
   const queryClient = useQueryClient();
 
   const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
-  const [receiveFromProcessorOpen, setReceiveFromProcessorOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [waDialogOpen, setWaDialogOpen] = useState(false);
@@ -1472,7 +1471,7 @@ export default function JobWorkOrderDetail() {
                 // Metre goods come back through ONE action that books the stock lot; Receive
                 // Material books no stock, so it stays for piece work only.
                 (jwo.uom === 'MTR' ? (
-                  <Button className="w-full" onClick={() => setReceiveFromProcessorOpen(true)}>
+                  <Button className="w-full" onClick={() => navigate(`/job-work-orders/${jwo.id}/receive`)}>
                     <PackageCheck className="mr-2 h-4 w-4" />
                     Receive from processor
                   </Button>
@@ -1619,6 +1618,8 @@ export default function JobWorkOrderDetail() {
                     {receipts.map((r) => {
                       // The receipt line keeps the processor's COUNTED figure; at an L, say so and give the actual
                       const line = r.items?.[0];
+                      // A job with several lines: the colour that receipt brought (one truck may file one per colour)
+                      const colour = severalLines ? jobLines.find((l) => l.id === line?.jobWorkOrderLineId) : undefined;
                       const qty = line?.acceptedQuantity;
                       const lineFolded = hasFold(line?.foldLengthCm);
                       // undefined = an old payload without it; null = the processor's bill is to follow
@@ -1633,6 +1634,7 @@ export default function JobWorkOrderDetail() {
                           <span className="flex items-center">
                             <PackageCheck className="mr-2 h-4 w-4" />
                             {r.grnNumber}
+                            {colour && <span className="ml-1 text-xs text-muted-foreground">{lineName(colour)}</span>}
                           </span>
                           <span className="text-xs text-muted-foreground">
                             {qty == null
@@ -1716,13 +1718,6 @@ export default function JobWorkOrderDetail() {
           </Card>
         </div>
       </div>
-
-      {/* Receive from processor — metre jobs: one action, stock booked */}
-      <ReceiveFromProcessorDialog
-        open={receiveFromProcessorOpen}
-        onOpenChange={setReceiveFromProcessorOpen}
-        jobWorkOrderId={jwo.id}
-      />
 
       {/* Returned unprocessed — it came back exactly as it went out */}
       <ReturnFromProcessorDialog

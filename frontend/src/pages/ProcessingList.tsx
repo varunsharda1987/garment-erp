@@ -32,7 +32,6 @@ import { ProcessorCombobox } from '@/components/ProcessorCombobox';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { ReturnUnprocessedDialog } from '@/components/processing';
-import ReceiveFromProcessorDialog from '@/components/job-work/ReceiveFromProcessorDialog';
 import SendToMillDialog from '@/components/processing/SendToMillDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import {
@@ -134,9 +133,6 @@ export default function ProcessingList() {
   // Return dialog
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
   const [selectedPOForReturn, setSelectedPOForReturn] = useState<UnifiedProcessPO | null>(null);
-  // Receive from processor — one action, opened in place on the row's job
-  const [receiveOpen, setReceiveOpen] = useState(false);
-  const [receiveJwoId, setReceiveJwoId] = useState<string | null>(null);
 
   useEffect(() => {
     if (activeTab === 'lab-dips') {
@@ -641,8 +637,7 @@ export default function ProcessingList() {
                 size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setReceiveJwoId(item.id);
-                  setReceiveOpen(true);
+                  navigate(`/job-work-orders/${item.id}/receive`);
                 }}
                 className="text-success hover:text-success hover:bg-success-muted"
                 title="Receive from processor"
@@ -1004,19 +999,6 @@ export default function ProcessingList() {
         description={`Are you sure you want to delete "${itemToDelete?.number}"? This action cannot be undone.`}
         confirmText="Delete"
         variant="destructive"
-      />
-
-      <ReceiveFromProcessorDialog
-        open={receiveOpen}
-        onOpenChange={(open) => {
-          setReceiveOpen(open);
-          if (!open) setReceiveJwoId(null);
-        }}
-        jobWorkOrderId={receiveJwoId}
-        onSuccess={() => {
-          fetchProcessPOs();
-          fetchSummary();
-        }}
       />
 
       {/* Return Dialog */}

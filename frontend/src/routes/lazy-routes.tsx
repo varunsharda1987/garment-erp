@@ -246,6 +246,7 @@ export const ProcessingBatchCreateForm = lazy(() => import('../pages/ProcessingB
 export const JobWorkOrderList = lazy(() => import('../pages/JobWorkOrderList'));
 export const JobWorkOrderDetail = lazy(() => import('../pages/JobWorkOrderDetail'));
 export const DispatchToProcessor = lazy(() => import('../pages/DispatchToProcessor'));
+export const JobWorkReceive = lazy(() => import('../pages/JobWorkReceive'));
 
 // ============================================================================
 // Fabric & Greige Management

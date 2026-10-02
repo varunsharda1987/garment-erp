@@ -13,6 +13,7 @@ import {
   getProcessingContext,
   createGRN,
   receiveJwoToStock,
+  receiveJwoDelivery,
   approveGRN,
   rejectGRN,
   reverseGRN, // BUG-GRN6 fix
@@ -25,6 +26,7 @@ import { validateBody, validateParams, validateQuery } from '../middleware/valid
 import {
   createGRNSchema,
   receiveJwoToStockSchema,
+  receiveJwoDeliverySchema,
   approveGRNSchema,
   rejectGRNSchema,
   reverseGRNSchema,
@@ -119,6 +121,14 @@ router.post('/jwo', (_req: Request, res: Response) =>
  * @access  Private (INVENTORY, PURCHASE, ADMIN)
  */
 router.post('/jwo/receive', validateBody(receiveJwoToStockSchema), asyncHandler(receiveJwoToStock));
+
+/**
+ * @route   POST /api/grn/jwo/receive-delivery
+ * @desc    One delivery from a processor (the Receive page): the truck once, a row per colour. Each colour files its
+ *          own receipt; all commit together or none do.
+ * @access  Private (INVENTORY, PURCHASE, ADMIN)
+ */
+router.post('/jwo/receive-delivery', validateBody(receiveJwoDeliverySchema), asyncHandler(receiveJwoDelivery));
 
 // ============================================
 // Status Transition Routes

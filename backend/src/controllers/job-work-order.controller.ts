@@ -141,7 +141,16 @@ const jwoInclude = {
       invoiceNumber: true,
       invoiceDate: true,
       // acceptedQuantity is the processor's COUNTED figure; at foldLengthCm the actual metres are counted × L/100
-      grn_items: { select: { acceptedQuantity: true, receivedWidthInches: true, thanCount: true, foldLengthCm: true } },
+      // jobWorkOrderLineId: the colour that receipt brought, on a job with several lines
+      grn_items: {
+        select: {
+          acceptedQuantity: true,
+          receivedWidthInches: true,
+          thanCount: true,
+          foldLengthCm: true,
+          jobWorkOrderLineId: true,
+        },
+      },
     },
     orderBy: { receivingDate: 'asc' as const },
   },
@@ -2401,7 +2410,19 @@ class JobWorkOrderController {
       }
       const capBasis = line?.qtyExpected != null ? Number(line.qtyExpected) : split.qtyExpected.toNumber();
       const overReceiptTolerance = await systemSettingsService.getNumberDefault('GRN_OVER_RECEIPT_TOLERANCE_PERCENT');
-      const maxReceivable = roundToCent(multiplyCurrency(capBasis, 1 + overReceiptTolerance / 100)).toNumber();
+      const capOf = (expected: number) =>
+        roundToCent(multiplyCurrency(expected, 1 + overReceiptTolerance / 100)).toNumber();
+      const maxReceivable = capOf(capBasis);
+      // Every line's ceiling at once — the Receive page asks once per delivery, not once per colour
+      const lines = (
+        await prisma.job_work_order_lines.findMany({
+          where: { jobWorkOrderId: id },
+          select: { id: true, qtyExpected: true },
+        })
+      ).map((l) => ({
+        lineId: l.id,
+        maxReceivable: l.qtyExpected != null ? capOf(Number(l.qtyExpected)) : null,
+      }));
 
       res.json({
         success: true,
@@ -2416,6 +2437,7 @@ class JobWorkOrderController {
           debitNoteRequired: split.debitNoteRequired,
           debitNoteAmount: split.debitNoteAmount ? split.debitNoteAmount.toNumber() : null,
           maxReceivable,
+          lines,
         },
       });
     } catch (error) {

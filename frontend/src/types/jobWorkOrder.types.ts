@@ -114,6 +114,8 @@ export interface JobWorkOrder {
   styleId?: string;
   fabricId?: string;
   processorId: string;
+  /** A job raised on a purchase order is received against that PO (GRN form), not with Receive from processor */
+  purchaseOrderId?: string | null;
   fabricStockLotId?: string;
   /** 'GREIGE' | 'FINISHED' | 'LACE' — the material the job handles, not the process category. */
   fabricType?: string;
@@ -254,6 +256,8 @@ export interface JobWorkOrder {
       receivedWidthInches?: number | null;
       thanCount?: number | null;
       foldLengthCm?: number | null;
+      /** The job line (colour) this receipt brought */
+      jobWorkOrderLineId?: string | null;
     }>;
   }>;
 }

@@ -4,6 +4,7 @@
  */
 
 import api from '@/lib/api';
+import type { DeliveryPayload } from '@/lib/jwo-receive';
 import type {
   JobWorkOrder,
   JobWorkOrderQueryParams,
@@ -281,6 +282,8 @@ export interface JwoReceivePreview {
   debitNoteRequired: boolean;
   debitNoteAmount: number | null;
   maxReceivable: number;
+  /** Every line's ceiling — the Receive page checks each colour against its own */
+  lines?: Array<{ lineId: string; maxReceivable: number | null }>;
 }
 
 /**
@@ -505,6 +508,24 @@ export const jobWorkOrderService = {
    * in the same transaction. The route lives under /grn because that is the permission store
    * staff hold — the URL is invisible to the user.
    */
+  /**
+   * One delivery from a processor (the Receive page): the truck once, a row per colour. Each colour files its own
+   * receipt; all commit together or none do. 120 s: several receipts in one transaction on a busy server.
+   */
+  async receiveDelivery(payload: DeliveryPayload): Promise<{
+    data: {
+      receipts: Array<{ id: string; grnNumber: string; lineId: string | null; colorName: string | null; qty: number }>;
+      jobClosed: boolean;
+      onwardChallans: Array<{ challanNumber: string; toName: string }>;
+      lossSplit: LossSplitResult;
+    };
+    replayed: boolean;
+    message: string;
+  }> {
+    const response = await api.post('/grn/jwo/receive-delivery', payload, { timeout: 120_000 });
+    return response.data;
+  },
+
   async receiveToStock(payload: ReceiveToStockPayload): Promise<{
     data: { id: string; grnNumber: string };
     lossSplit: LossSplitResult;

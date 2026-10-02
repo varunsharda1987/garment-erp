@@ -200,6 +200,43 @@ export const receiveJwoToStock = async (req: Request, res: Response) => {
 };
 
 /**
+ * @route POST /api/grn/jwo/receive-delivery
+ * @desc One delivery from a processor — the truck's details once, a row per colour (job line). Each colour files
+ *       its own receipt (lot, inward challan, its own orders credited); all commit together or none do.
+ * @access Private (grn write permission)
+ */
+export const receiveJwoDelivery = async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    throw new ValidationError('User not authenticated');
+  }
+
+  const { receipts, jwo, replayed, onwardChallans } = await grnService.receiveJwoDelivery(req.body, userId);
+  const numbers = receipts.map((r) => r.grnNumber).join(', ');
+
+  // A replay (the same delivery sent again — a retry after a timeout, a double press) is answered 200 with the
+  // receipts already filed: nothing new was created, and the page says so.
+  res.status(replayed ? 200 : 201).json({
+    success: true,
+    data: {
+      receipts,
+      jobClosed: !!jwo.receivedDate,
+      onwardChallans: onwardChallans.map((c) => ({ challanNumber: c.challanNumber, toName: c.toName })),
+      lossSplit: {
+        qtyNormalLoss: jwo.qtyNormalLoss,
+        qtyAbnormalLoss: jwo.qtyAbnormalLoss,
+        tolerancePercent: jwo.tolerancePercent,
+        actualShrinkage: jwo.actualShrinkage,
+      },
+    },
+    replayed,
+    message: replayed
+      ? `${jwo.jobWorkNumber} delivery was already received — ${numbers} (nothing filed again)`
+      : `${jwo.jobWorkNumber} received into stock — ${numbers}`,
+  });
+};
+
+/**
  * @route PATCH /api/grn/:id/approve
  * @desc Approve a GRN (PENDING_QC -> ACCEPTED) and create stock movements
  * @access Private (QC, ADMIN)
@@ -577,6 +614,8 @@ export const updateGRNInvoice = async (req: Request, res: Response) => {
   res.json({
     success: true,
     data: grn,
-    message: `Invoice ${grn.invoiceNumber} recorded on ${grn.grnNumber}`,
+    message:
+      `Invoice ${grn.invoiceNumber} recorded on ${grn.grnNumber}` +
+      (grn.alsoBilled.length ? ` and on ${grn.alsoBilled.join(', ')} (same delivery)` : ''),
   });
 };

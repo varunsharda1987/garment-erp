@@ -167,6 +167,52 @@ export const receiveJwoToStockSchema = z.object({
 });
 
 /**
+ * POST /api/grn/jwo/receive-delivery — one delivery from a processor, every colour it brought (2026-10-02, the
+ * Receive page). The truck's details once; one row per job line with that colour's figures. Each row files its own
+ * receipt; all commit together or none do (GRNService.receiveJwoDelivery).
+ */
+const jwoDeliveryLineSchema = z.object({
+  lineId: z.string().uuid('Invalid job line'),
+  qtyReceivedMeters: formNumber(z.number().positive()),
+  receivedWidthInches: formNumber(z.number().positive()),
+  thanCount: formNumber(z.number().int().positive()),
+  foldLengthCm: formNumber(z.number().positive().max(999.99, 'Fold length is in cm and must be under 1000')),
+  entryMode: entryModeEnum.optional().nullable(),
+  details: z.array(grnItemDetailSchema).optional(),
+  // "Final for this colour": closes the line; the job closes with its last line
+  isFinal: z.boolean().optional().default(true),
+  processingQC: z
+    .object({
+      qualityGrade: z.enum(['A', 'B', 'Reject']).optional(),
+      defectMeters: formNumber(z.number().nonnegative()),
+    })
+    .optional(),
+});
+
+export const receiveJwoDeliverySchema = z
+  .object({
+    jobWorkOrderId: z.string().uuid('Invalid Job Work Order ID'),
+    receivedDate: z.string().optional().nullable(),
+    // The processor's ONE challan and ONE bill for the truck — stored on every colour's receipt
+    receivedChallan: z.string().max(100).trim().optional(),
+    invoiceNumber: z.string().max(100).trim().optional().nullable(),
+    invoiceDate: z.string().optional().nullable(),
+    invoiceToFollow: z.boolean().optional(),
+    warehouseId: z.string().uuid('Invalid warehouse ID'),
+    deliveredToProcessor: z.boolean().optional().default(false),
+    vehicleNumber: z.string().max(30).trim().optional().nullable(),
+    shortCloseConfirmed: z.boolean().optional().default(false),
+    remarks: z.string().max(1000).trim().optional().nullable(),
+    // One per page opening; receipt n stores `${key}:${lineNo}` — 60 + ':' + line number stays within the column
+    submissionKey: z.string().trim().min(8).max(60).optional(),
+    lines: z.array(jwoDeliveryLineSchema).min(1, 'Enter at least one colour that came back'),
+  })
+  .refine((d) => new Set(d.lines.map((l) => l.lineId)).size === d.lines.length, {
+    message: 'A colour is entered twice — enter each colour of the delivery once',
+    path: ['lines'],
+  });
+
+/**
  * Processing QC Data Schema (for PROCESSING PO GRN approval)
  */
 // Form-fed (the GRN approve dialog): formNumber() accepts '' and strings. The trailing transform maps

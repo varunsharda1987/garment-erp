@@ -180,6 +180,7 @@ import {
   JobWorkOrderList,
   JobWorkOrderDetail,
   DispatchToProcessor,
+  JobWorkReceive,
   EmbroideryList,
   EmbroideryForm,
   EmbroideryDetail,
@@ -668,6 +669,8 @@ function App() {
                   is never read as an order id — but it is declared first regardless. */}
               <Route path="/job-work-orders/dispatch" element={<DispatchToProcessor />} />
               <Route path="/job-work-orders/:id" element={<JobWorkOrderDetail />} />
+              {/* Receive from processor: one delivery, every colour it brought (replaces the dialog, 2026-10-02) */}
+              <Route path="/job-work-orders/:id/receive" element={<JobWorkReceive />} />
 
               {/* Sample Tracking (Manufacturing) */}
               <Route path="/samples" element={<SampleList />} />

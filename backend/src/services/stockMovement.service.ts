@@ -1,6 +1,11 @@
 // Stock Movement Service - Handle all stock movements and integrate with stock levels
 import { MovementType, Unit, Prisma } from '@prisma/client';
-import { JWO_PRE_ISSUE_STATUSES, JWO_AT_PROCESSOR_STATUSES, JWO_RECEIVED_STATUSES } from './helpers/jwo-status.helper';
+import {
+  JWO_PRE_ISSUE_STATUSES,
+  JWO_AT_PROCESSOR_STATUSES,
+  JWO_RECEIVED_STATUSES,
+  JWO_GRN_UOMS,
+} from './helpers/jwo-status.helper';
 import { Decimal } from '@prisma/client/runtime/library';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
@@ -1555,7 +1560,7 @@ class StockMovementService {
           expectedDate: job.expectedReturnDate,
           daysOut,
           isOverdue,
-          actionRoute: `/manufacturing/processing?tab=process-pos&id=${job.id}`,
+          actionRoute: `/job-work-orders/${job.id}/receive`,
           actionLabel: 'Receive',
         });
       }
@@ -1614,7 +1619,7 @@ class StockMovementService {
           expectedDate: job.expectedReturnDate,
           daysOut,
           isOverdue,
-          actionRoute: `/manufacturing/processing?tab=process-pos&id=${job.id}`,
+          actionRoute: `/job-work-orders/${job.id}/receive`,
           actionLabel: 'Receive',
         });
       }
@@ -1711,7 +1716,10 @@ class StockMovementService {
           expectedDate: jwo.expectedReturnDate,
           daysOut,
           isOverdue,
-          actionRoute: `/job-work-orders/${jwo.id}`,
+          // Metre jobs are received on the Receive page; piece work on the job (Receive Material)
+          actionRoute: JWO_GRN_UOMS.includes(jwo.uom ?? 'MTR')
+            ? `/job-work-orders/${jwo.id}/receive`
+            : `/job-work-orders/${jwo.id}`,
           actionLabel: 'Receive',
         });
       }

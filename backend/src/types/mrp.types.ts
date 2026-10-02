@@ -109,6 +109,9 @@ export interface CalculatedRequirement {
   processorId?: string | null;
   processingCost?: number | null;
   printingType?: string | null;
+  /** PROCESSING: the BOM line's rate card process (DYEING / PRINTING); null when the line has no card —
+   *  unknown, never assumed to be dyeing because printingType is blank */
+  processingType?: string | null;
   linkedGreigeMaterialId?: string;
   isGreigeRequirement?: boolean;
   /** MRP-48f: shrinkage % actually applied, and where it was resolved from. */

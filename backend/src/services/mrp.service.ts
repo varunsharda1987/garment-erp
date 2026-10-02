@@ -2129,6 +2129,7 @@ export async function calculateRequirementsFromOrder(
           requirementType: 'PROCESSING', // Processing service requirement
           processorId: bomItem.processorId || null,
           processingCost: processingSnapshotPrice,
+          processingType: bomItem.rateCard?.processingType || null,
           printingType: bomItem.rateCard?.printingType || null,
           colorName: (bomItem as any).colorName || null,
           componentName: bomItem.componentName || null,
@@ -2187,16 +2188,28 @@ export async function calculateRequirementsFromOrder(
   const materialReqs = calculatedRequirements.filter((req) => req.requirementType === 'MATERIAL');
   const rawProcessingReqs = calculatedRequirements.filter((req) => req.requirementType === 'PROCESSING');
 
-  // Consolidate PROCESSING requirements by batch group
-  // Items with the same processingBatchGroupColorId + processorId + orderId should be combined
+  // Consolidate PROCESSING requirements by batch group: the same order line, batch colour and
+  // processor, AND the same greige, process and print type (FabricCostingPage `sameProcessingBatch`).
+  // Without the greige and process in the key a Dyed and a Procian line of one style merged into ONE
+  // requirement at a blended rate, on the first line's greige (LNG186, 02-Oct-2026). The process comes
+  // from the line's rate card; a line with no card has an UNKNOWN process — a blank print type does not
+  // make it dyeing — so it is never merged with anything.
   const processingReqs: typeof rawProcessingReqs = [];
   const batchGroups = new Map<string, (typeof rawProcessingReqs)[0]>();
 
   for (const req of rawProcessingReqs) {
     const batchId = (req as any).processingBatchGroupColorId;
-    // Only consolidate if batch group is set AND processor matches
-    if (batchId && req.processorId) {
-      const batchKey = `${req.orderId}-${req.orderItemId}-${batchId}-${req.processorId}`;
+    // Only consolidate if batch group is set, processor matches AND the process is known
+    if (batchId && req.processorId && req.processingType) {
+      const batchKey = [
+        req.orderId,
+        req.orderItemId,
+        batchId,
+        req.processorId,
+        req.materialId,
+        req.processingType,
+        req.printingType ?? '',
+      ].join('|');
       const existing = batchGroups.get(batchKey);
 
       if (existing) {
@@ -5325,14 +5338,28 @@ export async function updateReceivedQuantity(
 export async function updateJwoReceivedQuantity(
   jobWorkOrderId: string,
   receivedQuantity: number,
-  tx?: any
+  tx?: any,
+  /** The job line the receipt brought back — its orders only are credited (2026-10-02) */
+  lineId?: string | null
 ): Promise<void> {
   const client = tx || prisma;
+
+  // A job with several lines brings back a different fabric per line: a receipt of the Red credits the Red
+  // order only. Never spread one line's metres over every order of the job.
+  if (!lineId) {
+    const lines = await client.job_work_order_lines.count({ where: { jobWorkOrderId } });
+    if (lines > 1) {
+      throw new BusinessError(
+        'This job brings back several fabrics — a receipt must name its line before the orders can be credited.',
+        { reason: 'JWO_LINE_REQUIRED' }
+      );
+    }
+  }
 
   // orderBy is load-bearing: the pro-rata remainder lands on the LAST link, and it must be the same
   // link for a receipt and for its reversal — Postgres guarantees no ordering without it.
   const links = await client.requirement_jwo_links.findMany({
-    where: { jobWorkOrderId },
+    where: { jobWorkOrderId, ...(lineId ? { lineId } : {}) },
     select: { id: true, requirementId: true, allocatedQuantity: true },
     orderBy: { id: 'asc' },
   });

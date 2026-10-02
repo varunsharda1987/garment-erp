@@ -471,7 +471,7 @@ export const convertToGreigeProcessing = async (req: Request, res: Response): Pr
   }
 
   const { id } = req.params;
-  const { processorId, greigeId, processingCost, greigeCost } = req.body;
+  const { processorId, greigeId, processingType, printingType, processingCost, greigeCost } = req.body;
 
   if (!processorId || !greigeId) {
     throw new ValidationError('processorId and greigeId are required');
@@ -479,7 +479,7 @@ export const convertToGreigeProcessing = async (req: Request, res: Response): Pr
 
   const result = await mrpService.convertToGreigeProcessing(
     id,
-    { processorId, greigeId, processingCost, greigeCost },
+    { processorId, greigeId, processingType, printingType, processingCost, greigeCost },
     userId
   );
 

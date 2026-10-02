@@ -1885,14 +1885,22 @@ export async function lookupLaceRate(query: LaceRateLookupQuery): Promise<LaceRa
  */
 export async function findRateCardsForShrinkage(
   processorId: string,
-  greigeId: string
+  greigeId: string,
+  /** Only this process's cards (and, for printing, this print type's) — the job's own shrinkage */
+  process?: { processingType: ProcessingTypeV2; printingType?: PrintingType | null }
 ): Promise<{
   cards: Array<{ id: string; shrinkagePercent: number; processingType: string; printingType: string | null }>;
   distinctPercents: number[];
   unambiguous: { id: string; shrinkagePercent: number } | null;
 }> {
   const found = await prisma.processor_rate_card.findMany({
-    where: { processorId, greigeId, isActive: true, shrinkagePercent: { not: null } },
+    where: {
+      processorId,
+      greigeId,
+      isActive: true,
+      shrinkagePercent: { not: null },
+      ...(process && { processingType: process.processingType, printingType: process.printingType ?? null }),
+    },
     select: { id: true, shrinkagePercent: true, processingType: true, printingType: true },
     orderBy: { effectiveFrom: 'desc' },
   });

@@ -342,6 +342,8 @@ export interface MaterialRequirementResponse {
   requirementType?: string;
   processorId?: string | null;
   processingCost?: number | null;
+  /** PROCESSING: DYEING | PRINTING; null = not known */
+  processingType?: string | null;
   printingType?: string | null;
   linkedRequirementId?: string | null;
   /** MRP-12: set when this row is the uncovered balance of a partially-ordered requirement. */

@@ -390,7 +390,16 @@ export async function getOverdueRequirements(filters?: Partial<RequirementFilter
  */
 export async function convertToGreigeProcessing(
   requirementId: string,
-  data: { processorId: string; greigeId: string; processingCost?: number; greigeCost?: number }
+  data: {
+    processorId: string;
+    greigeId: string;
+    /** What the processor will do — recorded on the processing requirement */
+    processingType: 'DYEING' | 'PRINTING';
+    /** Required for PRINTING, never sent for DYEING */
+    printingType?: 'PIGMENT' | 'PROCIAN' | 'DISCHARGE' | 'PIGMENT_DISCHARGE';
+    processingCost?: number;
+    greigeCost?: number;
+  }
 ): Promise<{ greigeRequirement: MaterialRequirement; processingRequirement: MaterialRequirement }> {
   const response = await api.post(`${BASE_URL}/requirements/${requirementId}/convert-to-greige`, data);
   return response.data.data;

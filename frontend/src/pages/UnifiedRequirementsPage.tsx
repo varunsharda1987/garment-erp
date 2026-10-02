@@ -46,6 +46,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import {
+  PRINTING_TYPES,
+  PRINTING_TYPE_LABELS,
+  type PrintingTypeV2,
+  type ProcessingTypeV2,
+} from '@/types/processorRateCardV2.types';
 import { Textarea } from '@/components/ui/textarea';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useDefaultSettings } from '@/hooks/useDefaultSettings';
@@ -496,6 +502,9 @@ function MaterialRequirementsTab({
   const [selectedGreigeId, setSelectedGreigeId] = useState('');
   const [selectedProcessorId, setSelectedProcessorId] = useState('');
   const [processingCostInput, setProcessingCostInput] = useState('');
+  // What the processor will do — recorded on the processing requirement, never guessed
+  const [convertProcess, setConvertProcess] = useState<ProcessingTypeV2 | ''>('');
+  const [convertPrintType, setConvertPrintType] = useState<PrintingTypeV2 | ''>('');
   const [isConverting, setIsConverting] = useState(false);
 
   // View — kept in the URL (?view=), so a link can open one (the PO form's label-set warning opens Order & Style
@@ -883,16 +892,25 @@ function MaterialRequirementsTab({
     setSelectedGreigeId('');
     setSelectedProcessorId('');
     setProcessingCostInput('');
+    setConvertProcess('');
+    setConvertPrintType('');
     setConvertGreigeDialogOpen(true);
   };
 
+  const convertReady =
+    !!selectedGreigeId &&
+    !!selectedProcessorId &&
+    (convertProcess === 'DYEING' || (convertProcess === 'PRINTING' && !!convertPrintType));
+
   const handleConvertToGreige = async () => {
-    if (!convertingRequirement || !selectedGreigeId || !selectedProcessorId) return;
+    if (!convertingRequirement || !convertReady || !convertProcess) return;
     setIsConverting(true);
     try {
       await convertToGreigeProcessing(convertingRequirement.id, {
         processorId: selectedProcessorId,
         greigeId: selectedGreigeId,
+        processingType: convertProcess,
+        printingType: convertProcess === 'PRINTING' && convertPrintType ? convertPrintType : undefined,
         processingCost: processingCostInput ? Number(processingCostInput) : undefined,
       });
       handleApiSuccess('Converted to GREIGE + PROCESSING workflow');
@@ -1884,6 +1902,45 @@ function MaterialRequirementsTab({
                 className="mt-1"
               />
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Process</Label>
+                {/* allow-plain-select: two fixed values */}
+                <Select
+                  value={convertProcess}
+                  onValueChange={(v) => {
+                    setConvertProcess(v as ProcessingTypeV2);
+                    if (v !== 'PRINTING') setConvertPrintType('');
+                  }}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Dyeing or Printing" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DYEING">Dyeing</SelectItem>
+                    <SelectItem value="PRINTING">Printing</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {convertProcess === 'PRINTING' && (
+                <div>
+                  <Label>Print Type</Label>
+                  {/* allow-plain-select: four fixed print types */}
+                  <Select value={convertPrintType} onValueChange={(v) => setConvertPrintType(v as PrintingTypeV2)}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select print type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PRINTING_TYPES.map((p) => (
+                        <SelectItem key={p} value={p}>
+                          {PRINTING_TYPE_LABELS[p]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
             <div>
               <Label>Processing Cost (per unit, optional)</Label>
               <Input
@@ -1900,10 +1957,7 @@ function MaterialRequirementsTab({
             <Button variant="outline" onClick={() => setConvertGreigeDialogOpen(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={handleConvertToGreige}
-              disabled={!selectedGreigeId || !selectedProcessorId || isConverting}
-            >
+            <Button onClick={handleConvertToGreige} disabled={!convertReady || isConverting}>
               {isConverting ? 'Converting...' : 'Convert to Greige'}
             </Button>
           </DialogFooter>

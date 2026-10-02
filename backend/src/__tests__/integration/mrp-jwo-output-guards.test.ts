@@ -9,7 +9,11 @@
 
 import { randomUUID } from 'crypto';
 import { prisma, createTestUser } from '../helpers/test-utils';
-import { findProcessingRequirementMatches, generatePOFromRequirements } from '../../services/mrp.service';
+import {
+  convertToGreigeProcessing,
+  findProcessingRequirementMatches,
+  generatePOFromRequirements,
+} from '../../services/mrp.service';
 import { ensureMaterialRecord } from '../../services/helpers/material-sync.helper';
 import { buildJobWorkOrderDocData } from '../../services/document-data/job-work-order.doc-data';
 
@@ -48,12 +52,15 @@ const mkRequirement = (p: {
   orderItemId: string;
   colorName: string | null;
   status?: 'PO_REQUIRED' | 'PO_GENERATED';
+  /** What MRP records from the BOM line's card; null = not known (02-Oct-2026) */
+  processingType?: 'DYEING' | 'PRINTING' | null;
 }) =>
   prisma.material_requirements.create({
     data: {
       requirementNumber: `${RUN}-MR-${randomUUID().slice(0, 8)}`,
       source: 'SALES_ORDER',
       requirementType: 'PROCESSING',
+      processingType: p.processingType === undefined ? 'DYEING' : p.processingType,
       orderId,
       orderItemId: p.orderItemId,
       materialId: greigeMaterial[p.greigeId],
@@ -178,6 +185,89 @@ describe('MRP raises one job work order per greige', () => {
     expect(links).toHaveLength(2);
     const jobOf = (reqId: string) => links.find((l) => l.requirementId === reqId)!.jobWorkOrderId;
     expect(jobOf(onG1.id)).not.toBe(jobOf(onG2.id));
+  });
+
+  // Owner, 02-Oct-2026: a blank print type does not make a job dyeing
+  it('refuses a requirement whose process is not recorded anywhere, rather than send it as dyeing', async () => {
+    const g = await mkGreige('U');
+    const unknown = await mkRequirement({ greigeId: g, orderItemId: itemA, colorName: 'Red', processingType: null });
+
+    await expect(
+      generatePOFromRequirements(
+        {
+          requirementIds: [unknown.id],
+          supplierId: dyerId,
+          expectedDeliveryDate: new Date(Date.now() + 20 * 86400000).toISOString(),
+          itemPrices: { [unknown.id]: 10 },
+        } as never,
+        userId
+      )
+    ).rejects.toThrow(`${unknown.requirementNumber}: not known whether this is dyeing or printing`);
+    expect(await prisma.requirement_jwo_links.count({ where: { requirementId: unknown.id } })).toBe(0);
+  });
+});
+
+describe('Convert to greige + processing records the process the planner chose', () => {
+  const mkFabricRequirement = async (greigeId: string) =>
+    prisma.material_requirements.create({
+      data: {
+        requirementNumber: `${RUN}-MR-${randomUUID().slice(0, 8)}`,
+        source: 'SALES_ORDER',
+        requirementType: 'MATERIAL',
+        orderId,
+        orderItemId: itemA,
+        materialId: greigeMaterial[greigeId],
+        orderQuantity: 100,
+        quantityPerUnit: 2.5,
+        wastagePercent: 0,
+        totalRequired: 250,
+        shortfall: 250,
+        unit: 'METER',
+        status: 'PO_REQUIRED',
+        requiredDate: new Date(Date.now() + 30 * 86400000),
+        createdById: userId,
+      },
+    });
+
+  it('Printing (Procian) is written on the processing requirement — never left to a blank print type', async () => {
+    const g = await mkGreige('C1');
+    const fabricReq = await mkFabricRequirement(g);
+
+    const { processingRequirement } = await convertToGreigeProcessing(
+      fabricReq.id,
+      { processorId: dyerId, greigeId: g, processingType: 'PRINTING', printingType: 'PROCIAN', processingCost: 20 },
+      userId
+    );
+
+    const saved = await prisma.material_requirements.findUniqueOrThrow({ where: { id: processingRequirement.id } });
+    expect(saved.processingType).toBe('PRINTING');
+    expect(saved.printingType).toBe('PROCIAN');
+  });
+
+  it('Dyeing is written as DYEING; Printing without a print type is refused before anything is written', async () => {
+    const g = await mkGreige('C2');
+    const dyed = await convertToGreigeProcessing(
+      (await mkFabricRequirement(g)).id,
+      { processorId: dyerId, greigeId: g, processingType: 'DYEING', processingCost: 10 },
+      userId
+    );
+    const saved = await prisma.material_requirements.findUniqueOrThrow({
+      where: { id: dyed.processingRequirement.id },
+    });
+    expect(saved.processingType).toBe('DYEING');
+    expect(saved.printingType).toBeNull();
+
+    const untouched = await mkFabricRequirement(g);
+    await expect(
+      convertToGreigeProcessing(
+        untouched.id,
+        { processorId: dyerId, greigeId: g, processingType: 'PRINTING', processingCost: 10 },
+        userId
+      )
+    ).rejects.toThrow('Choose the print type');
+    expect((await prisma.material_requirements.findUniqueOrThrow({ where: { id: untouched.id } })).status).toBe(
+      'PO_REQUIRED'
+    );
   });
 });
 

@@ -20,6 +20,9 @@ export interface RateResolutionContext {
   serviceType?: string;
   costSheetId?: string;
   printingType?: string;
+  // PROCESSING: the process (the requirement's own record / its BOM line's rate card). Unknown = no
+  // card rate is quoted — a blank printingType does not make a job dyeing.
+  processingType?: 'DYEING' | 'PRINTING' | null;
   // PROCESSING: meters the job will actually run — drives the quantity-slab match.
   // Without it the resolver cannot pick a slab and returns null (never an arbitrary card).
   quantityMeters?: number;
@@ -270,7 +273,10 @@ async function resolveProcessingRate(ctx: RateResolutionContext): Promise<RateRe
   }
 
   if (ctx.greigeId) {
-    const processingType: ProcessingTypeV2 = ctx.printingType ? 'PRINTING' : 'DYEING';
+    // The caller's process, else a print type means printing; with neither the process is unknown and
+    // no card is quoted (it used to quote the DYEING card for any job without a print type)
+    const processingType: ProcessingTypeV2 | null = ctx.processingType ?? (ctx.printingType ? 'PRINTING' : null);
+    if (!processingType) return { rate: null, source: 'Manual entry required' };
     const result = await lookupRate({
       processorId: ctx.supplierId,
       processingType,

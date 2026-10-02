@@ -1188,6 +1188,7 @@ export async function mintBalanceChild(
       requirementType: requirement.requirementType,
       processorId: requirement.processorId,
       processingCost: requirement.processingCost,
+      processingType: requirement.processingType,
       printingType: requirement.printingType,
       linkedRequirementId: requirement.linkedRequirementId,
       // Shrinkage provenance must survive the split or the child silently re-derives 0%

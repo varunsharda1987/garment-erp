@@ -10,6 +10,7 @@ import { UnitEnum, flexMaterialId } from './common.schema';
 import {
   MaterialTypeEnum,
   MaterialRequirementStatusEnum as RequirementStatusFilterEnum,
+  PrintingTypeEnum,
 } from './generated/prisma-enums';
 
 // ============================================================================
@@ -113,12 +114,25 @@ export const linkToPOSchema = z.object({
  * Convert to Greige Processing
  * POST /api/mrp/requirements/:id/convert-to-greige
  */
-export const convertToGreigeSchema = z.object({
-  processorId: z.string().uuid('Invalid processor ID'),
-  greigeId: z.string().uuid('Invalid greige ID'),
-  processingCost: z.number().nonnegative().optional(),
-  greigeCost: z.number().nonnegative().optional(),
-});
+export const convertToGreigeSchema = z
+  .object({
+    processorId: z.string().uuid('Invalid processor ID'),
+    greigeId: z.string().uuid('Invalid greige ID'),
+    // The planner says what the processor will do — it used to be guessed from the processor's
+    // rate cards, and only a blank print type recorded "dyeing" (owner, 02-Oct-2026)
+    processingType: z.enum(['DYEING', 'PRINTING'], { message: 'Choose Dyeing or Printing' }),
+    printingType: PrintingTypeEnum.optional(),
+    processingCost: z.number().nonnegative().optional(),
+    greigeCost: z.number().nonnegative().optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.processingType === 'PRINTING' && !v.printingType) {
+      ctx.addIssue({ code: 'custom', path: ['printingType'], message: 'Choose the print type' });
+    }
+    if (v.processingType === 'DYEING' && v.printingType) {
+      ctx.addIssue({ code: 'custom', path: ['printingType'], message: 'A dyeing job has no print type' });
+    }
+  });
 
 /**
  * Update Requirement Status

@@ -12,6 +12,7 @@ import {
   POCategory,
   PurchaseOrderStatus,
   MaterialType,
+  PrintingType,
 } from '@prisma/client';
 import { generateAtomicDocNumber, generateAtomicPONumberInTx } from '../utils/atomicCodeGenerator';
 import { generateJobWorkNumber } from '../utils/jobWorkNumber';
@@ -2047,6 +2048,7 @@ export async function calculateRequirementsFromOrder(
           requirementType: 'PROCESSING',
           processorId: bomItem.processorId || null,
           processingCost: dyeingPrice,
+          processingType: 'DYEING', // lace is dyed to its shade (lace lines carry no rate card)
           colorName: (bomItem as any).colorName || null,
           componentName: bomItem.componentName || null,
           shrinkagePercentUsed,
@@ -2529,6 +2531,7 @@ export async function calculateRequirementsFromOrder(
               status: req.status,
               processorId: req.processorId,
               processingCost: req.processingCost,
+              processingType: req.processingType ?? null,
               fabricWidth: req.fabricWidth,
               linkedRequirementId: linkedGreigeId || existing.linkedRequirementId,
               unit: req.unit as Unit, // revived rows take today's unit too
@@ -2566,6 +2569,7 @@ export async function calculateRequirementsFromOrder(
               requirementType: 'PROCESSING',
               processorId: req.processorId,
               processingCost: req.processingCost,
+              processingType: req.processingType ?? null,
               printingType: req.printingType || null,
               fabricWidth: req.fabricWidth,
               linkedRequirementId: linkedGreigeId,
@@ -3715,6 +3719,27 @@ function refuseThreadRequirements(
   );
 }
 
+/**
+ * The process a PROCESSING requirement asks for: its own `processingType` (written by MRP from the
+ * BOM line's rate card, by Convert-to-greige from the planner's choice); else the BOM line's card; a
+ * lace line is dyed (lace lines carry no card); else a print type means PRINTING (only printing has
+ * one). A blank print type does NOT mean dyeing, so with none of these the process is unknown (null)
+ * and callers refuse or quote nothing rather than send it as dyeing (owner, 02-Oct-2026).
+ */
+function requirementProcessType(req: {
+  requirementType?: string | null;
+  processingType?: string | null;
+  printingType?: string | null;
+  orderBomItem?: { greigeLaceId?: string | null; rateCard?: { processingType?: string | null } | null } | null;
+}): 'DYEING' | 'PRINTING' | null {
+  if (req.requirementType !== 'PROCESSING') return null;
+  if (req.processingType === 'DYEING' || req.processingType === 'PRINTING') return req.processingType;
+  const rcType = req.orderBomItem?.rateCard?.processingType;
+  if (rcType === 'DYEING' || rcType === 'PRINTING') return rcType;
+  if (req.orderBomItem?.greigeLaceId) return 'DYEING';
+  return req.printingType ? 'PRINTING' : null;
+}
+
 export async function generatePOFromRequirements(
   data: GeneratePOFromRequirementsRequest,
   userId: string
@@ -3921,6 +3946,7 @@ export async function generatePOFromRequirements(
           const resolved = await resolveRate({
             poCategory: 'PROCESSING' as any,
             supplierId,
+            processingType: requirementProcessType(req as any),
             printingType: req.printingType || (req as any).orderBomItem?.rateCard?.printingType || undefined,
             materialId: req.materialId,
             // Slab-aware resolution: without greige + meters the resolver refuses (returns null)
@@ -4007,7 +4033,8 @@ export async function generatePOFromRequirements(
     styleCode: req.order_items?.styles?.styleCode || null,
     buyerStyleRef: req.order_items?.styles?.buyerStyleRef ?? null,
     orderNumber: req.orders?.orderNumber || null,
-    processingType: req.printingType || (req.requirementType === 'PROCESSING' ? 'DYEING' : null),
+    // The print type ("PROCIAN") when printing, else the process; unknown stays blank (requirementProcessType)
+    processingType: req.printingType || requirementProcessType(req),
     fabricWidth: req.fabricWidth ? Number(req.fabricWidth) : null,
     // Was missing: every MRP-made PO line stored componentName null although the preview showed it
     componentName: req.componentName || null,
@@ -4134,11 +4161,12 @@ export async function generatePOFromRequirements(
       if (!req) continue;
       const greigeId = req.orderBomItem?.greigeId ?? req.materials?.greigeId ?? null;
       if (!greigeId) continue;
-      const rcType = req.orderBomItem?.rateCard?.processingType;
-      const isPrinting = rcType === 'PRINTING' || (!rcType && !!req.printingType);
+      // Unknown process: no card rate to resolve — the process check below refuses the whole job
+      const processType = requirementProcessType(req);
+      if (!processType) continue;
       const resolution = await resolveJwoRate({
         processorId: supplierId,
-        processingType: isPrinting ? 'PRINTING' : 'DYEING',
+        processingType: processType,
         printingType: (req.printingType ?? req.orderBomItem?.rateCard?.printingType ?? undefined) as any,
         greigeId,
         basisQuantityMeters: item.quantity, // billable meters, post-override
@@ -4268,17 +4296,21 @@ export async function generatePOFromRequirements(
     }
   }
 
-  // JWC bridge (BUG-JWC1): derive the process type per requirement — the rate card is
-  // authoritative, else printingType implies PRINTING, else DYEING. One JWO per PO
+  // JWC bridge (BUG-JWC1): the process type per requirement (requirementProcessType — the
+  // requirement's own record, else its BOM line; never "blank print type = dyeing"). One JWO per PO
   // (1:1 purchaseOrderId), so a PO cannot mix process types.
   let processingProcessType: 'DYEING' | 'PRINTING' | null = null;
   if (isProcessingRequirements) {
-    const deriveProcessType = (req: (typeof requirements)[number]): 'DYEING' | 'PRINTING' => {
-      const rcType = (req as any).orderBomItem?.rateCard?.processingType;
-      if (rcType === 'DYEING' || rcType === 'PRINTING') return rcType;
-      return req.printingType ? 'PRINTING' : 'DYEING';
-    };
-    const processTypes = new Set(requirements.map(deriveProcessType));
+    const unknown = requirements.filter((req) => requirementProcessType(req) == null);
+    if (unknown.length > 0) {
+      throw new BusinessError(
+        `${unknown.map((r) => r.requirementNumber).join(', ')}: not known whether this is dyeing or printing — ` +
+          'nothing on the requirement or its Order BOM line says. From an Order BOM: cost the fabric with a ' +
+          'processor rate, then make a new cost sheet version and Order BOM. Converted by hand: cancel it and ' +
+          'convert the fabric requirement again, choosing Dyeing or Printing.'
+      );
+    }
+    const processTypes = new Set(requirements.map((req) => requirementProcessType(req)!));
     if (processTypes.size > 1) {
       throw new Error('Selected PROCESSING requirements mix DYEING and PRINTING — generate one PO per process type.');
     }
@@ -4613,6 +4645,7 @@ export async function generatePOFromRequirements(
             requirementType: req.requirementType,
             processorId: req.processorId,
             processingCost: req.processingCost,
+            processingType: req.processingType,
             printingType: req.printingType,
             linkedRequirementId: req.linkedRequirementId,
             // Shrinkage audit trail must survive the split — without it the child falls
@@ -4919,6 +4952,7 @@ export async function generatePOFromRequirements(
           requirementType: req.requirementType,
           processorId: req.processorId,
           processingCost: req.processingCost,
+          processingType: req.processingType,
           printingType: req.printingType,
           // The JWO split path copies these; this PO path silently dropped them, so a
           // PROCESSING child lost BOTH shrinkage fallbacks (own snapshot + linked greige)
@@ -5574,6 +5608,7 @@ function mapToResponse(req: any): MaterialRequirementResponse {
     requirementType: req.requirementType || 'MATERIAL',
     processorId: req.processorId || null,
     processingCost: req.processingCost ? Number(req.processingCost) : null,
+    processingType: req.processingType || null,
     printingType: req.printingType || null,
     linkedRequirementId: req.linkedRequirementId || null,
     // MRP-12: set when this row is the uncovered balance of a partially-ordered requirement.
@@ -6020,9 +6055,24 @@ export async function validateBulkPOGeneration(requirementIds: string[]): Promis
  */
 export async function convertToGreigeProcessing(
   requirementId: string,
-  data: { processorId: string; greigeId: string; processingCost?: number; greigeCost?: number },
+  data: {
+    processorId: string;
+    greigeId: string;
+    /** What the processor will do — the planner's choice, recorded on the processing requirement */
+    processingType: 'DYEING' | 'PRINTING';
+    printingType?: PrintingType | null;
+    processingCost?: number;
+    greigeCost?: number;
+  },
   userId: string
 ): Promise<{ greigeRequirement: any; processingRequirement: any; fabricProcessingId?: string }> {
+  if (data.processingType !== 'DYEING' && data.processingType !== 'PRINTING') {
+    throw new BusinessError('Choose Dyeing or Printing for the processing requirement.');
+  }
+  if (data.processingType === 'PRINTING' && !data.printingType) {
+    throw new BusinessError('Choose the print type (Pigment / Procian / Discharge / Pigment + Discharge).');
+  }
+  const printingType = data.processingType === 'PRINTING' ? (data.printingType ?? null) : null;
   // 1. Find the existing MATERIAL requirement
   const requirement = await prisma.material_requirements.findUnique({
     where: { id: requirementId },
@@ -6052,7 +6102,11 @@ export async function convertToGreigeProcessing(
   // effectiveFrom desc and took the newest card — so where a processor held several divergent
   // shrinkage values it silently picked one, which is the opposite of the main calculation's
   // refuse-and-fall-back rule. Two paths, two policies, same decision: now one.
-  const { cards, distinctPercents, unambiguous } = await findRateCardsForShrinkage(data.processorId, data.greigeId);
+  // Only the chosen process's cards: a dyeing job's shrinkage is the dyeing card's, not a print card's
+  const { cards, distinctPercents, unambiguous } = await findRateCardsForShrinkage(data.processorId, data.greigeId, {
+    processingType: data.processingType,
+    printingType,
+  });
   const greigeMaster = await prisma.greige_master.findUnique({
     where: { id: data.greigeId },
     select: { averageShrinkagePercent: true },
@@ -6114,15 +6168,12 @@ export async function convertToGreigeProcessing(
   let resolvedProcessingCost = data.processingCost ?? null;
   let processingRateSource: string = 'MANUAL';
   if (resolvedProcessingCost == null || resolvedProcessingCost <= 0) {
-    // Process type from the processor's cards for this greige: PRINTING only when that is the
-    // ONLY kind of card they hold (an ambiguous mix defaults to DYEING; printing rate cards
-    // additionally need the sub-type, taken from the card itself).
-    const allPrinting = cards.length > 0 && cards.every((c) => c.processingType === 'PRINTING');
-    const printingCard = allPrinting ? cards.find((c) => c.printingType != null) : undefined;
+    // The planner's process and print type — this used to be guessed from the processor's cards
+    // (PRINTING only when every card was printing, a mix defaulting to DYEING)
     const cardResolution = await resolveJwoRate({
       processorId: data.processorId,
-      processingType: allPrinting ? 'PRINTING' : 'DYEING',
-      printingType: (printingCard?.printingType ?? undefined) as any,
+      processingType: data.processingType,
+      printingType: (printingType ?? undefined) as any,
       greigeId: data.greigeId,
       basisQuantityMeters: shortfallQty, // billable fabric-out meters the processor charges for
     });
@@ -6207,6 +6258,8 @@ export async function convertToGreigeProcessing(
         preferredSupplierId: data.processorId,
         processorId: data.processorId,
         processingCost: resolvedProcessingCost,
+        processingType: data.processingType,
+        printingType,
         fabricWidth: requirement.fabricWidth,
         linkedRequirementId: greigeReq.id,
         requiredDate: requirement.requiredDate,
@@ -6317,7 +6370,11 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
         },
         // Billing basis for PROCESSING rows (same fallback chain as generation)
         orderBomItem: {
-          select: { greigeId: true, rateCard: { select: { shrinkagePercent: true, printingType: true } } },
+          select: {
+            greigeId: true,
+            greigeLaceId: true,
+            rateCard: { select: { shrinkagePercent: true, processingType: true, printingType: true } },
+          },
         },
         linkedRequirement: { select: { shrinkagePercentUsed: true } },
       },
@@ -6362,6 +6419,7 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
             // fix in generatePOFromRequirements) — otherwise the preview quotes one processor's
             // rate for a job that goes out in another's name.
             supplierId,
+            processingType: requirementProcessType(req as any),
             printingType: req.printingType || (req as any).orderBomItem?.rateCard?.printingType || undefined,
             materialId: req.materialId,
             // Same slab-aware context as generation, so the preview and the issued JWO agree.
@@ -6470,7 +6528,8 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
           styleCode: (req as any).order_items?.styles?.styleCode || null,
           buyerStyleRef: (req as any).order_items?.styles?.buyerStyleRef ?? null,
           orderNumber: (req as any).orders?.orderNumber || null,
-          processingType: req.printingType || (req.requirementType === 'PROCESSING' ? 'DYEING' : null),
+          // The print type ("PROCIAN") when printing, else the process; unknown stays blank (requirementProcessType)
+          processingType: req.printingType || requirementProcessType(req as any),
           componentName: req.componentName || null,
           fabricWidth: req.fabricWidth ? Number(req.fabricWidth) : null,
         });

@@ -45,6 +45,7 @@
  *     return receipt with no line or another job's line
  * D33 costings whose processing rate is not their rate card's rate (a batch lookup of another process
  *     wrote its rate onto the row, until 02-Oct)
+ * D34 open processing requirements with no recorded process (a blank print type was read as dyeing)
  */
 
 import { PrismaClient } from '@prisma/client';
@@ -422,6 +423,21 @@ async function main() {
        WHERE c."totalCostPerMeter" IS NOT NULL AND c."processingPricePerMeter" IS NOT NULL
          AND abs(c."processingPricePerMeter" - rc."ratePerMeter") >= 0.005
        ORDER BY s."styleCode"`
+  );
+
+  // A processing requirement records its process (02-Oct-2026): MRP from the BOM line's card, Convert
+  // to greige from the planner's choice. NULL = not known, and job work generation refuses it rather
+  // than send it as dyeing — so an open one cannot be ordered until it is re-made.
+  await run(
+    'D34',
+    'Open processing requirements with no recorded process (dyeing or printing)',
+    prisma.$queryRaw`
+      SELECT mr."requirementNumber", mr.status::text AS status, mr."printingType" AS print_type,
+             mr."orderBomItemId" IS NOT NULL AS from_bom
+        FROM material_requirements mr
+       WHERE mr."requirementType" = 'PROCESSING' AND mr."processingType" IS NULL
+         AND mr.status::text NOT IN ('CANCELLED', 'RECEIVED', 'FULFILLED_STOCK', 'CONVERTED')
+       ORDER BY mr."requirementNumber"`
   );
 
   // Split delivery (2026-09-26): each line's places add up to what it orders, within the one quantity

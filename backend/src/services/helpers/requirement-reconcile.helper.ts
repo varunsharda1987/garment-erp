@@ -107,7 +107,11 @@ function lineFields(req: CalculatedRequirement) {
     unitPrice: req.unitPrice,
     rateSource: req.rateSource,
     ...(req.requirementType === 'PROCESSING'
-      ? { processorId: req.processorId ?? null, processingCost: req.processingCost ?? null }
+      ? {
+          processorId: req.processorId ?? null,
+          processingCost: req.processingCost ?? null,
+          processingType: req.processingType ?? null,
+        }
       : {}),
   };
 }

@@ -902,7 +902,16 @@ export async function saveFabricCosting(req: Request, res: Response) {
   if (cardIds.length > 0) {
     const cards = await prisma.processor_rate_card.findMany({
       where: { id: { in: cardIds } },
-      select: { id: true, greigeId: true, processor: { select: { name: true } } },
+      select: {
+        id: true,
+        greigeId: true,
+        ratePerMeter: true,
+        processingType: true,
+        printingType: true,
+        processor: { select: { name: true } },
+        greige: { select: { greigeCode: true } },
+        slab: { select: { slabLabel: true } },
+      },
     });
     const cardById = new Map(cards.map((card) => [card.id, card]));
     const mismatch = fabricCostings.find((c: any) => {
@@ -924,6 +933,34 @@ export async function saveFabricCosting(req: Request, res: Response) {
           `is ${card.processor?.name ?? 'the processor'}'s rate for ${code(card.greigeId!)}, but this fabric is now ` +
           `${newCode}. Select the processor again to take its rate for ${newCode} — or, if it has none, add ` +
           `${newCode} for that processor on the Processor Rate Card page.`
+      );
+    }
+
+    // The processing rate IS its card's rate: the page only ever fills it from a rate lookup, so a
+    // different number means another card's rate reached this row. LNG186 (02-Oct-2026): a batch
+    // Dyeing lookup wrote ₹10 onto a Procian row that kept its ₹20 card, and it was saved and
+    // price-approved at ₹10. Refused, before any write.
+    const offCard = fabricCostings.find((c: any) => {
+      const card = cardOf(c) ? cardById.get(cardOf(c)!) : undefined;
+      const rate =
+        c.processingCostPerMeter != null && c.processingCostPerMeter !== '' ? Number(c.processingCostPerMeter) : null;
+      return card != null && rate != null && Math.abs(rate - Number(card.ratePerMeter)) >= 0.005;
+    });
+    if (offCard) {
+      const card = cardById.get(cardOf(offCard)!)!;
+      const target = targetOf(offCard);
+      const process =
+        card.processingType === 'PRINTING' && card.printingType
+          ? `Printing (${card.printingType.charAt(0)}${card.printingType.slice(1).toLowerCase().replace('_', ' + ')})`
+          : card.processingType === 'PRINTING'
+            ? 'Printing'
+            : 'Dyeing';
+      throw new ValidationError(
+        `${target ? `${target.componentName ?? 'Row'} ${Number(target.cutableWidth)}"` : 'A row'}: the processing rate ` +
+          `₹${Number(offCard.processingCostPerMeter)}/m is not the rate on its rate card — ` +
+          `${card.processor?.name ?? 'the processor'}'s ${process} rate for ${card.greige?.greigeCode ?? 'this greige'}` +
+          `${card.slab?.slabLabel ? ` (${card.slab.slabLabel})` : ''} is ₹${Number(card.ratePerMeter)}/m. ` +
+          'Press the refresh button beside the processor to look the rate up again, then Save Costing.'
       );
     }
   }

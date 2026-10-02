@@ -295,12 +295,15 @@ export async function validateCostSheetRates(costSheetId: string): Promise<RateV
     if (costSheetRate === 0) continue; // Skip items without processing cost
 
     // costing-14: validate against the processing type the cost-sheet rate was built with
-    // (DYEING or PRINTING) — a hardcoded 'DYEING' silently skipped validation for printed items
+    // (DYEING or PRINTING) — a hardcoded 'DYEING' silently skipped validation for printed items.
+    // No card = the process is unknown: nothing to compare with (a printed line without a card was
+    // being checked against the DYEING card and reported as outdated)
+    if (!item.rateCard) continue;
     const currentRate = await getCurrentProcessorRate(
       item.processorId,
       item.greigeId,
       null,
-      item.rateCard?.processingType || 'DYEING',
+      item.rateCard.processingType,
       item.rateCard?.slabId,
       item.rateCard?.printingType ?? null
     );
@@ -538,9 +541,15 @@ export async function validateQuantitySlabs(
   }
 
   type FabricItem = (typeof costSheet.fabricItems)[number];
+  // One batch = the same process (and print type) on the same greige at the same processor in the
+  // same colour — FabricCostingPage `sameProcessingBatch`. Dyeing and printing are separate cards: a
+  // Dyed and a Procian line sharing a greige and colour are priced on their OWN metres (LNG186). A
+  // line with no card has no known process and is skipped below, so it is in no batch.
   const batchKey = (item: FabricItem): string | null => {
     const batchColor = item.fabricCAD?.processingBatchGroupColorId;
-    return batchColor ? `${item.processorId}|${item.greigeId}|${batchColor}` : null;
+    return batchColor && item.rateCard
+      ? `${item.processorId}|${item.greigeId}|${batchColor}|${item.rateCard.processingType}|${item.rateCard.printingType ?? ''}`
+      : null;
   };
 
   // Combined meters per batch group at THIS order's quantity
@@ -567,8 +576,14 @@ export async function validateQuantitySlabs(
       continue;
     }
 
-    const processingType: ProcessingTypeV2 = item.rateCard?.processingType === 'PRINTING' ? 'PRINTING' : 'DYEING';
-    const printingType = (item.rateCard?.printingType ?? undefined) as PrintingTypeV2 | undefined;
+    // The process comes from the line's card. No card = the process is unknown — a blank print type
+    // does not make it dyeing (a printed line was being re-checked against the DYEING card)
+    if (!item.rateCard) {
+      skippedItems++;
+      continue;
+    }
+    const processingType: ProcessingTypeV2 = item.rateCard.processingType === 'PRINTING' ? 'PRINTING' : 'DYEING';
+    const printingType = (item.rateCard.printingType ?? undefined) as PrintingTypeV2 | undefined;
     if (processingType === 'PRINTING' && !printingType) {
       // Cannot resolve a printing rate without the sub-type; skipping beats a false alarm
       skippedItems++;
@@ -600,7 +615,7 @@ export async function validateQuantitySlabs(
     // Same slab + same rate = nothing to report. Same slab + different rate = TIME drift,
     // which validateCostSheetRates already owns — reporting it here too would double-flag.
     if (storedSlabId != null && !slabChanged) continue;
-    // Unknown original slab (legacy row without rateCardId): only a rate difference is evidence
+    // Unknown original slab (legacy card with no slab): only a rate difference is evidence
     if (storedSlabId == null && !rateChanged) continue;
 
     driftItems.push({

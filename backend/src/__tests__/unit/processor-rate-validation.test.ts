@@ -20,7 +20,8 @@ jest.mock('../../config/database', () => ({
 jest.mock('../../services/processor-rate-v2.service', () => ({ lookupRate: jest.fn() }));
 
 import prisma from '../../config/database';
-import { validateCostSheetRates } from '../../services/processor-rate-validation.service';
+import { lookupRate } from '../../services/processor-rate-v2.service';
+import { validateCostSheetRates, validateQuantitySlabs } from '../../services/processor-rate-validation.service';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any;
@@ -149,5 +150,76 @@ describe('validateCostSheetRates — printing type', () => {
     expect(db.processor_rate_card.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ processingType: 'DYEING', printingType: null }) })
     );
+  });
+
+  it('a line with no rate card is not checked against the DYEING card — its process is unknown', async () => {
+    cards = [card({ id: 'dyeing', processingType: 'DYEING', printingType: null, ratePerMeter: 10 })];
+    const sheet = sheetWithFabricLine(20, card({}));
+    (sheet.fabricItems[0] as { rateCard: unknown }).rateCard = null;
+    db.style_costing.findUnique.mockResolvedValue(sheet);
+
+    const result = await validateCostSheetRates('cs-1');
+
+    expect(result.status).toBe('CURRENT');
+    expect(db.processor_rate_card.findFirst).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * validateQuantitySlabs batch basis (LNG186, 02-Oct-2026): a Dyed and a Procian line on the same greige,
+ * processor and batch colour are DIFFERENT processes — each is re-checked on its OWN metres, never on the
+ * two added together.
+ */
+describe('validateQuantitySlabs — a batch is one process and print type', () => {
+  const line = (
+    id: string,
+    effectiveCad: number,
+    rateCard: { processingType: string; printingType: string | null }
+  ) => ({
+    id,
+    fabricName: id,
+    processorId: PROCESSOR_ID,
+    greigeId: GREIGE_ID,
+    effectiveCad,
+    processingCost: 10,
+    processor: { id: PROCESSOR_ID, name: 'Manish Textiles' },
+    greige: { id: GREIGE_ID, greigeName: 'GRG-0009' },
+    rateCard: { id: `card-${id}`, slabId: SLAB_ID, slab: { slabLabel: '0-500m' }, ...rateCard },
+    fabricCAD: { processingBatchGroupColorId: 'purple', costedAtQuantityMeters: null, costedRateIsBatch: true },
+  });
+
+  it('a Dyed line and a Procian line in one batch colour are each looked up on their own metres', async () => {
+    db.style_costing.findUnique.mockResolvedValue({
+      id: 'cs-1',
+      fabricItems: [
+        line('printed', 2.6767, { processingType: 'PRINTING', printingType: 'PROCIAN' }),
+        line('dyed', 0.18, { processingType: 'DYEING', printingType: null }),
+      ],
+    });
+    (lookupRate as jest.Mock).mockResolvedValue({ id: 'x', slabId: SLAB_ID, slabLabel: '0-500m', ratePerMeter: 10 });
+
+    await validateQuantitySlabs('cs-1', 200);
+
+    const calls = (lookupRate as jest.Mock).mock.calls.map(([q]) => [q.processingType, q.quantityMeters]);
+    expect(calls).toEqual([
+      ['PRINTING', expect.closeTo(535.34, 2)],
+      ['DYEING', expect.closeTo(36, 2)],
+    ]);
+  });
+
+  it('two Procian lines in one batch colour are still priced on their combined metres', async () => {
+    db.style_costing.findUnique.mockResolvedValue({
+      id: 'cs-1',
+      fabricItems: [
+        line('top', 2, { processingType: 'PRINTING', printingType: 'PROCIAN' }),
+        line('bottom', 1, { processingType: 'PRINTING', printingType: 'PROCIAN' }),
+      ],
+    });
+    (lookupRate as jest.Mock).mockResolvedValue({ id: 'x', slabId: SLAB_ID, slabLabel: '0-500m', ratePerMeter: 10 });
+
+    await validateQuantitySlabs('cs-1', 100);
+
+    const meters = (lookupRate as jest.Mock).mock.calls.map(([q]) => q.quantityMeters);
+    expect(meters).toEqual([300, 300]);
   });
 });

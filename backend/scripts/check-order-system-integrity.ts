@@ -43,6 +43,8 @@
  * D32 job work orders out of step with their lines (jwo-lines.helper is the only writer, 30-Sep): no line,
  *     several lines on piece work / lace, a header that is not what its lines imply, a requirement link or
  *     return receipt with no line or another job's line
+ * D33 costings whose processing rate is not their rate card's rate (a batch lookup of another process
+ *     wrote its rate onto the row, until 02-Oct)
  */
 
 import { PrismaClient } from '@prisma/client';
@@ -398,6 +400,27 @@ async function main() {
         LEFT JOIN style_components sc ON sc.id = sf."componentId"
         LEFT JOIN styles s ON s.id = COALESCE(sc."styleId", c."costingStyleId")
        WHERE rc."greigeId" IS NOT NULL AND c."greigeId" IS NOT NULL AND rc."greigeId" <> c."greigeId"
+       ORDER BY s."styleCode"`
+  );
+
+  // The processing rate IS its card's rate — the costing page only fills it from a lookup. LNG186
+  // (02-Oct-2026): a Dyed and a Procian row in one batch colour were batched together, and the Dyeing
+  // lookup's ₹10 replaced the Procian row's ₹20 while the row kept the ₹20 card. A processing batch is
+  // now one process + print type (FabricCostingPage sameProcessingBatch), and the save refuses this.
+  await run(
+    'D33',
+    "Costings whose processing rate is not their rate card's rate",
+    prisma.$queryRaw`
+      SELECT s."styleCode", s.buyer_style_ref AS buyer_ref, c.purpose, c."cutableWidth"::float AS width,
+             g."greigeCode" AS greige, rc."processingType" AS process, rc."printingType"::text AS print_type,
+             c."processingPricePerMeter"::float AS saved_rate, rc."ratePerMeter"::float AS card_rate,
+             c.costing_approval_status::text AS price
+        FROM fabric_width_cad c
+        JOIN processor_rate_card rc ON rc.id = c."rateCardId"
+        LEFT JOIN greige_master g ON g.id = c."greigeId"
+        LEFT JOIN styles s ON s.id = c."costingStyleId"
+       WHERE c."totalCostPerMeter" IS NOT NULL AND c."processingPricePerMeter" IS NOT NULL
+         AND abs(c."processingPricePerMeter" - rc."ratePerMeter") >= 0.005
        ORDER BY s."styleCode"`
   );
 

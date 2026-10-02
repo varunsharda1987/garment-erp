@@ -406,4 +406,14 @@ describe("a processing rate card belongs to ONE greige (IP00138 / IT00254 kept G
     const row = res.body.data.fabrics.find((f: { id: string }) => f.id === cadId);
     expect(row.rateCardGreigeId).toBe(greigeId);
   });
+
+  // LNG186 (02-Oct-2026): a batch Dyeing lookup wrote ₹10 onto a Procian row that kept its ₹20 card
+  it("a processing rate that is not its card's rate is refused, naming the card's rate — nothing written", async () => {
+    const res = await save(67, undefined, { processorId, rateCardId: cardForThisGreige, processingCostPerMeter: 8 });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain('₹8/m is not the rate on its rate card');
+    expect(res.body.message).toContain(`Dyeing rate for ${RUN}-G1`);
+    expect(res.body.message).toContain('is ₹10/m');
+    expect(Number((await cadRow()).processingPricePerMeter)).toBe(10);
+  });
 });

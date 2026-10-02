@@ -289,6 +289,25 @@ function rateCardNeedsRelookup(fabric: FabricForCosting): boolean {
 }
 
 /**
+ * Two rows are one processing batch — their metres priced together, one rate for both — only when
+ * the SAME process runs on the same greige at the same processor in the same batch colour: dyeing
+ * and printing are separate rate cards, and so is each print type. LNG186 (02-Oct-2026): a Dyed
+ * row and a Procian row on GRG-0009 / Manish / Purple were batched, the Dyeing lookup ran on both
+ * rows' metres and its ₹10 replaced the Procian row's ₹20 while the row kept the ₹20 card.
+ * Same rule on the server: processor-rate-validation `batchKey`, MRP's PROCESSING consolidation.
+ */
+function sameProcessingBatch(a: FabricCostingRow, b: FabricCostingRow): boolean {
+  return (
+    a.processingBatchGroupColorId != null &&
+    a.processingBatchGroupColorId === b.processingBatchGroupColorId &&
+    a.greigeId === b.greigeId &&
+    a.processorId === b.processorId &&
+    a.processingType === b.processingType &&
+    (a.printingType ?? null) === (b.printingType ?? null)
+  );
+}
+
+/**
  * The greige ₹/m cell: the rate, an honest source label, and — when the row's number differs
  * from today's price — the live rate with one click to adopt it.
  *
@@ -1892,11 +1911,7 @@ export default function FabricCostingPage() {
         if (!prev || t >= prev.t) newestPerFabric.set(key, { candidate, t });
       });
       batchQuantityMeters = [...newestPerFabric.values()].reduce((sum, { candidate }) => {
-        if (
-          candidate.greigeId === row.greigeId &&
-          candidate.processorId === row.processorId &&
-          candidate.processingBatchGroupColorId === row.processingBatchGroupColorId
-        ) {
+        if (sameProcessingBatch(candidate, row)) {
           const rQty = candidate.rowQuantity || orderQuantity;
           return sum + candidate.cadMeters * rQty;
         }
@@ -1954,15 +1969,11 @@ export default function FabricCostingPage() {
           rateIssue: null,
         });
 
-        // If batch group, also update ALL OTHER rows in the same batch
+        // If batch group, also update ALL OTHER rows in the same batch — the same card prices them,
+        // so its id goes with the rate (without it the row saved a rate with no card behind it)
         if (hasBatchGroup) {
           fabricRows.forEach((r, i) => {
-            if (
-              i !== index &&
-              r.greigeId === row.greigeId &&
-              r.processorId === row.processorId &&
-              r.processingBatchGroupColorId === row.processingBatchGroupColorId
-            ) {
+            if (i !== index && sameProcessingBatch(r, row)) {
               // Calculate this row's individual quantity for comparison
               const otherRowQty = r.rowQuantity || orderQuantity;
               const otherRowMeters = r.cadMeters * otherRowQty;
@@ -1982,6 +1993,7 @@ export default function FabricCostingPage() {
                   updateRow(i, {
                     processingCostPerMeter: batchRate,
                     slabLabel: result.slabLabel,
+                    rateCardId: result.id,
                     shrinkagePercent: result.shrinkagePercent,
                     screenCostPerScreen: result.screenCostPerScreen,
                     batchRate: batchRate,
@@ -1997,7 +2009,9 @@ export default function FabricCostingPage() {
                   updateRow(i, {
                     processingCostPerMeter: batchRate,
                     slabLabel: result.slabLabel,
+                    rateCardId: result.id,
                     shrinkagePercent: result.shrinkagePercent,
+                    screenCostPerScreen: result.screenCostPerScreen,
                     batchRate: batchRate,
                     individualRate: null,
                     batchSavings: null,

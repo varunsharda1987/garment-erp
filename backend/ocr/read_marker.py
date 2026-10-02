@@ -35,7 +35,7 @@ import sys
 import time
 from collections import Counter
 
-READER_VERSION = "rapidocr-3.9.2/pp-ocrv6-small/3"
+READER_VERSION = "rapidocr-3.9.2/pp-ocrv6-small/4"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FIXTURES = os.path.normpath(os.path.join(HERE, "..", "src", "__tests__", "fixtures", "markers"))
@@ -92,6 +92,15 @@ def parse_sizes(title_line):
     if "*" in text:
         text = text[: text.rfind("*")]
     tokens = [t.strip() for t in re.split(r"\s*-\s*", text.strip())]
+    # OCR can join the window's buttons to the last size with no "*" between ("3XL D X", LNG030 2-Oct-2026):
+    # keep the size and drop the rest — but only when nothing dropped could be a size ("XL XXL" is a missed
+    # dash, and dropping XXL would give a shorter list)
+    if tokens and " " in tokens[-1] and not SIZE_TOKEN_RE.match(tokens[-1].replace(" ", "")):
+        first, *rest = tokens[-1].split()
+        if SIZE_TOKEN_RE.match(first) and not any(
+            SIZE_TOKEN_RE.match(w) or LOOKS_LIKE_SIZE_RE.match(w) for w in rest
+        ):
+            tokens[-1] = first
     sizes = []
     bounded = False
     for token in reversed(tokens):

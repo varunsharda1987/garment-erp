@@ -2,8 +2,13 @@
  * Transaction Utility Unit Tests
  */
 
+import { Prisma } from '@prisma/client';
 import { withTransaction, batchTransaction, withRetryableTransaction } from '../../utils/transaction';
 import prisma from '../../config/database';
+
+/** What Postgres raises through Prisma on a serialization conflict — the only error the helper retries. */
+const serializationFailure = () =>
+  new Prisma.PrismaClientKnownRequestError('could not serialize access', { code: 'P2034', clientVersion: 'test' });
 
 // Mock prisma
 jest.mock('../../config/database', () => ({
@@ -59,7 +64,11 @@ describe('Transaction Utility', () => {
   describe('batchTransaction', () => {
     it('should execute all queries in a transaction', async () => {
       const mockResults = [{ id: '1' }, { id: '2' }];
-      const mockQueries = [Promise.resolve(mockResults[0]), Promise.resolve(mockResults[1])];
+      // batchTransaction takes Prisma's lazy query promises; plain promises stand in for them here.
+      const mockQueries = [
+        Promise.resolve(mockResults[0]),
+        Promise.resolve(mockResults[1]),
+      ] as unknown as Prisma.PrismaPromise<unknown>[];
 
       (prisma.$transaction as jest.Mock).mockResolvedValue(mockResults);
 
@@ -85,42 +94,42 @@ describe('Transaction Utility', () => {
       expect(result).toEqual(mockResult);
     });
 
-    it('should retry on serialization failure', async () => {
+    it('should retry on a serialization failure (P2034)', async () => {
       const mockResult = { id: '1' };
-      const serializationError = new Error('could not serialize access');
+      const serializationError = serializationFailure();
       const mockCallback = jest.fn().mockRejectedValueOnce(serializationError).mockResolvedValueOnce(mockResult);
 
       (prisma.$transaction as jest.Mock).mockImplementation(async (cb) => {
         return cb(prisma);
       });
 
-      const result = await withRetryableTransaction(mockCallback, { maxRetries: 3 });
+      const result = await withRetryableTransaction(mockCallback, 3);
 
       expect(mockCallback).toHaveBeenCalledTimes(2);
       expect(result).toEqual(mockResult);
     });
 
-    it('should not retry on non-serialization errors', async () => {
-      const error = new Error('Some other error');
+    it('should not retry on other errors — even one that merely mentions serialization', async () => {
+      const error = new Error('could not serialize access (but not a P2034)');
       const mockCallback = jest.fn().mockRejectedValue(error);
 
       (prisma.$transaction as jest.Mock).mockImplementation(async (cb) => {
         return cb(prisma);
       });
 
-      await expect(withRetryableTransaction(mockCallback)).rejects.toThrow('Some other error');
+      await expect(withRetryableTransaction(mockCallback)).rejects.toThrow('not a P2034');
       expect(mockCallback).toHaveBeenCalledTimes(1);
     });
 
     it('should throw after max retries', async () => {
-      const serializationError = new Error('could not serialize access');
+      const serializationError = serializationFailure();
       const mockCallback = jest.fn().mockRejectedValue(serializationError);
 
       (prisma.$transaction as jest.Mock).mockImplementation(async (cb) => {
         return cb(prisma);
       });
 
-      await expect(withRetryableTransaction(mockCallback, { maxRetries: 2 })).rejects.toThrow();
+      await expect(withRetryableTransaction(mockCallback, 2)).rejects.toThrow();
       expect(mockCallback).toHaveBeenCalledTimes(2);
     });
   });

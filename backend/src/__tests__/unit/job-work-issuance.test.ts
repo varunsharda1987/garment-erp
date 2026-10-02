@@ -143,8 +143,23 @@ describe('validateIssue — blocker matrix', () => {
     expect(codes(v)).toContain(ISSUE_ERROR_CODES.LOT_NOT_FOUND);
   });
 
-  it('LOT_AT_PROCESSOR for processor-held / TRANSFER lots', async () => {
-    arm(baseJwo(), { 'lot-1': baseLot({ processorId: 'someone' }) });
+  // The processor-held rule was split in 4805cf8b; one case per branch of validateIssue.
+  it('LOT_AT_WRONG_PROCESSOR for a lot held by a DIFFERENT processor', async () => {
+    arm(baseJwo(), { 'lot-1': baseLot({ processorId: 'someone-else' }) });
+    const v = await validateIssue('jwo-1', { lots: [{ greigeStockLotId: 'lot-1', qty: 8792.09 }] });
+    expect(codes(v)).toContain(ISSUE_ERROR_CODES.LOT_AT_WRONG_PROCESSOR);
+    expect(codes(v)).not.toContain(ISSUE_ERROR_CODES.LOT_AT_PROCESSOR);
+  });
+
+  it('allows a lot already at THIS job’s processor ("virtual issuance" — nothing moves)', async () => {
+    arm(baseJwo(), { 'lot-1': baseLot({ processorId: PROCESSOR_ID, sourceType: 'TRANSFER' }) });
+    const v = await validateIssue('jwo-1', { lots: [{ greigeStockLotId: 'lot-1', qty: 8792.09 }] });
+    expect(codes(v)).not.toContain(ISSUE_ERROR_CODES.LOT_AT_WRONG_PROCESSOR);
+    expect(codes(v)).not.toContain(ISSUE_ERROR_CODES.LOT_AT_PROCESSOR);
+  });
+
+  it('LOT_AT_PROCESSOR for TRANSFER stock sitting at the main warehouse (it was meant for another processor)', async () => {
+    arm(baseJwo(), { 'lot-1': baseLot({ processorId: null, sourceType: 'TRANSFER' }) });
     const v = await validateIssue('jwo-1', { lots: [{ greigeStockLotId: 'lot-1', qty: 8792.09 }] });
     expect(codes(v)).toContain(ISSUE_ERROR_CODES.LOT_AT_PROCESSOR);
   });

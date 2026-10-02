@@ -62,6 +62,14 @@ export const TrimTypeEnum = z.enum([
  * BUG-GT2 FIX: Added explicit validation for price fields instead of relying on .passthrough().
  * Price fields are validated with nonnegative constraints to prevent invalid data.
  */
+// Width is TEXT on every trim master that has it (buckle, belt, velcro, drawstring, ribbon,
+// interlining, other_tape — `width String?`), picked from a list like "90cm" / "10mm". It was
+// validated as a number, so "90cm" became NaN and every interlining add/edit was refused (2026-10-02).
+const trimWidthSchema = z.preprocess(
+  (v) => (typeof v === 'number' ? String(v) : typeof v === 'string' && v.trim() === '' ? null : v),
+  z.string().trim().max(50).optional().nullable()
+);
+
 export const createGenericTrimSchema = z
   .object({
     code: z.string().max(50).optional().nullable(),
@@ -84,7 +92,7 @@ export const createGenericTrimSchema = z
     pricePerGross: z.coerce.number().nonnegative().optional().nullable(),
     pricePerPack: z.coerce.number().nonnegative().optional().nullable(),
     // Additional common fields that may be passed
-    width: z.coerce.number().positive().optional().nullable(),
+    width: trimWidthSchema,
     // BUG-GT2 FIX: Add packSize for bead_master (Int? in Prisma schema)
     packSize: z.coerce.number().int().nonnegative().optional().nullable(),
   })
@@ -113,7 +121,7 @@ export const updateGenericTrimSchema = z
     pricePerPiece: z.coerce.number().nonnegative().optional().nullable(),
     pricePerGross: z.coerce.number().nonnegative().optional().nullable(),
     pricePerPack: z.coerce.number().nonnegative().optional().nullable(),
-    width: z.coerce.number().positive().optional().nullable(),
+    width: trimWidthSchema,
     // BUG-GT2 FIX: Add packSize for bead_master (Int? in Prisma schema)
     packSize: z.coerce.number().int().nonnegative().optional().nullable(),
   })

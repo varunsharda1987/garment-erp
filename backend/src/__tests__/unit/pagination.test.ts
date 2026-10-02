@@ -1,5 +1,10 @@
 /**
  * Pagination Middleware Unit Tests
+ *
+ * Pins the middleware's current contract: default limit 10 (max 100), an invalid page/limit falls
+ * back to the default rather than being clamped, the response carries hasNextPage / hasPrevPage
+ * (hasMore is gone), and parseSortParams reads sortBy / sortOrder from the request and always
+ * returns an orderBy, falling back to the default field and order.
  */
 
 import { Request, Response, NextFunction } from 'express';
@@ -22,155 +27,116 @@ describe('Pagination Middleware', () => {
       mockNext = jest.fn();
     });
 
-    it('should use default values when no query params', () => {
-      const middleware = pagination();
-      middleware(mockReq as Request, mockRes as Response, mockNext);
+    it('uses default values when no query params are given', () => {
+      pagination()(mockReq as Request, mockRes as Response, mockNext);
 
-      expect(mockReq.pagination).toEqual({
-        page: 1,
-        limit: 20,
-        offset: 0,
-        skip: 0,
-        take: 20,
-      });
+      expect(mockReq.pagination).toEqual({ page: 1, limit: 10, offset: 0, skip: 0, take: 10 });
       expect(mockNext).toHaveBeenCalled();
     });
 
-    it('should parse page and limit from query', () => {
+    it('parses page and limit from the query', () => {
       mockReq.query = { page: '2', limit: '50' };
-      const middleware = pagination();
-      middleware(mockReq as Request, mockRes as Response, mockNext);
+      pagination()(mockReq as Request, mockRes as Response, mockNext);
 
-      expect(mockReq.pagination).toEqual({
-        page: 2,
-        limit: 50,
-        offset: 50,
-        skip: 50,
-        take: 50,
-      });
+      expect(mockReq.pagination).toEqual({ page: 2, limit: 50, offset: 50, skip: 50, take: 50 });
     });
 
-    it('should enforce minimum page of 1', () => {
+    it('falls back to page 1 for a page below 1', () => {
       mockReq.query = { page: '0' };
-      const middleware = pagination();
-      middleware(mockReq as Request, mockRes as Response, mockNext);
+      pagination()(mockReq as Request, mockRes as Response, mockNext);
 
       expect(mockReq.pagination?.page).toBe(1);
     });
 
-    it('should enforce minimum limit of 1', () => {
+    it('falls back to the default limit for a limit below 1', () => {
       mockReq.query = { limit: '-5' };
-      const middleware = pagination();
-      middleware(mockReq as Request, mockRes as Response, mockNext);
+      pagination()(mockReq as Request, mockRes as Response, mockNext);
 
-      expect(mockReq.pagination?.limit).toBe(1);
+      expect(mockReq.pagination?.limit).toBe(10);
     });
 
-    it('should enforce maximum limit', () => {
+    it('caps the limit at maxLimit', () => {
       mockReq.query = { limit: '500' };
-      const middleware = pagination({ maxLimit: 100 });
-      middleware(mockReq as Request, mockRes as Response, mockNext);
+      pagination({ maxLimit: 100 })(mockReq as Request, mockRes as Response, mockNext);
 
       expect(mockReq.pagination?.limit).toBe(100);
     });
 
-    it('should use custom default limit', () => {
-      const middleware = pagination({ defaultLimit: 50 });
-      middleware(mockReq as Request, mockRes as Response, mockNext);
+    it('uses a custom default limit', () => {
+      pagination({ defaultLimit: 50 })(mockReq as Request, mockRes as Response, mockNext);
 
       expect(mockReq.pagination?.limit).toBe(50);
     });
   });
 
   describe('formatPaginatedResponse', () => {
-    it('should format response correctly', () => {
+    it('formats the first of several pages', () => {
       const data = [{ id: 1 }, { id: 2 }];
-      const pagination = { page: 1, limit: 10, offset: 0, skip: 0, take: 10 };
+      const params = { page: 1, limit: 10, offset: 0, skip: 0, take: 10 };
 
-      const result = formatPaginatedResponse(data, 25, pagination);
-
-      expect(result).toEqual({
+      expect(formatPaginatedResponse(data, 25, params)).toEqual({
         data,
-        pagination: {
-          page: 1,
-          limit: 10,
-          total: 25,
-          totalPages: 3,
-          hasMore: true,
-        },
+        pagination: { page: 1, limit: 10, total: 25, totalPages: 3, hasNextPage: true, hasPrevPage: false },
       });
     });
 
-    it('should calculate hasMore correctly on last page', () => {
-      const data = [{ id: 1 }];
-      const pagination = { page: 3, limit: 10, offset: 20, skip: 20, take: 10 };
+    it('reports no next page on the last page', () => {
+      const params = { page: 3, limit: 10, offset: 20, skip: 20, take: 10 };
 
-      const result = formatPaginatedResponse(data, 25, pagination);
+      const result = formatPaginatedResponse([{ id: 1 }], 25, params);
 
-      expect(result.pagination.hasMore).toBe(false);
+      expect(result.pagination.hasNextPage).toBe(false);
+      expect(result.pagination.hasPrevPage).toBe(true);
     });
 
-    it('should handle empty data', () => {
-      const pagination = { page: 1, limit: 10, offset: 0, skip: 0, take: 10 };
+    it('handles empty data', () => {
+      const params = { page: 1, limit: 10, offset: 0, skip: 0, take: 10 };
 
-      const result = formatPaginatedResponse([], 0, pagination);
-
-      expect(result).toEqual({
+      expect(formatPaginatedResponse([], 0, params)).toEqual({
         data: [],
-        pagination: {
-          page: 1,
-          limit: 10,
-          total: 0,
-          totalPages: 0,
-          hasMore: false,
-        },
+        pagination: { page: 1, limit: 10, total: 0, totalPages: 0, hasNextPage: false, hasPrevPage: false },
       });
     });
   });
 
   describe('getPrismaArgs', () => {
-    it('should return skip and take from request', () => {
-      const mockReq = {
-        pagination: { page: 2, limit: 20, offset: 20, skip: 20, take: 20 },
-      } as unknown as Request;
+    it('returns skip and take from the request', () => {
+      const mockReq = { pagination: { page: 2, limit: 20, offset: 20, skip: 20, take: 20 } } as unknown as Request;
 
-      const result = getPrismaArgs(mockReq);
-
-      expect(result).toEqual({ skip: 20, take: 20 });
+      expect(getPrismaArgs(mockReq)).toEqual({ skip: 20, take: 20 });
     });
 
-    it('should return default values when pagination not set', () => {
-      const mockReq = {} as Request;
-
-      const result = getPrismaArgs(mockReq);
-
-      expect(result).toEqual({ skip: 0, take: 20 });
+    it('returns the defaults when pagination is not set', () => {
+      expect(getPrismaArgs({} as Request)).toEqual({ skip: 0, take: 10 });
     });
   });
 
   describe('parseSortParams', () => {
-    it('should parse valid sort params', () => {
-      const result = parseSortParams('name', 'asc', ['name', 'createdAt']);
+    const req = (query: Record<string, string>) => ({ query }) as unknown as Request;
 
-      expect(result).toEqual({ name: 'asc' });
+    it('uses a valid sortBy and sortOrder', () => {
+      expect(parseSortParams(req({ sortBy: 'name', sortOrder: 'asc' }), ['name', 'createdAt'])).toEqual({
+        name: 'asc',
+      });
     });
 
-    it('should default to desc when invalid order', () => {
-      const result = parseSortParams('name', 'invalid' as 'asc' | 'desc', ['name']);
-
-      expect(result).toEqual({ name: 'desc' });
+    it('accepts the order case-insensitively', () => {
+      expect(parseSortParams(req({ sortBy: 'name', sortOrder: 'ASC' }), ['name'])).toEqual({ name: 'asc' });
     });
 
-    it('should return default sort when field not allowed', () => {
-      const result = parseSortParams('invalid', 'asc', ['name', 'createdAt']);
-
-      expect(result).toEqual({ createdAt: 'desc' });
+    it('falls back to the default order for an invalid order', () => {
+      expect(parseSortParams(req({ sortBy: 'name', sortOrder: 'sideways' }), ['name'])).toEqual({ name: 'desc' });
     });
 
-    it('should return undefined when no sort params', () => {
-      const result = parseSortParams(undefined, undefined, ['name']);
+    it('falls back to the default field when the field is not allowed', () => {
+      expect(parseSortParams(req({ sortBy: 'password', sortOrder: 'asc' }), ['name', 'createdAt'])).toEqual({
+        createdAt: 'asc',
+      });
+    });
 
-      expect(result).toBeUndefined();
+    it('uses the given defaults when no sort params are sent', () => {
+      expect(parseSortParams(req({}), ['name'], 'name', 'asc')).toEqual({ name: 'asc' });
+      expect(parseSortParams(req({}), ['name'])).toEqual({ createdAt: 'desc' });
     });
   });
 });

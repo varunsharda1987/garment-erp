@@ -9,6 +9,8 @@ import { jwoRateProvenance, JwoRateResolution } from '../../services/helpers/jwo
 
 const resolution = (overrides: Partial<JwoRateResolution> = {}): JwoRateResolution => ({
   cardRatePerMeter: 52,
+  // Added to JwoRateResolution after this fixture; provenance does not read it.
+  cardShrinkagePercent: null,
   rateCardId: 'card-1',
   slabId: 'slab-1',
   slabLabel: '500-1000m',

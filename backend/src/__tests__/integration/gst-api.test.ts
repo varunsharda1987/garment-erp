@@ -1,17 +1,45 @@
 /**
  * Integration Tests for GST-related API Endpoints
  *
- * Tests API endpoints with real HTTP requests using Supertest.
- * Requires a running database.
+ * Tests API endpoints with real HTTP requests using Supertest, against the LIVE database.
+ *
+ * The auth middleware re-validates every token against the users table (active + approved), so a
+ * token signed for a made-up id is refused with 401 — which is why 18 of these tests failed for
+ * months. A real, tagged, approved ADMIN is created for the run and removed afterwards, together with
+ * every row the run creates (tagged by RUN), so nothing is left behind even if a DELETE soft-deletes.
  */
 
 import request from 'supertest';
+import { randomUUID } from 'crypto';
 import app from '../../app';
-import { generateTestToken } from '../helpers/test-utils';
+import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
 
-// Generate an auth token for API requests
-const authToken = generateTestToken('test-user-id', 'ADMIN');
-const authHeader = { Authorization: `Bearer ${authToken}` };
+const RUN = `GST${Date.now().toString(36).toUpperCase()}`;
+/** Unique per run and short: HSN codes are plain strings, unique across the table. */
+const HSN_CODE = `99T${Date.now().toString().slice(-5)}`;
+const only = (id: string | undefined) => id ?? '__unset__';
+
+let authHeader: Record<string, string>;
+let testUserId: string;
+
+beforeAll(async () => {
+  const user = await createTestUser({
+    email: `test-${RUN.toLowerCase()}@gst.test`,
+    role: 'ADMIN',
+    isActive: true,
+    isApproved: true,
+  });
+  testUserId = user.id;
+  authHeader = getAuthHeader(user.id, 'ADMIN');
+});
+
+afterAll(async () => {
+  await prisma.hsn_sac_masters.deleteMany({ where: { code: HSN_CODE } });
+  await prisma.tds_entries.deleteMany({ where: { deductorName: { startsWith: RUN } } });
+  await prisma.tcs_entries.deleteMany({ where: { customerName: { startsWith: RUN } } });
+  await prisma.users.deleteMany({ where: { id: only(testUserId) } });
+  await prisma.$disconnect();
+});
 
 describe('GST API Integration Tests', () => {
   // ============================================
@@ -22,7 +50,7 @@ describe('GST API Integration Tests', () => {
 
     it('POST / should create an HSN code', async () => {
       const response = await request(app).post('/api/hsn-sac-masters').set(authHeader).send({
-        code: '99TEST001',
+        code: HSN_CODE,
         type: 'HSN',
         description: 'Test HSN Code for integration test',
         defaultGstRate: 12,
@@ -30,12 +58,11 @@ describe('GST API Integration Tests', () => {
         unit: 'PCS',
       });
 
-      // Accept 201 (created) or 500 (if duplicate/DB constraint)
-      if (response.status === 201) {
-        expect(response.body).toHaveProperty('id');
-        expect(response.body.code).toBe('99TEST001');
-        createdId = response.body.id;
-      }
+      // Creates answer { data, message }; the code is unique per run, so this must succeed.
+      expect(response.status).toBe(201);
+      expect(response.body.data).toHaveProperty('id');
+      expect(response.body.data.code).toBe(HSN_CODE);
+      createdId = response.body.data.id;
     });
 
     it('GET / should return paginated list', async () => {
@@ -62,8 +89,9 @@ describe('GST API Integration Tests', () => {
       expect(Array.isArray(response.body)).toBe(true);
     });
 
-    it('GET /:id should return 404 for invalid ID', async () => {
-      await request(app).get('/api/hsn-sac-masters/non-existent-id').set(authHeader).expect(404);
+    it('GET /:id answers 400 for a malformed id and 404 for an unknown one', async () => {
+      await request(app).get('/api/hsn-sac-masters/non-existent-id').set(authHeader).expect(400);
+      await request(app).get(`/api/hsn-sac-masters/${randomUUID()}`).set(authHeader).expect(404);
     });
 
     // Cleanup
@@ -170,8 +198,9 @@ describe('GST API Integration Tests', () => {
       expect(response.body).toHaveProperty('data');
     });
 
-    it('GET /:id should return 404 for non-existent', async () => {
-      await request(app).get('/api/credit-notes/non-existent-id').set(authHeader).expect(404);
+    it('GET /:id answers 400 for a malformed id and 404 for an unknown one', async () => {
+      await request(app).get('/api/credit-notes/non-existent-id').set(authHeader).expect(400);
+      await request(app).get(`/api/credit-notes/${randomUUID()}`).set(authHeader).expect(404);
     });
   });
 
@@ -190,8 +219,9 @@ describe('GST API Integration Tests', () => {
       expect(response.body).toHaveProperty('pagination');
     });
 
-    it('GET /:id should return 404 for non-existent', async () => {
-      await request(app).get('/api/debit-notes/non-existent-id').set(authHeader).expect(404);
+    it('GET /:id answers 400 for a malformed id and 404 for an unknown one', async () => {
+      await request(app).get('/api/debit-notes/non-existent-id').set(authHeader).expect(400);
+      await request(app).get(`/api/debit-notes/${randomUUID()}`).set(authHeader).expect(404);
     });
   });
 
@@ -202,25 +232,27 @@ describe('GST API Integration Tests', () => {
     let createdTdsId: string;
 
     it('POST / should create a TDS entry', async () => {
-      const response = await request(app).post('/api/tds').set(authHeader).send({
-        deductorName: 'Test Deductor Pvt Ltd',
-        deducteeName: 'Test Company',
-        tdsSection: '194C',
-        tdsRate: 1,
-        grossAmount: 100000,
-        tdsAmount: 1000,
-        netAmount: 99000,
-        deductionDate: '2026-01-15',
-        financialYear: '2025-26',
-        quarter: 4,
-      });
+      const response = await request(app)
+        .post('/api/tds')
+        .set(authHeader)
+        .send({
+          deductorName: `${RUN} Test Deductor Pvt Ltd`,
+          deducteeName: 'Test Company',
+          tdsSection: '194C',
+          tdsRate: 1,
+          grossAmount: 100000,
+          tdsAmount: 1000,
+          netAmount: 99000,
+          deductionDate: '2026-01-15',
+          financialYear: '2025-26',
+          quarter: 4,
+        });
 
-      if (response.status === 201) {
-        expect(response.body).toHaveProperty('id');
-        expect(response.body.deductorName).toBe('Test Deductor Pvt Ltd');
-        expect(Number(response.body.tdsAmount)).toBe(1000);
-        createdTdsId = response.body.id;
-      }
+      expect(response.status).toBe(201);
+      expect(response.body.data).toHaveProperty('id');
+      expect(response.body.data.deductorName).toBe(`${RUN} Test Deductor Pvt Ltd`);
+      expect(Number(response.body.data.tdsAmount)).toBe(1000);
+      createdTdsId = response.body.data.id;
     });
 
     it('GET / should return paginated list', async () => {
@@ -274,22 +306,24 @@ describe('GST API Integration Tests', () => {
     let createdTcsId: string;
 
     it('POST / should create a TCS entry', async () => {
-      const response = await request(app).post('/api/tcs').set(authHeader).send({
-        customerName: 'Test Customer Ltd',
-        tcsSection: '206C(1H)',
-        tcsRate: 0.1,
-        saleAmount: 5000000,
-        tcsAmount: 5000,
-        collectionDate: '2026-01-20',
-        financialYear: '2025-26',
-        quarter: 4,
-      });
+      const response = await request(app)
+        .post('/api/tcs')
+        .set(authHeader)
+        .send({
+          customerName: `${RUN} Test Customer Ltd`,
+          tcsSection: '206C(1H)',
+          tcsRate: 0.1,
+          saleAmount: 5000000,
+          tcsAmount: 5000,
+          collectionDate: '2026-01-20',
+          financialYear: '2025-26',
+          quarter: 4,
+        });
 
-      if (response.status === 201) {
-        expect(response.body).toHaveProperty('id');
-        expect(response.body.customerName).toBe('Test Customer Ltd');
-        createdTcsId = response.body.id;
-      }
+      expect(response.status).toBe(201);
+      expect(response.body.data).toHaveProperty('id');
+      expect(response.body.data.customerName).toBe(`${RUN} Test Customer Ltd`);
+      createdTcsId = response.body.data.id;
     });
 
     it('GET / should return paginated list', async () => {

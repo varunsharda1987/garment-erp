@@ -53,7 +53,12 @@ import {
 import { toDateInputValue } from '../utils/date';
 import { echoShadowPoStatus } from '../services/helpers/shadow-po.helper';
 import { returnJobWorkUnprocessed } from '../services/helpers/jwo-return-unprocessed.helper';
-import { createOneLineJobWorkOrder, LINE_RECEIPTS_SELECT, lineReceivedQty } from '../services/helpers/jwo-lines.helper';
+import {
+  createOneLineJobWorkOrder,
+  JWO_LINES_BRIEF,
+  LINE_RECEIPTS_SELECT,
+  lineReceivedQty,
+} from '../services/helpers/jwo-lines.helper';
 import { ConflictError, UnauthorizedError } from '../errors';
 import { resolveJwoRate, jwoRateProvenance, type JwoRateResolution } from '../services/helpers/jwo-rate.helper';
 import { resolveJwoExpectedShrinkage } from '../services/helpers/shrinkage-resolver.helper';
@@ -150,6 +155,8 @@ const jwoInclude = {
   greigeStockLot: {
     select: { id: true, greige: { select: { id: true, greigeCode: true, greigeName: true } } },
   },
+  // Each fabric the job brings back — the list names them when there are several (getById loads its own)
+  lines: JWO_LINES_BRIEF,
   requirementLinks: {
     take: 1,
     select: {

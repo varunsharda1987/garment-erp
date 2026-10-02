@@ -49,6 +49,7 @@ import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
 import type { JobWorkOrder, JobWorkOrderQueryParams, JobWorkOrderStatus } from '@/types/jobWorkOrder.types';
 import { formatDate } from '@/lib/date';
 import { StyleIdentity } from '@/components/StyleIdentity';
+import { JobLinesCell } from '@/components/job-work/JobLinesCell';
 
 const PROCESS_TYPES = [
   { value: 'DYEING', label: 'Dyeing' },
@@ -405,7 +406,11 @@ export default function JobWorkOrderList() {
                         </TableCell>
                         <TableCell>{jwo.processor?.name || '-'}</TableCell>
                         <TableCell>
-                          <StyleIdentity style={jwo.style} fallback="-" />
+                          <JobLinesCell
+                            lines={jwo.lines}
+                            show="style"
+                            fallback={<StyleIdentity style={jwo.style} fallback="-" />}
+                          />
                         </TableCell>
                         <TableCell className="text-right">
                           {jwo.qtySentMeters.toFixed(2)} {unitShort(jwo.uom)}
@@ -432,7 +437,11 @@ export default function JobWorkOrderList() {
                             <>
                               {jwo.greigeWidthInches != null ? `${Number(jwo.greigeWidthInches)}"` : '—'}
                               {' → '}
-                              {jwo.sentWidthInches != null ? `${Number(jwo.sentWidthInches)}"` : '—'}
+                              {jwo.sentWidthInches != null
+                                ? `${Number(jwo.sentWidthInches)}"`
+                                : (jwo.lines?.length ?? 0) > 1
+                                  ? 'per line'
+                                  : '—'}
                               {jwo.receivedWidthInches != null && (
                                 <div
                                   className={`text-[10px] ${

@@ -1,3 +1,4 @@
+import type { JobWorkOrderLineBrief } from './jobWorkOrder.types';
 // ============================================
 // Dyeing Module Types
 // ============================================
@@ -232,6 +233,8 @@ export interface DyeJob {
     fabricName: string;
     actualWidth: number;
   };
+  /** Each fabric the job brings back (several on a job made for several orders) */
+  lines?: JobWorkOrderLineBrief[];
   createdBy?: {
     id: string;
     name: string;

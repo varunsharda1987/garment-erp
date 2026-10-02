@@ -13,6 +13,7 @@
  */
 import { Prisma } from '@prisma/client';
 import prisma from '../../config/database';
+import { JWO_LINES_BRIEF } from './jwo-lines.helper';
 
 export const processLabDipInclude = {
   style: {
@@ -86,6 +87,8 @@ export const processJwoInclude = {
   finishedFabric: {
     select: { id: true, fabricCode: true, fabricName: true, actualWidth: true },
   },
+  // Each fabric the job brings back — the list names them when there are several (blank header otherwise)
+  lines: JWO_LINES_BRIEF,
   fabricStockLot: {
     select: { id: true, quantityAvailable: true, purchaseCost: true },
   },

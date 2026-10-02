@@ -90,6 +90,21 @@ export interface JobWorkOrderLine {
   }>;
 }
 
+/** A line as the lists carry it — enough to name its fabric */
+export type JobWorkOrderLineBrief = Pick<
+  JobWorkOrderLine,
+  | 'id'
+  | 'lineNo'
+  | 'colorName'
+  | 'sentWidthInches'
+  | 'closedAt'
+  | 'closedHow'
+  | 'style'
+  | 'colorMaster'
+  | 'finishedFabric'
+  | 'finishedLace'
+>;
+
 export interface JobWorkOrder {
   id: string;
   jobWorkNumber: string;

@@ -47,6 +47,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { differenceInCalendarDays } from 'date-fns';
 import { formatDate } from '@/lib/date';
 import { StyleIdentity } from '@/components/StyleIdentity';
+import { JobLinesCell } from '@/components/job-work/JobLinesCell';
 import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, ourStyleCode } from '@/lib/style-code';
 
 // Local type definition for DataTable
@@ -402,23 +403,35 @@ export default function DyeingList() {
       header: BUYER_STYLE_CODE_LABEL,
       render: (item) => {
         const style = item.jobWorkOrder?.style;
-        return style ? (
-          <StyleIdentity
-            style={style}
-            name={style.styleName}
-            layout="stacked"
-            showStyleCode={false}
-            codeClassName="text-sm text-foreground"
+        return (
+          <JobLinesCell
+            lines={item.jobWorkOrder?.lines}
+            show="style"
+            fallback={
+              style ? (
+                <StyleIdentity
+                  style={style}
+                  name={style.styleName}
+                  layout="stacked"
+                  showStyleCode={false}
+                  codeClassName="text-sm text-foreground"
+                />
+              ) : (
+                <span className="text-muted-foreground">-</span>
+              )
+            }
           />
-        ) : (
-          <span className="text-muted-foreground">-</span>
         );
       },
     },
     {
       key: 'styleCode',
       header: STYLE_CODE_LABEL,
-      render: (item) => <span className="text-sm">{ourStyleCode(item.jobWorkOrder?.style)}</span>,
+      render: (item) => (
+        <span className="text-sm">
+          {(item.jobWorkOrder?.lines?.length ?? 0) > 1 ? 'Several' : ourStyleCode(item.jobWorkOrder?.style)}
+        </span>
+      ),
     },
     {
       key: 'supplier',
@@ -437,11 +450,17 @@ export default function DyeingList() {
                 {FabricTypeLabels[jwo.fabricType] || jwo.fabricType}
               </Badge>
             )}
-            {jwo?.finishedFabric ? (
-              <span className="text-foreground">{jwo.finishedFabric.fabricName}</span>
-            ) : (
-              <span className="text-muted-foreground">-</span>
-            )}
+            <JobLinesCell
+              lines={jwo?.lines}
+              show="fabric"
+              fallback={
+                jwo?.finishedFabric ? (
+                  <span className="text-foreground">{jwo.finishedFabric.fabricName}</span>
+                ) : (
+                  <span className="text-muted-foreground">-</span>
+                )
+              }
+            />
           </div>
         );
       },

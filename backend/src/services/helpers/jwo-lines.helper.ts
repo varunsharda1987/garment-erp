@@ -275,6 +275,23 @@ export async function updateTheOnlyLine(tx: Tx, jobWorkOrderId: string, patch: P
   return syncJwoHeaderFromLines(tx, jobWorkOrderId);
 }
 
+/** A job's lines in brief — what a list row needs to name each fabric when a job brings back several */
+export const JWO_LINES_BRIEF = {
+  orderBy: { lineNo: 'asc' as const },
+  select: {
+    id: true,
+    lineNo: true,
+    colorName: true,
+    sentWidthInches: true,
+    closedAt: true,
+    closedHow: true,
+    style: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
+    colorMaster: { select: { colorName: true, hexCode: true } },
+    finishedFabric: { select: { id: true, fabricCode: true, fabricName: true, colorName: true } },
+    finishedLace: { select: { id: true, laceCode: true, laceName: true, color: true } },
+  },
+};
+
 /** The select that feeds lineReceivedQty: a line's ACCEPTED receipt rows */
 export const LINE_RECEIPTS_SELECT = {
   where: { goods_receiving_notes: { status: 'ACCEPTED' as const } },

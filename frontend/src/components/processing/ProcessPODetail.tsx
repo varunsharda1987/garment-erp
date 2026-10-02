@@ -27,6 +27,7 @@ import { ProcessPOStatusLabels, ProcessPOStatusColors } from '@/types/printing.t
 import { cn } from '@/lib/utils';
 import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, buyerStyleCode, ourStyleCode } from '@/lib/style-code';
 import { formatDate } from '@/lib/date';
+import { JobLinesCell } from '@/components/job-work/JobLinesCell';
 
 export type ProcessType = 'DYEING' | 'PRINTING';
 
@@ -79,6 +80,8 @@ export default function ProcessPODetail({ processType, backPath, title }: Proces
   }
 
   const jwo = processPO.jobWorkOrder;
+  // A job made for several orders brings back several fabrics — one line each; the job's own style is blank
+  const severalLines = (jwo?.lines?.length ?? 0) > 1;
   const status = processPO.processPOStatus;
 
   return (
@@ -152,15 +155,17 @@ export default function ProcessPODetail({ processType, backPath, title }: Proces
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground">{BUYER_STYLE_CODE_LABEL}</p>
-                <p className="font-medium">{buyerStyleCode(jwo?.style, null, '-')}</p>
+                <div className="font-medium">
+                  <JobLinesCell lines={jwo?.lines} show="style" fallback={buyerStyleCode(jwo?.style, null, '-')} />
+                </div>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">{STYLE_CODE_LABEL}</p>
-                <p className="font-medium">{ourStyleCode(jwo?.style, '-')}</p>
+                <p className="font-medium">{severalLines ? 'Several' : ourStyleCode(jwo?.style, '-')}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Style Name</p>
-                <p className="font-medium">{jwo?.style?.styleName || '-'}</p>
+                <p className="font-medium">{severalLines ? 'Several' : jwo?.style?.styleName || '-'}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Greige Fabric</p>
@@ -168,9 +173,13 @@ export default function ProcessPODetail({ processType, backPath, title }: Proces
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Finished Fabric</p>
-                <p className="font-medium">
-                  {jwo?.finishedFabric?.fabricCode || jwo?.finishedFabric?.fabricName || '-'}
-                </p>
+                <div className="font-medium">
+                  <JobLinesCell
+                    lines={jwo?.lines}
+                    show="fabric"
+                    fallback={jwo?.finishedFabric?.fabricCode || jwo?.finishedFabric?.fabricName || '-'}
+                  />
+                </div>
               </div>
             </div>
           </CardContent>

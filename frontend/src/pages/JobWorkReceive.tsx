@@ -374,8 +374,8 @@ export default function JobWorkReceive() {
         <CardHeader>
           <CardTitle>The delivery</CardTitle>
           <CardDescription>
-            Typed once — it goes on the receipt of every colour below. {processorName}&apos;s one challan and one bill
-            cover them all.
+            This truck only — the date, {processorName}&apos;s challan and bill go on the receipt of every colour that
+            came on it. A colour that comes on another day is received on its own visit, with that day&apos;s date.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-4">

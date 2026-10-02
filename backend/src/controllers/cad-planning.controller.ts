@@ -20,7 +20,6 @@ import {
   StyleCADSummary,
   ComponentCADSummary,
   FabricCADSummary,
-  CADOption,
   CADCostResult,
 } from './cad-planning.utils';
 import { syncBomFabricId } from '../services/order-bom.service';
@@ -192,7 +191,6 @@ export async function calculateCADCost(req: Request, res: Response) {
  */
 export async function updateCADValues(req: Request, res: Response) {
   const { cadId } = req.params;
-  const parsedCadId = parseInt(cadId, 10);
 
   // Validate that approved CAD cannot be updated
   await validateCADModification(cadId, 'update');
@@ -1123,7 +1121,6 @@ export async function addCADWidth(req: Request, res: Response) {
  */
 export async function deleteCADWidth(req: Request, res: Response) {
   const { cadId } = req.params;
-  const parsedCadId = parseInt(cadId, 10);
 
   // Validate that approved CAD cannot be deleted
   await validateCADModification(cadId, 'delete');
@@ -1237,7 +1234,7 @@ export async function getCADGroupDetails(req: Request, res: Response) {
   const averagingMode = firstFabric?.averagingMode || 'COMBINED';
 
   // Get fabric_master and CAD options
-  let fabricMaster = null;
+  let fabricMaster;
   let cadOptions: any[] = [];
 
   if (selectedGreigeId) {
@@ -1409,7 +1406,6 @@ export async function getCADGroupDetails(req: Request, res: Response) {
  */
 export async function updateCADValuesWithBreakdown(req: Request, res: Response) {
   const { cadId } = req.params;
-  const parsedCadId = parseInt(cadId, 10);
 
   // Validate that approved CAD cannot be updated
   await validateCADModification(cadId, 'update');
@@ -1498,7 +1494,7 @@ export async function updateCADValuesWithBreakdown(req: Request, res: Response) 
   }
 
   // Update CAD record
-  const updated = await prisma.fabric_width_cad.update({
+  await prisma.fabric_width_cad.update({
     where: { id: cadId },
     data: updateData,
   });
@@ -1898,7 +1894,7 @@ export async function getCADTableData(req: Request, res: Response) {
     });
   });
 
-  let fabricStock = [...initialFabricStock];
+  const fabricStock = [...initialFabricStock];
   if (styleFabricIds.size > 0) {
     const existingStockIds = new Set(initialFabricStock.map((s) => s.id));
     const fabricIdStock = await prisma.fabric_stock.findMany({
@@ -2367,7 +2363,7 @@ export async function getCADTableData(req: Request, res: Response) {
 
       // Find the matching component and style fabric for display info
       let componentName = cad.componentName || 'Unknown';
-      let componentId = match?.componentId || '';
+      const componentId = match?.componentId || '';
       let fabricFinishType: string | null = null;
       let designName: string | null = null;
       let genericGreigeName: string | null = null;
@@ -3193,7 +3189,6 @@ export async function addCombinedCADRow(req: Request, res: Response) {
  */
 export async function updateCADTableRow(req: Request, res: Response) {
   const { styleId, rowId } = req.params;
-  const parsedRowId = parseInt(rowId, 10);
 
   // Validate that approved CAD cannot be updated
   await validateCADModification(rowId, 'update');
@@ -3438,7 +3433,7 @@ export async function updateCADTableRow(req: Request, res: Response) {
   });
 
   // Update cad_pattern_parts if partIds array is provided (multi-part selection)
-  let updatedParts: { id: string; code: string; name: string; goesToEmbroidery: boolean }[] = [];
+  let updatedParts: { id: string; code: string; name: string; goesToEmbroidery: boolean }[];
   if (partIds !== undefined && Array.isArray(partIds)) {
     // Delete existing cad_pattern_parts entries
     await prisma.cad_pattern_parts.deleteMany({
@@ -3824,7 +3819,6 @@ export async function getCADRowHistory(req: Request, res: Response) {
  */
 export async function deleteCADTableRow(req: Request, res: Response) {
   const { styleId, rowId } = req.params;
-  const parsedRowId = parseInt(rowId, 10);
 
   // Validate that approved CAD cannot be deleted
   await validateCADModification(rowId, 'delete');

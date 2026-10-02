@@ -10,7 +10,7 @@ import prisma from '../../config/database';
 import { Prisma } from '@prisma/client';
 import { NotFoundError } from '../../errors';
 import { buildCompanyBlock, CompanyBlock } from './company-block';
-import { EM_DASH, fmtDate, fmtMoney, fmtQty, fmtPct } from './format';
+import { EM_DASH, fmtMoney, fmtQty, fmtPct } from './format';
 import { buyerStyleCode, styleCodeIfDifferent, styleCodeLabel } from '../../utils/style-code';
 import { garmentPhotoSrc } from './style-doc-common';
 
@@ -321,19 +321,6 @@ interface TrimDetailJson {
   unit?: string;
   trimRate?: number;
   trimTotal?: number;
-  isNotApplicable?: boolean;
-}
-
-interface LaceDetailJson {
-  laceName?: string;
-  colorName?: string;
-  width?: number;
-  quantityPerGarment?: number;
-  wastagePercent?: number;
-  effectiveQuantity?: number;
-  sourcingStrategy?: string;
-  costPerMeter?: number;
-  totalCost?: number;
   isNotApplicable?: boolean;
 }
 

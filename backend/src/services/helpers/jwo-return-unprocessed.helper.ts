@@ -21,7 +21,7 @@
  *    Work Order screen can.
  */
 
-import { Prisma, Unit } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import prisma from '../../config/database';
 import { createChallan } from '../challan.service';
 import greigeStockService from '../greige-stock.service';

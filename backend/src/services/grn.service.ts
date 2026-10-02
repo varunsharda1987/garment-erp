@@ -13,14 +13,7 @@ import {
   ThreadPly,
 } from '@prisma/client';
 import { randomUUID } from 'crypto';
-import {
-  CreateGRNDTO,
-  GRNFilters,
-  PendingPOItem,
-  ProcessingReceiveData,
-  ProcessingQCData,
-  GRNItemDetailDTO,
-} from '../types/grn.types';
+import { CreateGRNDTO, GRNFilters, PendingPOItem, ProcessingQCData, GRNItemDetailDTO } from '../types/grn.types';
 import { createChallan } from './challan.service';
 import { purchaseOrderService } from './purchaseOrder.service';
 import mrpService from './mrp.service';
@@ -44,7 +37,6 @@ import {
   setJwoStatusMany,
   isJwoDead,
   lockJobWorkOrder,
-  JWO_ACTIVE_FILTER,
   JWO_AT_PROCESSOR_STATUSES,
   JWO_GRN_UOMS,
 } from './helpers/jwo-status.helper';
@@ -3026,7 +3018,6 @@ class GRNService {
         // Phase 4b: mirror the MRP receipt decrement for JWO-keyed GRNs
         if (!grn.poId && grn.jobWorkOrderId) {
           const totalAccepted = (grn.grn_items || []).reduce(
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (sum: number, i: any) => sum + grnLineActualQty(i).toNumber(),
             0
           );
@@ -3561,7 +3552,6 @@ class GRNService {
    */
   private async approvePolessJwoGrnInTx(
     tx: Prisma.TransactionClient,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     grn: any,
     processingQC: ProcessingQCData | undefined,
     targetWarehouseId: string | null,
@@ -3914,7 +3904,6 @@ class GRNService {
    */
   private async approveLaceJwoGrnInTx(
     tx: Prisma.TransactionClient,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     jobWorkOrder: any,
     processingQC: ProcessingQCData | undefined,
     targetWarehouseId: string | null,

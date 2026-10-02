@@ -16,7 +16,7 @@ import { logInfo, logWarn } from '../utils/logger';
  *
  * @param app Express application instance
  */
-export function initializeSentry(app: Application): void {
+export function initializeSentry(_app: Application): void {
   const sentryDsn = process.env.SENTRY_DSN;
   const environment = process.env.NODE_ENV || 'development';
 

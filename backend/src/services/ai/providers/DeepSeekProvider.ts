@@ -96,11 +96,11 @@ export class DeepSeekProvider implements IAIProvider {
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logError(`[DeepSeekProvider] generateText failed: ${errorMessage}`);
-      throw new Error(`DeepSeek generateText failed: ${errorMessage}`);
+      throw new Error(`DeepSeek generateText failed: ${errorMessage}`, { cause: error });
     }
   }
 
-  async generateEmbedding(request: AIEmbeddingRequest): Promise<AIEmbeddingResponse> {
+  async generateEmbedding(_request: AIEmbeddingRequest): Promise<AIEmbeddingResponse> {
     // DeepSeek doesn't have a dedicated embedding model in their API
     logWarn('[DeepSeekProvider] DeepSeek does not support embeddings directly. Use Ollama or OpenAI for embeddings.');
     throw new Error(
@@ -148,7 +148,7 @@ export class DeepSeekProvider implements IAIProvider {
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logError(`[DeepSeekProvider] analyzeImage failed: ${errorMessage}`);
-      throw new Error(`DeepSeek analyzeImage failed: ${errorMessage}`);
+      throw new Error(`DeepSeek analyzeImage failed: ${errorMessage}`, { cause: error });
     }
   }
 
@@ -188,7 +188,7 @@ export class DeepSeekProvider implements IAIProvider {
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logError(`[DeepSeekProvider] extractStructuredData failed: ${errorMessage}`);
-      throw new Error(`DeepSeek extractStructuredData failed: ${errorMessage}`);
+      throw new Error(`DeepSeek extractStructuredData failed: ${errorMessage}`, { cause: error });
     }
   }
 
@@ -251,7 +251,7 @@ export class DeepSeekProvider implements IAIProvider {
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logError(`[DeepSeekProvider] generateWithTools failed: ${errorMessage}`);
-      throw new Error(`DeepSeek generateWithTools failed: ${errorMessage}`);
+      throw new Error(`DeepSeek generateWithTools failed: ${errorMessage}`, { cause: error });
     }
   }
 
@@ -282,7 +282,7 @@ export class DeepSeekProvider implements IAIProvider {
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logError(`[DeepSeekProvider] generateTextStream failed: ${errorMessage}`);
-      throw new Error(`DeepSeek generateTextStream failed: ${errorMessage}`);
+      throw new Error(`DeepSeek generateTextStream failed: ${errorMessage}`, { cause: error });
     }
   }
 

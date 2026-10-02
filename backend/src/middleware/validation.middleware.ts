@@ -5,7 +5,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { z, ZodSchema } from 'zod';
-import { logDebug, logWarn } from '../utils/logger';
+import { logWarn } from '../utils/logger';
 
 /**
  * Formats Zod validation errors into a user-friendly format

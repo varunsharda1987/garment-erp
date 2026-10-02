@@ -27,7 +27,7 @@ async function verifyCleanState() {
     console.log('\n🔗 Verifying Schema Relationships:\n');
 
     // Test: Can we query customers with brand_categories relation?
-    const customerQuery = await prisma.customers.findMany({
+    await prisma.customers.findMany({
       include: {
         brand_categories: true,
       },
@@ -36,7 +36,7 @@ async function verifyCleanState() {
     console.log('   ✅ customers → brand_categories relation intact');
 
     // Test: Can we query brand_categories with customer relation?
-    const brandCategoryQuery = await prisma.brand_categories.findMany({
+    await prisma.brand_categories.findMany({
       include: {
         customer: true,
       },
@@ -45,7 +45,7 @@ async function verifyCleanState() {
     console.log('   ✅ brand_categories → customers relation intact');
 
     // Test: Can we query brand_categories with styles relation?
-    const brandCategoryStylesQuery = await prisma.brand_categories.findMany({
+    await prisma.brand_categories.findMany({
       include: {
         styles: true,
       },
@@ -54,7 +54,7 @@ async function verifyCleanState() {
     console.log('   ✅ brand_categories → styles relation intact');
 
     // Test: Can we query styles with brand_categories relation?
-    const styleQuery = await prisma.styles.findMany({
+    await prisma.styles.findMany({
       include: {
         brand_categories: true,
       },

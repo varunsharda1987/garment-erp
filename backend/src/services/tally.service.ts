@@ -8,7 +8,7 @@
  */
 
 import { TallySettings, tallySettingsService } from './tally-settings.service';
-import { xmlEscape, xmlUnescape, firstTag, xe } from '../utils/tally-xml';
+import { xmlUnescape, firstTag, xe } from '../utils/tally-xml';
 import { logError } from '../utils/logger';
 import prisma from '../config/database';
 import { applySearch } from '../utils/search-filter';
@@ -92,7 +92,8 @@ async function postNow(settings: TallySettings, xml: string, timeoutMs = POST_TI
   } catch (err) {
     throw new Error(
       `Could not reach Tally at ${settings.tallyHost}:${settings.tallyPort}. ` +
-        'Check that TallyPrime is running with "acts as Server" enabled and the PC is reachable.'
+        'Check that TallyPrime is running with "acts as Server" enabled and the PC is reachable.',
+      { cause: err }
     );
   }
   if (!res.ok) {
@@ -802,10 +803,9 @@ export async function autoMatchCustomers(): Promise<{ matched: number; total: nu
 // Invoice Push to Tally
 // ═══════════════════════════════════════════════════════════════════════════
 
-// GST rate threshold: apparel > ₹2,500/piece = 18%, else 5%
+// GST ledger split: a line taxed at 18% posts to the 18% ledgers, any lower rate to the 5% ones
+// (each line's rate comes from the invoice — gst.service.ts is the rate authority)
 const GST_RATE_HIGH = 18;
-const GST_RATE_LOW = 5;
-const APPAREL_PRICE_THRESHOLD = 2500;
 
 // An invoice rounds to the nearest rupee, so a legitimate round-off never exceeds this. Larger
 // means the billed total and the line amounts genuinely disagree — never post that as "rounding".
@@ -1008,7 +1008,6 @@ export function buildSalesVoucherXml(
 
   // Buyer details
   const buyerName = invoice.customers.name;
-  const buyerAddress = invoice.customers.billingAddress || '';
   const buyerState = invoice.customers.billingState?.name || '';
 
   // e-Invoice details: when the ERP already generated the IRN, embed it so the

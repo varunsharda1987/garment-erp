@@ -16,7 +16,7 @@
  *   );
  */
 
-import { logInfo, logError, logWarn, logDebug } from '../../../utils/logger';
+import { logInfo, logWarn } from '../../../utils/logger';
 import {
   IAIProvider,
   AITextRequest,
@@ -68,7 +68,9 @@ export class MultiProviderFallback implements IAIProvider {
       }
 
       // All providers failed
-      throw new Error(`All AI providers failed. Primary: ${primaryErrorMessage}. Check provider configurations.`);
+      throw new Error(`All AI providers failed. Primary: ${primaryErrorMessage}. Check provider configurations.`, {
+        cause: primaryError,
+      });
     }
   }
 
@@ -89,12 +91,14 @@ export class MultiProviderFallback implements IAIProvider {
           this.currentProvider = fallback;
           logInfo(`[MultiProviderFallback] Embedding fallback to ${fallback.getProviderName()} succeeded`);
           return response;
-        } catch (fallbackError: unknown) {
+        } catch {
           logWarn(`[MultiProviderFallback] Fallback ${fallback.getProviderName()} embedding failed`);
         }
       }
 
-      throw new Error(`All AI providers failed for embeddings. Primary: ${primaryErrorMessage}`);
+      throw new Error(`All AI providers failed for embeddings. Primary: ${primaryErrorMessage}`, {
+        cause: primaryError,
+      });
     }
   }
 
@@ -115,12 +119,14 @@ export class MultiProviderFallback implements IAIProvider {
           this.currentProvider = fallback;
           logInfo(`[MultiProviderFallback] Image analysis fallback to ${fallback.getProviderName()} succeeded`);
           return response;
-        } catch (fallbackError: unknown) {
+        } catch {
           logWarn(`[MultiProviderFallback] Fallback ${fallback.getProviderName()} image analysis failed`);
         }
       }
 
-      throw new Error(`All AI providers failed for image analysis. Primary: ${primaryErrorMessage}`);
+      throw new Error(`All AI providers failed for image analysis. Primary: ${primaryErrorMessage}`, {
+        cause: primaryError,
+      });
     }
   }
 
@@ -145,7 +151,7 @@ export class MultiProviderFallback implements IAIProvider {
           this.currentProvider = fallback;
           logInfo(`[MultiProviderFallback] Structured extraction fallback to ${fallback.getProviderName()} succeeded`);
           return response;
-        } catch (fallbackError: unknown) {
+        } catch {
           logWarn(`[MultiProviderFallback] Fallback ${fallback.getProviderName()} structured extraction failed`);
         }
       }
@@ -175,7 +181,7 @@ export class MultiProviderFallback implements IAIProvider {
           this.currentProvider = fallback;
           logInfo(`[MultiProviderFallback] Streaming fallback to ${fallback.getProviderName()} succeeded`);
           return;
-        } catch (fallbackError: unknown) {
+        } catch {
           logWarn(`[MultiProviderFallback] Fallback ${fallback.getProviderName()} streaming failed`);
         }
       }

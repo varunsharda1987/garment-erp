@@ -6,7 +6,7 @@
 import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from './base.service';
 import { styles, ProductionStage, Gender, AgeGroup, Prisma } from '@prisma/client';
 import { ConflictError, NotFoundError, ValidationError } from '../errors';
-import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
+import { logInfo, logDebug, logWarn } from '../utils/logger';
 import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
 import { randomUUID } from 'crypto';
 import {
@@ -23,7 +23,7 @@ import {
   FabricCADMapping,
   StyleTrimInput,
 } from '../types/style.types';
-import { generateSKU, checkMultipleSKUsExist, validateSKUFormat, getSizeOrder } from '../utils/sku-generator';
+import { checkMultipleSKUsExist, validateSKUFormat, getSizeOrder } from '../utils/sku-generator';
 import { cadRowsOfStyle, recomputeStyleCadStatus } from './helpers/cad-status.helper';
 import { ALL_PARTS_LEGACY_MARKER } from '../controllers/cad-planning.utils';
 import { recordCadEvent, refuseRejectWhenInUse } from './helpers/cad-history.helper';
@@ -164,7 +164,6 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     'product_category.name',
   ] as const;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected get model(): any {
     return this.prisma.styles;
   }

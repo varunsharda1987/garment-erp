@@ -5,7 +5,6 @@
  */
 
 import { registerJobHandler, JobData, JobResult } from './queue';
-import prisma from '../config/database';
 import { runAllCleanupTasks } from '../services/file-cleanup.service';
 import { cleanupOldAuditLogs, getAuditLogStats } from '../services/audit.service';
 import { notificationService } from '../services/notification.service';

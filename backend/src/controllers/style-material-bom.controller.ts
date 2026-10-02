@@ -6,7 +6,7 @@ import { logInfo, logDebug } from '../utils/logger';
 import { randomUUID } from 'crypto';
 import { ValidationError, NotFoundError } from '../errors';
 // BUG-STY8 fix: Use decimal.js for precise BOM quantity calculations
-import { toCurrency, multiplyCurrency, addCurrency, toNumber } from '../utils/currency';
+import { toCurrency, multiplyCurrency, toNumber } from '../utils/currency';
 import { systemSettingsService } from '../services/system-settings.service';
 import { lineUnit, loadLineUnits, loadMaterialUnits } from '../services/helpers/material-unit.helper';
 import { getStyleLabelSet } from '../services/label-set.service';
@@ -30,10 +30,10 @@ export const searchMaterials = async (req: Request, res: Response): Promise<void
   logDebug(`Searching materials: type=${type}, query=${searchQuery}`);
 
   // Build search based on material type
-  let materials: any[] = [];
+  let materials: any[];
 
   switch (materialType) {
-    case 'LACE':
+    case 'LACE': {
       const laces = await prisma.lace_master.findMany({
         where: {
           isActive: true,
@@ -70,8 +70,9 @@ export const searchMaterials = async (req: Request, res: Response): Promise<void
         isActive: lace.isActive,
       }));
       break;
+    }
 
-    case 'BUTTON':
+    case 'BUTTON': {
       const buttons = await prisma.button_master.findMany({
         where: {
           isActive: true,
@@ -110,8 +111,9 @@ export const searchMaterials = async (req: Request, res: Response): Promise<void
         isActive: button.isActive,
       }));
       break;
+    }
 
-    case 'THREAD':
+    case 'THREAD': {
       const threads = await prisma.thread_master.findMany({
         where: {
           isActive: true,
@@ -151,8 +153,9 @@ export const searchMaterials = async (req: Request, res: Response): Promise<void
         isActive: thread.isActive,
       }));
       break;
+    }
 
-    case 'ZIPPER':
+    case 'ZIPPER': {
       const zippers = await prisma.zipper_master.findMany({
         where: {
           isActive: true,
@@ -191,8 +194,9 @@ export const searchMaterials = async (req: Request, res: Response): Promise<void
         isActive: zipper.isActive,
       }));
       break;
+    }
 
-    case 'ELASTIC':
+    case 'ELASTIC': {
       const elastics = await prisma.elastic_master.findMany({
         where: {
           isActive: true,
@@ -230,8 +234,9 @@ export const searchMaterials = async (req: Request, res: Response): Promise<void
         isActive: elastic.isActive,
       }));
       break;
+    }
 
-    case 'LABEL':
+    case 'LABEL': {
       const labels = await prisma.label_master.findMany({
         where: {
           isActive: true,
@@ -271,8 +276,9 @@ export const searchMaterials = async (req: Request, res: Response): Promise<void
         isActive: label.isActive,
       }));
       break;
+    }
 
-    case 'PACKAGING':
+    case 'PACKAGING': {
       const packaging = await prisma.packaging_master.findMany({
         where: {
           isActive: true,
@@ -311,6 +317,7 @@ export const searchMaterials = async (req: Request, res: Response): Promise<void
         isActive: pkg.isActive,
       }));
       break;
+    }
 
     default:
       throw new ValidationError(`Material type ${materialType} is not supported for BOM`);
@@ -338,11 +345,9 @@ export const getMaterialByCode = async (req: Request, res: Response): Promise<vo
   logDebug(`Fetching material by code: ${materialCode}`);
 
   // Determine material type from code prefix
-  let materialType: MaterialType | null = null;
   let material: any = null;
 
   if (materialCode.startsWith('LACE-')) {
-    materialType = 'LACE';
     const lace = await prisma.lace_master.findFirst({
       where: { laceCode: materialCode, isActive: true },
       include: {
@@ -371,7 +376,6 @@ export const getMaterialByCode = async (req: Request, res: Response): Promise<vo
       };
     }
   } else if (materialCode.startsWith('BTN-')) {
-    materialType = 'BUTTON';
     const button = await prisma.button_master.findFirst({
       where: { buttonCode: materialCode, isActive: true },
       include: {
@@ -402,7 +406,6 @@ export const getMaterialByCode = async (req: Request, res: Response): Promise<vo
       };
     }
   } else if (materialCode.startsWith('THR-')) {
-    materialType = 'THREAD';
     const thread = await prisma.thread_master.findFirst({
       where: { threadCode: materialCode, isActive: true },
       include: {
@@ -434,7 +437,6 @@ export const getMaterialByCode = async (req: Request, res: Response): Promise<vo
       };
     }
   } else if (materialCode.startsWith('ZIP-')) {
-    materialType = 'ZIPPER';
     const zipper = await prisma.zipper_master.findFirst({
       where: { zipperCode: materialCode, isActive: true },
       include: {
@@ -464,7 +466,6 @@ export const getMaterialByCode = async (req: Request, res: Response): Promise<vo
       };
     }
   } else if (materialCode.startsWith('ELA-')) {
-    materialType = 'ELASTIC';
     const elastic = await prisma.elastic_master.findFirst({
       where: { elasticCode: materialCode, isActive: true },
       include: {
@@ -494,7 +495,6 @@ export const getMaterialByCode = async (req: Request, res: Response): Promise<vo
       };
     }
   } else if (materialCode.startsWith('LBL-')) {
-    materialType = 'LABEL';
     const label = await prisma.label_master.findFirst({
       where: { labelCode: materialCode, isActive: true },
       include: {
@@ -526,7 +526,6 @@ export const getMaterialByCode = async (req: Request, res: Response): Promise<vo
       };
     }
   } else if (materialCode.startsWith('PKG-')) {
-    materialType = 'PACKAGING';
     const pkg = await prisma.packaging_master.findFirst({
       where: { packagingCode: materialCode, isActive: true },
       include: {
@@ -752,7 +751,7 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
   let materialId: string | undefined;
   let masterRecordId: string | undefined;
   let materialType: MaterialType | undefined;
-  let unitPrice: number = 0;
+  let unitPrice: number;
 
   // Determine material type and fetch details
   if (materialCode.startsWith('LACE-')) {

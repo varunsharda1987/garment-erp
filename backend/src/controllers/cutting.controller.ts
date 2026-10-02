@@ -3,7 +3,7 @@ import { NotFoundError, ValidationError } from '../errors';
 import prisma from '../config/database';
 import { loadBatchSlipBalance, piecesLeftByBatch } from '../services/helpers/cutting-slip.helper';
 import { lockOrder, syncOrderStatus } from '../services/helpers/order-status.helper';
-import { Prisma, Unit } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import {
   transformCuttingBatch,
@@ -23,7 +23,7 @@ import { syncBomFabricId } from '../services/order-bom.service';
 import { calculateCadAverage } from './cad-planning.utils';
 import { createFabricReturnChallan } from '../services/challan.service';
 import { maxCutForSize, maxCutBySize, fabricCutBySize, MAX_EXTRA_CUT_PERCENT } from '../utils/cut-allowance';
-import { logInfo, logError, logWarn } from '../utils/logger';
+import { logInfo, logWarn } from '../utils/logger';
 import { productionBlockingValidationService } from '../services/productionBlockingValidation.service';
 // BUG-CUT5 fix: Import decimal.js utilities for precision calculations
 import { toCurrency, subtractCurrency, divideCurrency, toNumber } from '../utils/currency';
@@ -2268,7 +2268,7 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
       : null;
 
   // 7. Existing batches for this WO (optionally filter by color)
-  let existingBatches = workOrder.cutting_batches.map((b) => {
+  const existingBatches = workOrder.cutting_batches.map((b) => {
     const totalCut = b.skuOutputs.reduce((sum, s) => sum + s.cutQty, 0);
     return {
       id: b.id,

@@ -395,6 +395,7 @@ const stripDefault = (s: z.ZodTypeAny): z.ZodTypeAny => {
   return s;
 };
 // Typed via the plain partial (same field types); runtime uses the default-stripped shape.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- only its type is read (the cast below)
 const typedPartialForInference = CreateCostSheetSchema.partial().omit({ styleId: true });
 export const UpdateCostSheetSchema = z
   .object(

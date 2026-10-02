@@ -12,7 +12,7 @@
 
 import { AIProviderFactory } from './providers/AIProviderFactory';
 import prisma from '../../config/database';
-import { logInfo, logError, logWarn, logDebug } from '../../utils/logger';
+import { logInfo, logError } from '../../utils/logger';
 
 export class AIInsightsService {
   /**
@@ -47,13 +47,6 @@ export class AIInsightsService {
           include: { customers: true },
         }),
       ]);
-
-      // Create context for AI
-      const context = {
-        pendingOrders: pendingOrdersCount,
-        totalStyles,
-        recentOrdersCount: recentOrders.length,
-      };
 
       // Generate insights using AI (provider-agnostic!)
       const response = await aiProvider.generateText({
@@ -252,7 +245,7 @@ Respond in JSON format.`,
           extractedData,
           provider: response.provider,
         };
-      } catch (parseError) {
+      } catch {
         // If JSON parsing fails, return raw text
         return {
           extractedData: { rawText: response.text },

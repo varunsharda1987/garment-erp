@@ -8,7 +8,6 @@
 import { Router, Request, Response } from 'express';
 import os from 'os';
 import { version } from '../../package.json';
-import { logError } from '../utils/logger';
 import prisma from '../config/database';
 import { runAllCleanupTasks } from '../services/file-cleanup.service';
 import { asyncHandler } from '../middleware/error.middleware';
@@ -174,7 +173,7 @@ router.get(
       suppliers_count?: number;
       orders_count?: number;
     }
-    let databaseMetrics: { responseTime?: string; counts?: DbCountResult; error?: string } = {};
+    let databaseMetrics: { responseTime?: string; counts?: DbCountResult; error?: string };
     try {
       const dbStart = Date.now();
       const result = await prisma.$queryRaw<DbCountResult[]>`

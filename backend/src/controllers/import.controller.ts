@@ -3,7 +3,6 @@ import { Request, Response } from 'express';
 import importService, { ImportColumn } from '../services/import.service';
 import prisma from '../config/database';
 import { Prisma, SupplierCategory } from '@prisma/client';
-import { logInfo, logDebug } from '../utils/logger';
 import { ValidationError, UnauthorizedError } from '../errors';
 import { cleanupTempFile } from '../middleware/upload.middleware';
 import { randomUUID } from 'crypto';
@@ -88,7 +87,7 @@ function mapSupplierCategory(value: string): string {
   const normalized = value
     .toLowerCase()
     .trim()
-    .replace(/[\s\/]+/g, ' ')
+    .replace(/[\s/]+/g, ' ')
     .trim();
 
   // Check the map first
@@ -105,7 +104,7 @@ function mapSupplierCategory(value: string): string {
   // Fallback: convert to enum format (uppercase with underscores)
   return value
     .toUpperCase()
-    .replace(/[\s\/\-&]+/g, '_')
+    .replace(/[\s/\-&]+/g, '_')
     .replace(/_+/g, '_');
 }
 

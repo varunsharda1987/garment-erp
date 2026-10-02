@@ -2,7 +2,7 @@
  * Thread Stock Service - Manage thread inventory directly
  * Uses the dedicated thread_stock table
  */
-import { Prisma, StockStatus, SpecializedStockTransactionType, TransactionReferenceType } from '@prisma/client';
+import { Prisma, StockStatus } from '@prisma/client';
 import prisma from '../config/database';
 import { logInfo, logError } from '../utils/logger';
 import { syncStockLevelQuantity, threadLotMaterialId } from './helpers/material-sync.helper';
@@ -181,7 +181,9 @@ class ThreadStockService {
       return data.tx ? await run(data.tx) : await prisma.$transaction(run);
     } catch (error: unknown) {
       logError('Error creating thread stock:', error);
-      throw new Error(`Failed to create thread stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to create thread stock: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 

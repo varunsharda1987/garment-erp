@@ -3,7 +3,7 @@
  * Manages mood boards for design inspiration
  */
 import prisma from '../config/database';
-import { NotFoundError, ValidationError } from '../errors';
+import { NotFoundError } from '../errors';
 import { logError, logInfo, logDebug } from '../utils/logger';
 import { applySearch } from '../utils/search-filter';
 import fs from 'fs';

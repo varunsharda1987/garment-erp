@@ -148,7 +148,7 @@ export function cleanupOldTempFiles(maxAgeHours: number = 24): { deleted: number
         fs.unlinkSync(filePath);
         result.deleted++;
       }
-    } catch (error) {
+    } catch {
       result.errors++;
     }
   }

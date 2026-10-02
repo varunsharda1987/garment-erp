@@ -16,11 +16,10 @@
  */
 
 import prisma from '../config/database';
-import { logWarn } from '../utils/logger';
 import { styleCodeLabel } from '../utils/style-code';
 import { lookupLaceRate } from './processor-rate-v2.service';
 import { isLabDipApproved, getApprovedLabDipsForLace } from './laceLabDip.service';
-import { toCurrency, multiplyCurrency, addCurrency, divideCurrency, percentOf, toNumber } from '../utils/currency'; // BUG-FAB12 fix
+import { multiplyCurrency, addCurrency, divideCurrency, toNumber } from '../utils/currency'; // BUG-FAB12 fix
 
 export interface LaceCostOptions {
   laceId: string;

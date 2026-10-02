@@ -3,8 +3,6 @@
  * Common types for Prisma operations and model delegates
  */
 
-import { Prisma, PrismaClient } from '@prisma/client';
-
 /**
  * Generic Prisma model delegate type
  * Used for type-safe model operations in BaseService

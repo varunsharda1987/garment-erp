@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { ProductionStage, SampleType } from '@prisma/client';
+import { ProductionStage } from '@prisma/client';
 import prisma from '../config/database';
 import { productionBlockingValidationService } from '../services/productionBlockingValidation.service';
 import { serialize } from '../utils/serializer';

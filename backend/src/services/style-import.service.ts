@@ -11,9 +11,6 @@ import {
   StyleImportResponse,
   ImportSummary,
   StyleImportError,
-  FabricToCreate,
-  StyleToCreate,
-  ComponentToCreate,
   CustomerLookupResult,
   BrandCategoryLookupResult,
   StyleCategoryLookupResult,
@@ -432,7 +429,9 @@ export class StyleImportService {
       };
     } catch (error: unknown) {
       logError('Style import failed:', error);
-      throw new Error(`Style import failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Style import failed: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 

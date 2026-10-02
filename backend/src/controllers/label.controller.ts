@@ -31,7 +31,6 @@ interface LabelSupplierInput {
  */
 export const createLabel = async (req: Request, res: Response) => {
   const {
-    labelName,
     supplierCode,
     buyerCode,
     customerId, // Link to customer - makes label customer-specific

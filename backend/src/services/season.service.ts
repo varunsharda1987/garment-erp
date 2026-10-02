@@ -371,7 +371,7 @@ class SeasonServiceClass extends BaseService<SeasonMaster, CreateSeasonInput, Up
     for (const pattern of patterns) {
       const match = trimmed.match(pattern.regex);
       if (match) {
-        let yearStr = match[1];
+        const yearStr = match[1];
         let year = parseInt(yearStr, 10);
 
         // Handle 2-digit years

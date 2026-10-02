@@ -135,7 +135,7 @@ class AISettingsService {
       return decrypted;
     } catch (error) {
       logError('[AISettingsService] Decryption failed:', error);
-      throw new Error('Failed to decrypt API key');
+      throw new Error('Failed to decrypt API key', { cause: error });
     }
   }
 

@@ -9,9 +9,9 @@
  * BUG-ELS5 fix: Uses decimal.js via currency utility to avoid floating point errors
  */
 
-import { Prisma, StockEntryType } from '@prisma/client';
+import { StockEntryType } from '@prisma/client';
 import prisma from '../config/database';
-import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+import { logError } from '../utils/logger';
 import { toCurrency, toNumber, roundToCent, calculateWeightedAverageCost as calcWAC } from '../utils/currency';
 
 export class WeightedAverageCostService {
@@ -404,7 +404,7 @@ export class WeightedAverageCostService {
 
       // Recalculate for each fabric
       // BUG-ELS5 fix: Use decimal.js for precise WAC recalculation
-      for (const [fId, fabricStocks] of fabricGroups.entries()) {
+      for (const fabricStocks of fabricGroups.values()) {
         let runningQuantity = toCurrency(0);
         let runningValue = toCurrency(0);
 

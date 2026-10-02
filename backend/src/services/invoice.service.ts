@@ -6,7 +6,7 @@
 import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from './base.service';
 import { InvoiceStatus, PaymentMethod, invoices, payments } from '@prisma/client';
 import { ConflictError, NotFoundError, ValidationError, BusinessError } from '../errors';
-import { logInfo, logError, logDebug } from '../utils/logger';
+import { logInfo, logError } from '../utils/logger';
 import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
@@ -90,7 +90,6 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
   protected readonly modelName = 'invoices';
   protected readonly entityName = 'Invoice';
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected get model(): any {
     return this.prisma.invoices;
   }

@@ -3,7 +3,7 @@ import prisma from '../config/database';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { normalizeId, isUUID } from '../utils/id-helper';
 import { FabricFinishType, Prisma } from '@prisma/client';
-import { FabricSupplierInput, FabricWhereClause, FabricUpdateData } from '../types/fabric.types';
+import { FabricSupplierInput, FabricWhereClause } from '../types/fabric.types';
 import { FabricQueryInput } from '../schemas/fabricGreige.schema';
 import { materialService } from '../services/material.service';
 import { getDerivedOnHandMap } from '../services/helpers/derived-stock.helper';
@@ -1096,7 +1096,8 @@ export const bulkImportFabricMasters = async (req: Request, res: Response) => {
           logError('Failed to auto-create materials record for bulk-imported fabric', err);
           await prisma.fabric_master.delete({ where: { id: created.id } });
           throw new Error(
-            `Failed to create materials record for fabric ${fabricCode}: ${err instanceof Error ? err.message : 'Unknown error'}`
+            `Failed to create materials record for fabric ${fabricCode}: ${err instanceof Error ? err.message : 'Unknown error'}`,
+            { cause: err }
           );
         }
 

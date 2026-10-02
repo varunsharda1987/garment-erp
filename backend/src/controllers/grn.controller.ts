@@ -8,7 +8,7 @@ import { grnService } from '../services/grn.service';
 import { GRNStatus } from '@prisma/client';
 import { logInfo, logError } from '../utils/logger';
 import { CreateGRNDTO, GRNFilters, ProcessingQCData } from '../types/grn.types';
-import { NotFoundError, UnauthorizedError, ValidationError } from '../errors';
+import { UnauthorizedError, ValidationError } from '../errors';
 import { updateCostSheetActuals } from '../services/costSheet.service';
 import { systemSettingsService } from '../services/system-settings.service';
 import prisma from '../config/database'; // Use singleton to avoid connection pool leak

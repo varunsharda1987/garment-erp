@@ -134,7 +134,7 @@ export const cleanupOldTempFiles = (maxAgeHours: number = 24): void => {
       if (now - stats.mtimeMs > maxAgeMs) {
         fs.unlinkSync(filePath);
       }
-    } catch (error) {
+    } catch {
       // Ignore errors for individual files
     }
   });

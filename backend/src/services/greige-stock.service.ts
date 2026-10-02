@@ -1,12 +1,6 @@
 // Greige Stock Service - Manage raw greige inventory directly
 // This service uses the dedicated greige_stock table (not proxy fabric_master records)
-import {
-  Prisma,
-  PrismaClient,
-  StockStatus,
-  SpecializedStockTransactionType,
-  TransactionReferenceType,
-} from '@prisma/client';
+import { Prisma, PrismaClient, StockStatus, TransactionReferenceType } from '@prisma/client';
 import prisma from '../config/database';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { ensureMaterialRecord, syncStockLevelQuantity, getDefaultWarehouseId } from './helpers/material-sync.helper';
@@ -285,7 +279,9 @@ class GreigeStockService {
       return greigeStock;
     } catch (error: unknown) {
       logError('Error creating greige stock:', error);
-      throw new Error(`Failed to create greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to create greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -439,7 +435,9 @@ class GreigeStockService {
       });
     } catch (error: unknown) {
       logError('Error getting greige stock:', error);
-      throw new Error(`Failed to get greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to get greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -556,7 +554,8 @@ class GreigeStockService {
     } catch (error: unknown) {
       logError('Error getting greige stock summary:', error);
       throw new Error(
-        `Failed to get greige stock summary: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to get greige stock summary: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }
@@ -564,7 +563,7 @@ class GreigeStockService {
   /**
    * Reserve greige stock for processing
    */
-  async reserveGreigeStock(stockId: string, quantity: number, userId: string) {
+  async reserveGreigeStock(stockId: string, quantity: number, _userId: string) {
     try {
       const stock = await prisma.greige_stock.findUnique({
         where: { id: stockId },
@@ -607,7 +606,9 @@ class GreigeStockService {
       return updatedStock;
     } catch (error: unknown) {
       logError('Error reserving greige stock:', error);
-      throw new Error(`Failed to reserve greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to reserve greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -747,7 +748,9 @@ class GreigeStockService {
       return updatedStock;
     } catch (error: unknown) {
       logError('Error consuming greige stock:', error);
-      throw new Error(`Failed to consume greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to consume greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -836,7 +839,9 @@ class GreigeStockService {
       return updatedStock;
     } catch (error: unknown) {
       logError('Error returning greige stock:', error);
-      throw new Error(`Failed to return greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to return greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -931,7 +936,8 @@ class GreigeStockService {
     } catch (error: unknown) {
       logError('Error consuming greige stock with details:', error);
       throw new Error(
-        `Failed to consume greige stock with details: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to consume greige stock with details: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }
@@ -1109,7 +1115,6 @@ class GreigeStockService {
         const actualTotal = foldActual(countedTotal, foldLengthCm).toNumber();
         const allowed = (onHand * THAN_PICK_TOLERANCE_PCT) / 100;
         if (qtyExceeds(Math.abs(actualTotal - onHand), allowed)) {
-          const counted = foldLengthCm != null && foldActual(countedTotal, foldLengthCm).toNumber() !== countedTotal;
           throw new BusinessError(
             `These ${input.pieces.length} ${pieceWord(detailType, input.pieces.length)} come to ` +
               `${fmtQty(actualTotal, 'METER')} m actual` +
@@ -1257,7 +1262,9 @@ class GreigeStockService {
       };
     } catch (error: unknown) {
       logError('Error getting greige stock by ID:', error);
-      throw new Error(`Failed to get greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to get greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -1374,7 +1381,8 @@ class GreigeStockService {
     } catch (error: unknown) {
       logError('Error getting greige stock details:', error);
       throw new Error(
-        `Failed to get greige stock details: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to get greige stock details: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }
@@ -1403,7 +1411,9 @@ class GreigeStockService {
       logDebug(`Updated aging days for ${stocks.length} greige stock records`);
     } catch (error: unknown) {
       logError('Error updating aging days:', error);
-      throw new Error(`Failed to update aging days: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to update aging days: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -1511,7 +1521,7 @@ class GreigeStockService {
 
     const newQty = data.adjustmentType === 'INCREASE' ? currentQty + data.quantity : currentQty - data.quantity;
 
-    const updated = await prisma.greige_stock.update({
+    await prisma.greige_stock.update({
       where: { id: stockId },
       data: {
         quantityAvailable: new Prisma.Decimal(newQty),
@@ -1631,7 +1641,8 @@ class GreigeStockService {
     } catch (error: unknown) {
       logError('Error getting processors with greige stock:', error);
       throw new Error(
-        `Failed to get processors with greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to get processors with greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }

@@ -9,11 +9,7 @@ import {
   setDefaultPreset,
   cloneAccessoryPreset,
 } from '../controllers/customer-accessories.controller';
-import {
-  authenticateToken as authenticate,
-  requirePermissionForWrites,
-  requireAdmin,
-} from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites, requireAdmin } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
@@ -27,7 +23,7 @@ import { customerIdParamSchema, customerIdAndPresetIdParamSchema } from '../sche
 const router = Router();
 
 // All routes require authentication
-router.use(authenticate);
+router.use(authenticateToken);
 router.use(requirePermissionForWrites('customers'));
 
 /**

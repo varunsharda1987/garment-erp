@@ -58,7 +58,7 @@ import { resolveJwoRate, jwoRateProvenance, JwoRateResolution } from './helpers/
 import logger, { logWarn } from '../utils/logger';
 import { BusinessError, ConflictError, NotFoundError } from '../errors';
 import { applyDeliveryPlan, MAX_DELIVERY_POINTS, type DeliveryPlanPointInput } from './helpers/po-delivery-plan.helper';
-import { QTY_EPSILON, isQtyZero, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit, toQty } from '../utils/quantity';
+import { QTY_EPSILON, isQtyZero, qtyExceeds, qtyRemaining, snapToLimit } from '../utils/quantity';
 import {
   reserveOnLots,
   releaseReservations,
@@ -1347,7 +1347,6 @@ export async function calculateRequirementsFromOrder(
         bomItem.sourcingStrategy === 'GREIGE_PROCESSED' && (bomItem as any).greigeLaceId
       );
       // Other master types - check all trim FK fields defined in TRIM_FK_FIELDS constant
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const hasSpecificMaster = TRIM_FK_FIELDS.some((field) => (bomItem as any)[field]);
 
       // Early material resolution for specific master types (trim/accessories)
@@ -1355,7 +1354,6 @@ export async function calculateRequirementsFromOrder(
       let resolvedTrimMaterialId: string | null = null;
       if (!material && hasSpecificMaster) {
         // Build trim lookups from TRIM_FK_FIELDS constant - only include fields with values
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const trimLookups = TRIM_FK_FIELDS.map((field) => ({
           field,
           value: (bomItem as any)[field] as string | null,
@@ -1391,11 +1389,9 @@ export async function calculateRequirementsFromOrder(
           else {
             // Generic fallback for all remaining trim types (hook_eye, buckle, other_fastener, ...)
             // driven by MASTER_CONFIG, so new types work without touching this file
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const setField = TRIM_FK_FIELDS.find((field) => (bomItem as any)[field]);
             if (setField) {
               try {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const materialId = await ensureMaterialRecord((bomItem as any)[setField], FK_TO_MASTER_TYPE[setField]);
                 created = { id: materialId };
               } catch (err) {
@@ -1469,7 +1465,7 @@ export async function calculateRequirementsFromOrder(
 
       // Skip if truly no material info available — but TRACK the skip for user visibility
       if (!material && !hasFabric && !hasLace && !hasGreigeProcessing && !hasLandedGreige && !hasSpecificMaster) {
-        let reason = '';
+        let reason: string;
         switch (bomItem.materialType) {
           case 'THREAD':
             reason = `No thread_master linked. Select a Thread Master in the cost sheet trims section.`;
@@ -5106,7 +5102,7 @@ export async function updateRequirementStatus(
 /**
  * Cancel a requirement
  */
-export async function cancelRequirement(id: string, userId: string): Promise<MaterialRequirementResponse> {
+export async function cancelRequirement(id: string, _userId: string): Promise<MaterialRequirementResponse> {
   // MRP-24: refuse to cancel something that has already been received, or that still carries a
   // live PO/JWO — cancelling those silently detaches real goods and real commitments from the plan.
   const current = await prisma.material_requirements.findUnique({

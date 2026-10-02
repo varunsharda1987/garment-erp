@@ -6,7 +6,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import { logInfo, logError, logWarn, logDebug } from '../../../utils/logger';
+import { logError } from '../../../utils/logger';
 import {
   IAIProvider,
   AITextRequest,
@@ -57,11 +57,13 @@ export class AnthropicProvider implements IAIProvider {
         },
       };
     } catch (error: unknown) {
-      throw new Error(`Anthropic generateText failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Anthropic generateText failed: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
-  async generateEmbedding(request: AIEmbeddingRequest): Promise<AIEmbeddingResponse> {
+  async generateEmbedding(_request: AIEmbeddingRequest): Promise<AIEmbeddingResponse> {
     // Anthropic doesn't have a native embeddings API
     // Options:
     // 1. Fallback to OpenAI or Voyage AI
@@ -136,7 +138,9 @@ export class AnthropicProvider implements IAIProvider {
         },
       };
     } catch (error: unknown) {
-      throw new Error(`Anthropic analyzeImage failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Anthropic analyzeImage failed: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -171,7 +175,8 @@ export class AnthropicProvider implements IAIProvider {
       };
     } catch (error: unknown) {
       throw new Error(
-        `Anthropic extractStructuredData failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Anthropic extractStructuredData failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }
@@ -199,7 +204,8 @@ export class AnthropicProvider implements IAIProvider {
       }
     } catch (error: unknown) {
       throw new Error(
-        `Anthropic generateTextStream failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Anthropic generateTextStream failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }

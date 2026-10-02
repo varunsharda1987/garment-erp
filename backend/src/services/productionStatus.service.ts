@@ -1,6 +1,6 @@
 import prisma from '../config/database';
 import logger from '../utils/logger';
-import { Prisma, ProductionStage, CADStatus, SampleStatus, OrderStatus } from '@prisma/client';
+import { Prisma, ProductionStage, CADStatus } from '@prisma/client';
 import { InternalError } from '../errors';
 import { applySearch } from '../utils/search-filter';
 
@@ -169,18 +169,20 @@ class ProductionStatusService {
 
       // Sort
       statusItems.sort((a, b) => {
-        let comparison = 0;
+        let comparison: number;
         switch (sortBy) {
-          case 'orderDate':
+          case 'orderDate': {
             const dateA = a.orders.earliestOrderDate ? new Date(a.orders.earliestOrderDate).getTime() : 0;
             const dateB = b.orders.earliestOrderDate ? new Date(b.orders.earliestOrderDate).getTime() : 0;
             comparison = dateA - dateB;
             break;
-          case 'deliveryDate':
+          }
+          case 'deliveryDate': {
             const delA = a.orders.latestDeliveryDate ? new Date(a.orders.latestDeliveryDate).getTime() : 0;
             const delB = b.orders.latestDeliveryDate ? new Date(b.orders.latestDeliveryDate).getTime() : 0;
             comparison = delA - delB;
             break;
+          }
           case 'progress':
             comparison = a.overallProgress - b.overallProgress;
             break;
@@ -223,7 +225,7 @@ class ProductionStatusService {
     try {
       const result = await this.getAll({ page: 1, limit: 10000 });
       return result.summary;
-    } catch (error) {
+    } catch {
       throw new InternalError('Failed to fetch production status summary');
     }
   }

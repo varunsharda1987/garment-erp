@@ -2,7 +2,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { ExpenseCategory, Prisma } from '@prisma/client';
-import { NotFoundError, ValidationError, ConflictError } from '../errors';
+import { NotFoundError, ConflictError } from '../errors';
 import { applySearch } from '../utils/search-filter';
 
 export const createExpenseType = async (req: Request, res: Response): Promise<void> => {

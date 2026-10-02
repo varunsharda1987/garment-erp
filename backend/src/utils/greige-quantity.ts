@@ -10,7 +10,6 @@
  * - PurchaseOrderForm (via API)
  */
 
-import Decimal from 'decimal.js';
 import { toCurrency, divideByShrinkage, percentOf } from './currency';
 
 export interface GreigeQuantityInput {

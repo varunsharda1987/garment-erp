@@ -15,7 +15,7 @@ import { knowledgeService } from '../services/ai/knowledge.service';
 import { formatPageContext, formatRecentErrors, formatRecentSearchMisses } from '../services/ai/chat-context.format';
 import { erpContextService } from '../services/ai/erp-context.service';
 import { ragService } from '../services/ai/rag.service';
-import { logDebug, logError, logInfo } from '../utils/logger';
+import { logDebug, logInfo } from '../utils/logger';
 import { UserRole } from '@prisma/client';
 import {
   chatSchema,

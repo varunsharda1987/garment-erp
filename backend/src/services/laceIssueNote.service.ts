@@ -9,7 +9,7 @@
 
 import prisma from '../config/database';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
-import { logInfo, logError, logDebug } from '../utils/logger';
+import { logInfo, logDebug } from '../utils/logger';
 import { syncStockLevelQuantity } from './helpers/material-sync.helper';
 import { applySearch } from '../utils/search-filter';
 import { qtyExceeds, qtyRemaining, isQtyZero, snapToLimit } from '../utils/quantity';
@@ -358,7 +358,7 @@ export async function returnToStock(input: ReturnToStockInput) {
 /**
  * Close an issue note (finalize - all material accounted for)
  */
-export async function closeIssueNote(issueNoteId: string, userId: string) {
+export async function closeIssueNote(issueNoteId: string, _userId: string) {
   const issueNote = await prisma.lace_issue_note.findUnique({
     where: { id: issueNoteId },
   });

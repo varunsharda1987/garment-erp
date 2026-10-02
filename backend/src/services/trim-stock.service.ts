@@ -238,7 +238,8 @@ class TrimStockService {
     } catch (error: unknown) {
       logError(`Error creating ${data.trimType.toLowerCase()} stock:`, error);
       throw new Error(
-        `Failed to create ${data.trimType.toLowerCase()} stock: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to create ${data.trimType.toLowerCase()} stock: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }

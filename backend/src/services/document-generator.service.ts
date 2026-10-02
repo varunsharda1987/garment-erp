@@ -25,7 +25,7 @@ import { logWarn } from '../utils/logger';
 import { buyerStyleCode, styleCodeLabel } from '../utils/style-code';
 import { unitHeader } from '../utils/units';
 import { plannedCutForSize } from '../utils/cut-allowance';
-import { buildCostSheetDocData, formatPurpose, formatStatus } from './document-data/cost-sheet.doc-data';
+import { buildCostSheetDocData } from './document-data/cost-sheet.doc-data';
 import { resolvePoDeliverTo } from './document-data/po-deliver-to';
 
 // Types
@@ -51,9 +51,6 @@ export interface CatalogueOptions {
   includeIndex?: boolean;
   columnsPerPage?: number; // 1, 2, 3, or 4 columns per page
 }
-
-// Size columns for invoice tables
-const SIZE_COLUMNS = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '3XL'];
 
 class DocumentGeneratorService {
   /**
@@ -136,7 +133,7 @@ class DocumentGeneratorService {
   /**
    * Generate Tax Invoice PDF
    */
-  async generateInvoicePDF(invoiceId: string, options: DocumentOptions = {}): Promise<Buffer> {
+  async generateInvoicePDF(invoiceId: string, _options: DocumentOptions = {}): Promise<Buffer> {
     const invoice = await this.getInvoiceWithDetails(invoiceId);
     if (!invoice) {
       throw new Error(`Invoice not found: ${invoiceId}`);
@@ -899,7 +896,6 @@ class DocumentGeneratorService {
     row += 2;
 
     // Items table header
-    const headerRow = row;
     const headers = ['#', 'Style', 'Description', 'HSN', 'Qty', 'Rate', 'Amount'];
     if (invoice.isInterstate) {
       headers.push('IGST', 'Total');
@@ -1010,7 +1006,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
 📞 ${c?.phone ?? COMPANY_CONFIG.phone}`;
 
     // Clean phone number (remove spaces, dashes, add country code if missing)
-    let cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
+    let cleanPhone = phone.replace(/[\s\-()]/g, '');
     if (!cleanPhone.startsWith('+') && !cleanPhone.startsWith('91')) {
       cleanPhone = '91' + cleanPhone;
     }
@@ -1063,7 +1059,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
   /**
    * Generate Proforma Invoice PDF (from quotation)
    */
-  async generateProformaPDF(quotationId: string, options: DocumentOptions = {}): Promise<Buffer> {
+  async generateProformaPDF(quotationId: string, _options: DocumentOptions = {}): Promise<Buffer> {
     const quotation = await this.getQuotationWithDetails(quotationId);
     if (!quotation) {
       throw new Error(`Quotation not found: ${quotationId}`);
@@ -1188,7 +1184,6 @@ From ${c?.name ?? COMPANY_CONFIG.name}
     doc.text('This is a quotation and not a tax invoice. Prices are subject to change.', marginLeft, y, {
       width: pageWidth - 60,
     });
-    y += 20;
 
     // ── Footer ──
     doc
@@ -1446,7 +1441,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
   /**
    * Generate Order Form PDF
    */
-  async generateOrderFormPDF(orderId: string, options: DocumentOptions = {}): Promise<Buffer> {
+  async generateOrderFormPDF(orderId: string, _options: DocumentOptions = {}): Promise<Buffer> {
     const order = await this.getOrderWithDetails(orderId);
     if (!order) {
       throw new Error(`Order not found: ${orderId}`);
@@ -1581,7 +1576,6 @@ From ${c?.name ?? COMPANY_CONFIG.name}
       doc.text('Remarks:', marginLeft, y);
       y += 12;
       doc.text(order.remarks, marginLeft, y, { width: pageWidth - 60 });
-      y += 20;
     }
 
     // ── Footer ──
@@ -1676,7 +1670,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
 
         // Draw color rows
         doc.fontSize(8).font('Helvetica');
-        colorGroups.forEach((group, colorKey) => {
+        colorGroups.forEach((group, _colorKey) => {
           doc.rect(marginLeft, y, availableWidth, 14).stroke('#DDD');
 
           xPos = marginLeft;
@@ -1981,7 +1975,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
             valign: 'center',
           });
         }
-      } catch (e) {
+      } catch {
         // Image load failed, keep placeholder
       }
     }
@@ -2144,7 +2138,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
           try {
             doc.image(imagePath, pageWidth / 2 - 150, 120, { width: 300, height: 300, fit: [300, 300] });
             doc.moveDown(15);
-          } catch (err) {
+          } catch {
             doc.moveDown(2);
           }
         } else {
@@ -2299,7 +2293,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
           const imageSize = 200;
           const gap = 20;
 
-          styleImages.forEach((img: any, idx: number) => {
+          styleImages.forEach((img: any, _idx: number) => {
             const imgPath = img.imageUrl ? path.join(__dirname, '../../', img.imageUrl) : null;
 
             if (imgPath && fs.existsSync(imgPath)) {
@@ -2337,7 +2331,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
                   });
 
                 imageX += imageSize + gap;
-              } catch (err) {
+              } catch {
                 // Skip failed images
               }
             }
@@ -2490,7 +2484,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
           if (imagePath && fs.existsSync(imagePath)) {
             try {
               doc.image(imagePath, x + 5, y + 5, { width: 80, height: 80, fit: [80, 80] });
-            } catch (err) {
+            } catch {
               doc.rect(x + 5, y + 5, 80, 80).fill('#f5f5f5');
             }
           } else {
@@ -2543,7 +2537,6 @@ From ${c?.name ?? COMPANY_CONFIG.name}
               .fontSize(9)
               .fillColor('#666')
               .text(`MRP: ₹${Number(style.sellingPrice).toLocaleString('en-IN')}`, infoX, infoY);
-            infoY += 14;
           }
 
           // Colors available
@@ -2768,7 +2761,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
   /**
    * Generate Purchase Order PDF
    */
-  async generatePurchaseOrderPDF(poId: string, options: DocumentOptions = {}): Promise<Buffer> {
+  async generatePurchaseOrderPDF(poId: string, _options: DocumentOptions = {}): Promise<Buffer> {
     const purchaseOrder = await this.getPurchaseOrderWithDetails(poId);
     if (!purchaseOrder) {
       throw new Error(`Purchase Order not found: ${poId}`);

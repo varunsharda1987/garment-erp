@@ -128,7 +128,7 @@ class GSTServiceClass {
         // `!= null`, not truthiness: a 0% material was treated as "no rate" and taxed at 5%
         if (material?.gstRate != null) materialRate = Number(material.gstRate);
         if (material?.hsnCode && !resolvedHsnCode) resolvedHsnCode = material.hsnCode;
-      } catch (error) {
+      } catch {
         logDebug('Could not lookup material for GST rate, continuing with other sources');
       }
     }
@@ -153,7 +153,7 @@ class GSTServiceClass {
             hsnCode: resolvedHsnCode,
           };
         }
-      } catch (error) {
+      } catch {
         logDebug('HSN/SAC lookup failed, falling back to tax_masters');
       }
     }
@@ -172,7 +172,7 @@ class GSTServiceClass {
       if (defaultTax) {
         return { gstRate: Number(defaultTax.taxRate), hsnCode: resolvedHsnCode };
       }
-    } catch (error) {
+    } catch {
       logDebug('tax_masters lookup failed');
     }
 
@@ -263,7 +263,7 @@ class GSTServiceClass {
         sacCode,
         gstRate: hsnMaster ? Number(hsnMaster.defaultGstRate) : 18,
       };
-    } catch (error) {
+    } catch {
       logDebug('SAC lookup failed, using default 18%');
       return { sacCode, gstRate: 18 };
     }

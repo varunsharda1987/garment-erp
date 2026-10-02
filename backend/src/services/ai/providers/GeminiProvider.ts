@@ -6,7 +6,7 @@
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { logInfo, logError, logWarn, logDebug } from '../../../utils/logger';
+import { logError } from '../../../utils/logger';
 import {
   IAIProvider,
   AITextRequest,
@@ -55,7 +55,10 @@ export class GeminiProvider implements IAIProvider {
         },
       };
     } catch (error: unknown) {
-      throw new Error(`Google Gemini generateText failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Google Gemini generateText failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
+      );
     }
   }
 
@@ -73,7 +76,8 @@ export class GeminiProvider implements IAIProvider {
       };
     } catch (error: unknown) {
       throw new Error(
-        `Google Gemini generateEmbedding failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Google Gemini generateEmbedding failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }
@@ -134,7 +138,10 @@ export class GeminiProvider implements IAIProvider {
         },
       };
     } catch (error: unknown) {
-      throw new Error(`Google Gemini analyzeImage failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Google Gemini analyzeImage failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
+      );
     }
   }
 
@@ -170,7 +177,8 @@ export class GeminiProvider implements IAIProvider {
       };
     } catch (error: unknown) {
       throw new Error(
-        `Google Gemini extractStructuredData failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Google Gemini extractStructuredData failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }
@@ -197,7 +205,8 @@ export class GeminiProvider implements IAIProvider {
       }
     } catch (error: unknown) {
       throw new Error(
-        `Google Gemini generateTextStream failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Google Gemini generateTextStream failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }

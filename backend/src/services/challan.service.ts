@@ -908,7 +908,7 @@ export async function issueChallan(id: string, userId?: string, opts?: IssueChal
             } catch (err: any) {
               // Stock deduction failure must block challan issuance for ALL types
               // to prevent data inconsistency (challan ISSUED but stock not deducted)
-              throw new Error(`Stock deduction failed for material ${item.materialId}: ${err.message}`);
+              throw new Error(`Stock deduction failed for material ${item.materialId}: ${err.message}`, { cause: err });
             }
 
             // The issue uses the order's own holds of the item: its Use Stock first, then what arrived on its
@@ -1247,7 +1247,6 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
         toCurrency(0)
       )
     );
-    const totalExpected = toNumber(allItems.reduce((sum, item) => sum.plus(toCurrency(item.quantity)), toCurrency(0)));
 
     // Determine status. Quantity rule (utils/quantity): a line received within dust of its quantity
     // (2-decimal entry against a 3-decimal line) is fully received.
@@ -1388,7 +1387,7 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
             } catch (err: any) {
               // Stock credit failure must block challan reception
               // to prevent data inconsistency (challan RECEIVED but stock not credited)
-              throw new Error(`Stock credit failed for material ${item.materialId}: ${err.message}`);
+              throw new Error(`Stock credit failed for material ${item.materialId}: ${err.message}`, { cause: err });
             }
 
             // Trims given back are held for the order again, as far as its issue used its holds (C9). A lot-kept

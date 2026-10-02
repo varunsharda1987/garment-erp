@@ -112,7 +112,6 @@ export type ProcessJwo = Prisma.job_work_ordersGetPayload<{ include: typeof proc
 /**
  * Unified process status — derived entirely from jwoStatus (the single status authority).
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const computeProcessPOStatusFromJwo = (jwo: any): string => {
   if (jwo.purchaseOrder?.status === 'CANCELLED' || jwo.jwoStatus === 'CANCELLED') return 'CANCELLED';
 
@@ -133,7 +132,6 @@ export const computeProcessPOStatusFromJwo = (jwo: any): string => {
  * Render a JWO in the legacy process-PO wire shape. `id` is the JWO id — all
  * process-PO actions are keyed on it (with a PO-id fallback in resolveProcessJwo).
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const toProcessPOEnvelope = (jwo: ProcessJwo): any => {
   const { purchaseOrder, ...jwoRest } = jwo;
 

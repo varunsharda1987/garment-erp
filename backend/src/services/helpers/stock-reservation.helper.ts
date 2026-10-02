@@ -154,7 +154,7 @@ export async function reserveOnLots(
       data: {
         ...base,
         warehouseId: fallbackWarehouseId,
-        reservedAt: new Date(startedAt + order++),
+        reservedAt: new Date(startedAt + order),
         reservedQuantity: new Prisma.Decimal(round3(args.untrackedQuantity)),
       },
     });

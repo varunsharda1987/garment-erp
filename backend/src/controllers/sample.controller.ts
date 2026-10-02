@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
-import { logInfo, logDebug } from '../utils/logger';
+import { logInfo } from '../utils/logger';
 import { randomUUID } from 'crypto';
 import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
@@ -118,9 +118,6 @@ export const createSample = async (req: Request, res: Response) => {
     requiredDate,
     remarks,
     // Type-specific fields
-    sampleSizeId,
-    fitSampleReference,
-    ppSampleReference,
     linkedDispatchId,
     productionLot,
     sentTo,
@@ -182,11 +179,10 @@ export const createSample = async (req: Request, res: Response) => {
   }
 
   // Validate style if provided
-  let style = null;
   if (styleId) {
-    style = await prisma.styles.findUnique({
+    const style = await prisma.styles.findUnique({
       where: { id: styleId },
-      select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true },
+      select: { id: true },
     });
     if (!style) {
       throw new NotFoundError('Style', styleId);

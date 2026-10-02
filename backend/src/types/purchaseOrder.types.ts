@@ -3,15 +3,7 @@
  * Type definitions for purchase order operations
  */
 
-import {
-  PurchaseOrderStatus,
-  Unit,
-  POSource,
-  DeliveryLocationType,
-  POCategory,
-  ThreadPackagingType,
-  ThreadPly,
-} from '@prisma/client';
+import { PurchaseOrderStatus, Unit, POSource, POCategory, ThreadPackagingType, ThreadPly } from '@prisma/client';
 import { toDateInputValue } from '../utils/date';
 
 // Re-export Prisma types for use in controllers

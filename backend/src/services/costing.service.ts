@@ -7,7 +7,7 @@ import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from '
 import { style_costing, Prisma } from '@prisma/client';
 import { NotFoundError, BusinessError } from '../errors';
 import { logInfo, logDebug, logWarn } from '../utils/logger';
-import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
+import { SearchFilter } from '../types/prisma.types';
 import { multiplyCurrency, toNumber, addCurrency, toCurrency, Decimal } from '../utils/currency'; // BUG-FAB12 fix, BUG-COST6 fix
 
 // ============================================
@@ -94,12 +94,11 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
   protected readonly modelName = 'style_costing';
   protected readonly entityName = 'Cost Sheet';
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected get model(): any {
     return this.prisma.style_costing;
   }
 
-  protected buildSearchFilter(search: string): SearchFilter {
+  protected buildSearchFilter(_search: string): SearchFilter {
     // Complex search done in custom methods
     return [];
   }
@@ -512,7 +511,7 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
     // Calculate fabric budget from CAD data
     // BUG-COST6 fix: use decimal.js for aggregation
     let fabricBudgetDec = new Decimal(0);
-    let fabricSource = 'No CAD data available';
+    let fabricSource: string;
     const cadRows = await this.prisma.fabric_width_cad.findMany({
       where: {
         costingStyleId: styleId,

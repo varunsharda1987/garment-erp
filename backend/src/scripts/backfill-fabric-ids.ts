@@ -12,12 +12,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
-import {
-  matchAllStyleFabrics,
-  getMatchStatistics,
-  createPlaceholderFabrics,
-  FabricMatchResult,
-} from '../services/fabric-matcher.service';
+import { matchAllStyleFabrics, getMatchStatistics, createPlaceholderFabrics } from '../services/fabric-matcher.service';
 
 const prisma = new PrismaClient();
 

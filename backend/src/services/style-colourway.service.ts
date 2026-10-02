@@ -580,7 +580,6 @@ async function copyStyleTx(
     const units = await loadLineUnits(bom, tx);
     await tx.style_material_bom.createMany({
       data: bom.map((row) => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { id, styleId, createdAt, updatedAt, ...line } = row;
         return { ...line, id: randomUUID(), styleId: newId, unit: lineUnit(line, units) };
       }),
@@ -590,7 +589,6 @@ async function copyStyleTx(
   // ---- tech spec, sketches ----
   const techSpec = await tx.style_tech_specs.findUnique({ where: { styleId: source.id } });
   if (techSpec) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id, styleId, createdAt, updatedAt, ...spec } = techSpec;
     await tx.style_tech_specs.create({ data: { ...spec, id: randomUUID(), styleId: newId } });
   }

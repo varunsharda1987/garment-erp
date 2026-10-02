@@ -1,4 +1,3 @@
-import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
 import { syncOrderStatus } from './helpers/order-status.helper';

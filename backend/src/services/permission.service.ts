@@ -34,7 +34,7 @@ const CACHE_KEYS = {
 };
 
 // Flag to use DB or fallback to config
-let useDatabase = true;
+const useDatabase = true;
 
 class PermissionServiceClass {
   /**

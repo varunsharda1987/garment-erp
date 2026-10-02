@@ -22,7 +22,7 @@ import {
   AIStructuredExtractionRequest,
   AIStructuredExtractionResponse,
 } from './IAIProvider';
-import { logInfo, logError, logWarn, logDebug } from '../../../utils/logger';
+import { logError } from '../../../utils/logger';
 
 // Ollama API response types
 interface OllamaGenerateResponse {
@@ -80,7 +80,9 @@ export class OllamaProvider implements IAIProvider {
         },
       };
     } catch (error: unknown) {
-      throw new Error(`Ollama generateText failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Ollama generateText failed: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -109,7 +111,9 @@ export class OllamaProvider implements IAIProvider {
         dimensions: data.embedding.length,
       };
     } catch (error: unknown) {
-      throw new Error(`Ollama generateEmbedding failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Ollama generateEmbedding failed: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -156,7 +160,9 @@ export class OllamaProvider implements IAIProvider {
         },
       };
     } catch (error: unknown) {
-      throw new Error(`Ollama analyzeImage failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Ollama analyzeImage failed: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -201,7 +207,8 @@ export class OllamaProvider implements IAIProvider {
       };
     } catch (error: unknown) {
       throw new Error(
-        `Ollama extractStructuredData failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Ollama extractStructuredData failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }
@@ -254,7 +261,9 @@ export class OllamaProvider implements IAIProvider {
         }
       }
     } catch (error: unknown) {
-      throw new Error(`Ollama generateTextStream failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Ollama generateTextStream failed: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 

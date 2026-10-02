@@ -1,10 +1,10 @@
 // Fabric Stock Service - Manage fabric stock with style associations
 import { Prisma } from '@prisma/client';
 import prisma from '../config/database';
-import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+import { logInfo, logError } from '../utils/logger';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
 // BUG-GR9 fix: Use centralized quality grade default instead of hardcoding 'A'
-import { DEFAULT_QUALITY_GRADE, getQualityGradeOrDefault } from '../constants/stock.constants';
+import { getQualityGradeOrDefault } from '../constants/stock.constants';
 import { systemSettingsService } from './system-settings.service';
 // BUG-FAB5 fix: Use decimal.js for precise valuation calculations
 import { toCurrency, multiplyCurrency, roundToCent, toNumber, Decimal } from '../utils/currency';
@@ -121,7 +121,9 @@ class FabricStockService {
       return fabricStock;
     } catch (error: unknown) {
       logError('Error creating style stock:', error);
-      throw new Error(`Failed to create style stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to create style stock: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -316,7 +318,9 @@ class FabricStockService {
       return result;
     } catch (error: unknown) {
       logError('Error getting stock by style:', error);
-      throw new Error(`Failed to get stock for style: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to get stock for style: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -389,7 +393,9 @@ class FabricStockService {
       return result;
     } catch (error: unknown) {
       logError('Error getting styles by fabric:', error);
-      throw new Error(`Failed to get styles for fabric: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to get styles for fabric: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -499,7 +505,9 @@ class FabricStockService {
       };
     } catch (error: unknown) {
       logError('Error getting fabrics by style:', error);
-      throw new Error(`Failed to get fabrics for style: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to get fabrics for style: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -553,7 +561,9 @@ class FabricStockService {
       }));
     } catch (error: unknown) {
       logError('Error getting stock origin history:', error);
-      throw new Error(`Failed to get stock history: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to get stock history: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -607,7 +617,9 @@ class FabricStockService {
       });
     } catch (error: unknown) {
       logError('Error getting generic greige stock:', error);
-      throw new Error(`Failed to get greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to get greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        cause: error,
+      });
     }
   }
 
@@ -689,7 +701,8 @@ class FabricStockService {
     } catch (error: unknown) {
       logError('Error getting greige stock summary:', error);
       throw new Error(
-        `Failed to get greige stock summary: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to get greige stock summary: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }

@@ -5,19 +5,11 @@
 
 import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from './base.service';
 import { systemSettingsService } from './system-settings.service';
-import {
-  CustomerType,
-  CustomerCategory,
-  BusinessType,
-  MarketType,
-  MaterialType,
-  customers,
-  customer_accessories_presets,
-} from '@prisma/client';
+import { CustomerType, CustomerCategory, BusinessType, MarketType, MaterialType, customers } from '@prisma/client';
 import { ConflictError, NotFoundError, ValidationError } from '../errors';
-import { logInfo, logError, logDebug } from '../utils/logger';
+import { logInfo, logDebug } from '../utils/logger';
 import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
-import { Prisma, SampleType } from '@prisma/client';
+import { SampleType } from '@prisma/client';
 import { gstService } from './gst.service';
 
 // ============================================
@@ -137,7 +129,6 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
   protected readonly modelName = 'customers';
   protected readonly entityName = 'Customer';
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected get model(): any {
     return this.prisma.customers;
   }

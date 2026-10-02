@@ -7,7 +7,7 @@ import crypto from 'crypto';
 import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from './base.service';
 import { suppliers, Prisma, SupplierCategory } from '@prisma/client';
 import { ConflictError, ValidationError } from '../errors';
-import { logInfo, logError, logDebug } from '../utils/logger';
+import { logInfo, logError } from '../utils/logger';
 import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
 import { gstService } from './gst.service';
 import warehouseService from './warehouse.service';
@@ -100,7 +100,6 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
   protected readonly modelName = 'suppliers';
   protected readonly entityName = 'Supplier';
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected get model(): any {
     return this.prisma.suppliers;
   }
@@ -233,7 +232,7 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
       shippingCityId: supplierData.shippingCityId || null,
     };
 
-    const supplier = await this.prisma.suppliers.create({
+    await this.prisma.suppliers.create({
       data: {
         id: supplierId,
         ...sanitizedData,
@@ -319,7 +318,7 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
       shippingCityId: supplierData.shippingCityId || null,
     };
 
-    const supplier = await this.prisma.suppliers.update({
+    await this.prisma.suppliers.update({
       where: { id },
       data: {
         ...sanitizedData,

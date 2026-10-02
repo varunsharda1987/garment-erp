@@ -5,7 +5,7 @@
  * and guide usage — so the owner knows which guides to write or fix next. Read-only.
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Request, Response } from 'express';
 import { authenticateToken, requireAdmin } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateQuery } from '../middleware/validation.middleware';

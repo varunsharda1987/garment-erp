@@ -5,7 +5,6 @@
 
 import { Request, Response } from 'express';
 import { ColorService } from '../services/color.service';
-import { NotFoundError, ConflictError, ValidationError } from '../errors';
 import type { ColorQueryInput, ColorSearchInput, CreateColorInput, UpdateColorInput } from '../schemas/color.schema';
 
 /**

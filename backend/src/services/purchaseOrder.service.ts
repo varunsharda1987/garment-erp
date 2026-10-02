@@ -9,7 +9,6 @@ import {
   POSource,
   ServiceType,
   POCategory,
-  DeliveryLocationType,
   MaterialRequirementStatus,
   UserRole,
 } from '@prisma/client';

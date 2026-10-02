@@ -230,7 +230,7 @@ export async function updateCostSheetActuals(params: {
   actualCost: number;
   source?: 'PO' | 'GRN' | 'WORK_ORDER' | 'MANUAL';
 }) {
-  const { styleId, category, actualCost, source = 'MANUAL' } = params;
+  const { styleId, category, actualCost } = params;
 
   // Find PROCUREMENT_PRODUCTION cost sheet for this style
   const costSheet = await prisma.style_costing.findFirst({

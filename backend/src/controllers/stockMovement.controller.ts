@@ -9,9 +9,8 @@ import stockMovementService, {
 } from '../services/stockMovement.service';
 import { MovementType, Unit } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
-import { NotFoundError, ValidationError } from '../errors';
+import { ValidationError } from '../errors';
 import prisma from '../config/database';
-import greigeStockService from '../services/greige-stock.service';
 import {
   bringHeldStockToStore,
   listHeldLots,
@@ -20,7 +19,6 @@ import {
   type BringToStoreLine,
 } from '../services/helpers/held-stock-doors.helper';
 import type { CreateProcessorReturnInput, MoveHeldStockInput } from '../schemas/stockMovement.schema';
-import { qtyExceeds, snapToLimit } from '../utils/quantity';
 import { BASE_MATERIAL_ROW } from '../services/helpers/master-config';
 
 // Map polymorphic item types to their FK field in the materials table.

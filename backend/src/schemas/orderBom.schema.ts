@@ -10,7 +10,6 @@ import { flexMaterialId } from './common.schema';
 import {
   MaterialTypeEnum as PrismaMaterialTypeEnum,
   OrderBOMStatusEnum as PrismaOrderBOMStatusEnum,
-  MaterialUsageCategoryEnum,
 } from './generated/prisma-enums';
 
 // ============================================================================

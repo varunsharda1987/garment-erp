@@ -120,7 +120,9 @@ beforeAll(async () => {
   warehouseId = warehouse.id;
 
   // Samples need a customer even for a stock run (samples.customerId is NOT NULL) — the house
-  // brand plays that part. No FPT/GPT flags, no sample-requirement rows → the gates' defaults apply.
+  // brand plays that part, and is the style's buyer, whose sample rules a stock run follows. It
+  // requires FIT → PP → Size Set (Required + Blocks): with no rows nothing is required (2026-10-02).
+  // No FPT/GPT flags.
   const customer = await prisma.customers.create({
     data: {
       code: `${RUN}-CUS`,
@@ -128,6 +130,13 @@ beforeAll(async () => {
       type: 'BUYER',
       category: 'DOMESTIC',
       createdById: userId,
+      customer_sample_requirements: {
+        create: (['FIT_SAMPLE', 'PP_SAMPLE', 'SIZE_SET_SAMPLE'] as const).map((sampleType) => ({
+          sampleType,
+          isRequired: true,
+          blocksProduction: true,
+        })),
+      },
     },
   });
   customerId = customer.id;
@@ -175,7 +184,7 @@ beforeAll(async () => {
   // name and no fabricId (the finished fabric does not exist yet), two sizes.
   styleId = randomUUID();
   await prisma.styles.create({
-    data: { id: styleId, styleCode: `${RUN}-STY`, styleName: `${RUN} Kurta`, createdById: userId },
+    data: { id: styleId, styleCode: `${RUN}-STY`, styleName: `${RUN} Kurta`, customerId, createdById: userId },
   });
   const component = await prisma.style_components.create({
     data: { id: randomUUID(), styleId, componentName: 'Top', componentType: 'MAIN' },

@@ -210,18 +210,31 @@ Invariant check: `company-perms.test.ts` (reads open, writes admin-only) and the
 ## Stage prerequisites live in ONE place
 
 `backend/src/services/productionBlockingValidation.service.ts` → `validateStageTransition` is the only
-authority on what a production stage needs: samples (FIT → PP → Size Set, each approved — ON by
-default, stock runs included), FPT/GPT, an approved Order BOM with stock (order-backed runs), and a
+authority on what a production stage needs: samples (FIT, PP, Size Set — each only when the customer
+requires it, see below), FPT/GPT, an approved Order BOM with stock (order-backed runs), and a
 Production CAD average. When asked *"what does X need before it can happen"*, read that file — not the
 stage's page or controller. Cutting's prerequisites were listed from the cutting page on 2026-09-15;
 the first end-to-end walk was refused for a missing approved Size Set Sample.
+
+**Samples follow the customer (owner, 2026-10-02):** a sample type holds production up ONLY when the
+customer's Sample Requirements (customer page) mark it **Required + Blocks Production** —
+`resolveCustomerGates`, the one rule, also read by the production-status dashboards. **No row = not
+required**, which is what the customer card always showed (until then "no row" meant FIT + Size Set
+required, and Kashaya Fabs — needing no samples — was refused cutting). FIT blocks printing / dyeing /
+cutting onward; PP and Size Set block cutting onward. The customer is the order line's, else the run's
+order's, else the **style's buyer** (`resolveRunCustomer` — so stock runs follow the style's buyer).
+Raising a sample follows the same rows: FIT → PP → Size Set (`validateSampleCreation`) checks only the
+EARLIER types that customer requires. Orders auto-create only the ticked types. Sample steps are
+**To make (REQUESTED) → Mark Sent → Record Feedback**; Sent is still required before a verdict
+(`sample-verdict.helper`), and IN_PROGRESS / SUBMITTED are refused by the API (old rows only). Walk it:
+`integration/sample-requirements-follow-customer.test.ts`.
 
 **Shipment Sample gate (2026-09-23):** READY_TO_SHIP / SHIPPED and delivery-note dispatch need the
 style's latest Shipment Sample APPROVED **and** the latest lab round on ANY of the style's samples for
 that buyer PASSED (`latestSampleRoundForStyle` — in practice the PP sample's garment test; a Shipment
 Sample's own round counts only if it is ever sent to the lab). It is **opt-in** — only an
-explicit `SHIPMENT_SAMPLE` requirement row (required + blocks) turns it on, unlike FIT / Size Set where
-*no row* blocks (House of Kasya has no rows; the FIT-style default would stop all its dispatches).
+explicit `SHIPMENT_SAMPLE` requirement row (required + blocks) turns it on — the same rule as every
+sample type since 2026-10-02.
 Dispatch calls `validateShipmentSampleForDispatch` with the delivery note's own `customerId`.
 
 **Lab rounds:** one TRF (`buyer_test_requirement_forms`) per round; `samples` 1 ──< TRF (`sampleId`,

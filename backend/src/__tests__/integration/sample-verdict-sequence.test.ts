@@ -134,11 +134,9 @@ describe('a verdict needs the sample to have gone to the buyer', () => {
     expect(await overrideRows(id)).toHaveLength(0);
   });
 
-  it('the intermediate steps still pass, and the verdict lands once the sample is Sent', async () => {
+  it('To make → Sent → verdict: the verdict lands once the sample is Sent', async () => {
     const id = await newSample();
-    // The Quick Action bar's own path: Start Progress → Mark Complete (PUT with a status)
-    await request(app).put(`/api/samples/${id}`).set(pmHeader).send({ status: 'IN_PROGRESS' }).expect(200);
-    await request(app).put(`/api/samples/${id}`).set(pmHeader).send({ status: 'SUBMITTED' }).expect(200);
+    // The menu's own path since 2026-10-02: Mark Sent straight from To make (REQUESTED)
     await request(app).post(`/api/samples/${id}/send`).set(pmHeader).send({ courierMode: 'Courier' }).expect(200);
     expect(await statusOf(id)).toBe('SENT');
 
@@ -149,6 +147,17 @@ describe('a verdict needs the sample to have gone to the buyer', () => {
     expect(res.status).toBe(200);
     expect(await statusOf(id)).toBe('APPROVED');
     expect(await overrideRows(id)).toHaveLength(0);
+  });
+
+  it('the retired Start Progress / Mark Complete steps are refused (owner, 2026-10-02)', async () => {
+    const id = await newSample();
+    for (const status of ['IN_PROGRESS', 'SUBMITTED']) {
+      const viaUpdate = await request(app).put(`/api/samples/${id}`).set(pmHeader).send({ status });
+      expect(viaUpdate.status).toBe(400);
+      const viaStatus = await request(app).patch(`/api/samples/${id}/status`).set(pmHeader).send({ status });
+      expect(viaStatus.status).toBe(400);
+    }
+    expect(await statusOf(id)).toBe('REQUESTED');
   });
 
   it('a verdict from FEEDBACK_PENDING (sample came back) is fine too', async () => {

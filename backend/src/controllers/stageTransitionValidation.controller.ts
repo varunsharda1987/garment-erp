@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { ProductionStage } from '@prisma/client';
+import { ProductionStage, SampleType } from '@prisma/client';
 import prisma from '../config/database';
 import { productionBlockingValidationService } from '../services/productionBlockingValidation.service';
 import { serialize } from '../utils/serializer';
@@ -33,30 +33,21 @@ export const checkStageTransition = async (req: Request, res: Response) => {
 
 /**
  * Check if sample creation is allowed (sequential dependency validation)
- * GET /api/stage-validation/check-sample-creation?styleId=xxx&sampleType=PP_SAMPLE
+ * GET /api/stage-validation/check-sample-creation?styleId=xxx&sampleType=PP_SAMPLE&customerId=yyy
+ * The chain follows the sample's customer's requirements; no customerId = nothing required.
  */
 export const checkSampleCreation = async (req: Request, res: Response) => {
-  const { styleId, sampleType } = req.query;
+  const { styleId, sampleType, customerId } = req.query;
 
   if (!styleId || !sampleType) {
     throw new ValidationError('Missing required parameters: styleId and sampleType');
   }
 
-  let validation;
-
-  if (sampleType === 'PP_SAMPLE') {
-    validation = await productionBlockingValidationService.validatePPSampleCreation(styleId as string);
-  } else if (sampleType === 'SIZE_SET_SAMPLE') {
-    validation = await productionBlockingValidationService.validateSizeSetSampleCreation(styleId as string);
-  } else {
-    // No validation needed for other sample types (FIT_SAMPLE, SHIPMENT_SAMPLE, etc.)
-    return res.json({
-      data: serialize({
-        canCreate: true,
-        blocker: null,
-      }),
-    });
-  }
+  const validation = await productionBlockingValidationService.validateSampleCreation(
+    styleId as string,
+    sampleType as SampleType,
+    typeof customerId === 'string' && customerId ? customerId : null
+  );
 
   res.json({ data: serialize(validation) });
 };

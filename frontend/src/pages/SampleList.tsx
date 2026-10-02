@@ -510,7 +510,9 @@ export default function SampleList() {
                 <div>
                   <p className="text-sm text-muted-foreground">Approved</p>
                   <p className="text-2xl font-bold text-success">
-                    {summary.byStatus.find((s) => s.status === 'APPROVED')?.count || 0}
+                    {summary.byStatus
+                      .filter((s) => s.status === 'APPROVED' || s.status === 'APPROVED_WITH_COMMENTS')
+                      .reduce((total, s) => total + s.count, 0)}
                   </p>
                 </div>
               </div>
@@ -561,11 +563,14 @@ export default function SampleList() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All statuses</SelectItem>
-                {(Object.keys(SampleStatusLabels) as SampleStatus[]).map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {SampleStatusLabels[status]}
-                  </SelectItem>
-                ))}
+                {(Object.keys(SampleStatusLabels) as SampleStatus[])
+                  // In Progress / Submitted are retired steps (2026-10-02) — no sample is put in them now
+                  .filter((status) => status !== 'IN_PROGRESS' && status !== 'SUBMITTED')
+                  .map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {SampleStatusLabels[status]}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
             <CustomerCombobox

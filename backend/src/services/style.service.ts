@@ -3011,12 +3011,12 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       blockers.push({ type: 'Active Work Orders', count: activeWorkOrders });
     }
 
-    // 3. Pending Samples (not approved or rejected)
+    // 3. Pending Samples (no verdict yet — approved, approved with comments or rejected are settled)
     const pendingSamples = await this.prisma.samples.count({
       where: {
         styleId,
         isActive: true,
-        status: { notIn: ['APPROVED', 'REJECTED'] },
+        status: { notIn: ['APPROVED', 'APPROVED_WITH_COMMENTS', 'REJECTED'] },
       },
     });
     if (pendingSamples > 0) {

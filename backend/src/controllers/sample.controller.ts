@@ -142,20 +142,17 @@ export const createSample = async (req: Request, res: Response) => {
     throw new ValidationError('Required date is required');
   }
 
-  // SEQUENTIAL SAMPLE VALIDATION
+  // SEQUENTIAL SAMPLE VALIDATION — FIT → PP → Size Set, only the types this customer requires
   if (styleId && !adminOverride) {
     const { productionBlockingValidationService } = await import('../services/productionBlockingValidation.service');
 
-    if (sampleType === 'PP_SAMPLE') {
-      const validation = await productionBlockingValidationService.validatePPSampleCreation(styleId);
-      if (!validation.canCreate) {
-        throw new ValidationError(validation.blocker?.message || 'Sample Creation Blocked');
-      }
-    } else if (sampleType === 'SIZE_SET_SAMPLE') {
-      const validation = await productionBlockingValidationService.validateSizeSetSampleCreation(styleId);
-      if (!validation.canCreate) {
-        throw new ValidationError(validation.blocker?.message || 'Sample Creation Blocked');
-      }
+    const validation = await productionBlockingValidationService.validateSampleCreation(
+      styleId,
+      sampleType,
+      customerId
+    );
+    if (!validation.canCreate) {
+      throw new ValidationError(validation.blocker?.message || 'Sample Creation Blocked');
     }
   }
 
@@ -632,7 +629,6 @@ export const updateSample = async (req: Request, res: Response) => {
   const { id } = req.params;
   const {
     requiredDate,
-    completionDate,
     status,
     customerFeedback,
     remarks,
@@ -673,7 +669,6 @@ export const updateSample = async (req: Request, res: Response) => {
   const updateData: any = {};
 
   if (requiredDate !== undefined) updateData.requiredDate = new Date(requiredDate);
-  if (completionDate !== undefined) updateData.completionDate = completionDate ? new Date(completionDate) : null;
   if (status !== undefined) updateData.status = status;
   if (customerFeedback !== undefined) updateData.customerFeedback = customerFeedback || null;
   if (remarks !== undefined) updateData.remarks = remarks || null;
@@ -784,12 +779,6 @@ export const updateSampleStatus = async (req: Request, res: Response) => {
   // Auto-set dates based on status
   if (status === 'APPROVED' || status === 'REJECTED' || status === 'APPROVED_WITH_COMMENTS') {
     updateData.feedbackDate = new Date();
-  }
-  if (status === 'IN_PROGRESS') {
-    updateData.completionDate = null;
-  }
-  if (status === 'SUBMITTED' && !existing.completionDate) {
-    updateData.completionDate = new Date();
   }
 
   const updated = await prisma.$transaction(async (tx) => {

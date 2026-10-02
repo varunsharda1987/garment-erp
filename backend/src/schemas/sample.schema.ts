@@ -36,6 +36,17 @@ export const SampleStatusEnum = z.enum([
   'APPROVED_WITH_COMMENTS',
 ]);
 
+/**
+ * The statuses a sample may be SET to. Steps are: To make (REQUESTED) → Sent → the buyer's verdict
+ * (owner, 2026-10-02). IN_PROGRESS ("Start Progress") and SUBMITTED ("Mark Complete") recorded nothing
+ * anyone read — samples are made in a day — so they are no longer written; old rows keep them, which is
+ * why SampleStatusEnum (filters) still lists them.
+ */
+const RETIRED_SAMPLE_STATUSES = ['IN_PROGRESS', 'SUBMITTED'];
+export const WritableSampleStatusEnum = SampleStatusEnum.refine((s) => !RETIRED_SAMPLE_STATUSES.includes(s), {
+  message: 'Sample steps are: To make → Sent → feedback. Mark the sample Sent instead.',
+});
+
 // ============================================================================
 // SAMPLE SCHEMAS
 // ============================================================================
@@ -110,7 +121,7 @@ export const createSampleSchema = z
  * PUT /api/samples/:id
  *
  * Controller destructures:
- * - requiredDate, completionDate, status, customerFeedback, remarks
+ * - requiredDate, status, customerFeedback, remarks
  * - sentDate, courierMode, trackingNumber, receivedDate, feedbackDate
  * - measurementComments, revisionRequired, nextAction
  * - linkedDispatchId, productionLot, sentTo, purpose (type-specific; the form edits all four)
@@ -121,8 +132,7 @@ const nullableDate = z.union([z.null(), z.coerce.date()]);
 export const updateSampleSchema = z
   .object({
     requiredDate: z.coerce.date().optional(),
-    completionDate: nullableDate.optional(),
-    status: SampleStatusEnum.optional(),
+    status: WritableSampleStatusEnum.optional(),
     customerFeedback: z.string().max(2000).optional().nullable(),
     remarks: z.string().max(500).optional().nullable(),
     sentDate: nullableDate.optional(),
@@ -152,7 +162,7 @@ export const updateSampleSchema = z
  */
 export const updateSampleStatusSchema = z
   .object({
-    status: SampleStatusEnum,
+    status: WritableSampleStatusEnum,
     feedback: z.string().max(1000).optional(),
     comments: z.string().max(500).optional(), // Controller uses 'comments' not 'remarks'
     adminOverride: z.boolean().optional(),

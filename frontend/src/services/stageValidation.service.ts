@@ -73,12 +73,17 @@ class StageValidationService {
    * Check if sample creation is allowed (sequential dependencies)
    * @param styleId - Style ID
    * @param sampleType - Sample type (PP_SAMPLE, SIZE_SET_SAMPLE, etc.)
+   * @param customerId - The sample's customer: only the earlier types it requires are checked
    * @returns Validation result
    */
-  async checkSampleCreation(styleId: string, sampleType: string): Promise<SampleCreationValidation> {
+  async checkSampleCreation(
+    styleId: string,
+    sampleType: string,
+    customerId?: string
+  ): Promise<SampleCreationValidation> {
     try {
       const response = await api.get('/stage-validation/check-sample-creation', {
-        params: { styleId, sampleType },
+        params: { styleId, sampleType, customerId: customerId || undefined },
       });
       return response.data.data;
     } catch (error: unknown) {

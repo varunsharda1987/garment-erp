@@ -3,7 +3,9 @@
  *
  * Manages sample type requirements for a customer.
  * Configures which sample types (FIT, PP, SIZE_SET, etc.) are required
- * and whether they block production.
+ * and whether they block production. This card IS the production gate's input: a type holds up
+ * production only when ticked Required + Blocks; nothing ticked = no sample needed
+ * (resolveCustomerGates in productionBlockingValidation.service.ts).
  */
 
 import { useState, useEffect } from 'react';
@@ -48,7 +50,7 @@ const SAMPLE_TYPES = [
     value: 'SIZE_SET_SAMPLE',
     label: 'Size Set Sample',
     description: 'Full size range sample',
-    defaultBlocks: false,
+    defaultBlocks: true,
     blocksLabel: 'Blocks Production',
   },
   {
@@ -250,7 +252,8 @@ export function CustomerSampleRequirements({ customerId, customerName }: Custome
 
         {requiredCount === 0 && (
           <p className="text-sm text-muted-foreground mt-4 text-center">
-            No sample types selected. Samples won't be auto-created for this customer.
+            No sample types selected. Samples won't be auto-created for this customer, and production won't wait for any
+            sample.
           </p>
         )}
       </CardContent>

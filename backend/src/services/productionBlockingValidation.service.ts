@@ -63,46 +63,113 @@ type RunIdentity = { styleId: string; orderId: string | null };
 type SampleReq = { sampleType: string; isRequired: boolean; blocksProduction: boolean };
 type CustomerGates = {
   fitBlocks: boolean;
+  ppBlocks: boolean;
   sizeSetBlocks: boolean;
   shipmentSampleBlocks: boolean;
   fptBlocksProduction: boolean;
   gptBlocksShipment: boolean;
 };
+type GateCustomer = {
+  fptBlocksProduction?: boolean | null;
+  gptBlocksShipment?: boolean | null;
+  customer_sample_requirements?: SampleReq[] | null;
+};
+
+/** The customer fields `resolveCustomerGates` reads — select these wherever a customer is loaded for it. */
+export const GATE_CUSTOMER_SELECT = {
+  fptBlocksProduction: true,
+  gptBlocksShipment: true,
+  customer_sample_requirements: {
+    select: { sampleType: true, isRequired: true, blocksProduction: true },
+  },
+} as const;
+
+/** The sample-approval order. A sample may be raised once every EARLIER type its customer requires is approved. */
+const SAMPLE_CHAIN: SampleType[] = ['FIT_SAMPLE', 'PP_SAMPLE', 'SIZE_SET_SAMPLE'];
+
+const SAMPLE_LABEL: Partial<Record<SampleType, string>> = {
+  FIT_SAMPLE: 'FIT Sample',
+  PP_SAMPLE: 'PP Sample',
+  SIZE_SET_SAMPLE: 'Size Set Sample',
+};
+
+const APPROVED_SAMPLE_STATUSES: SampleStatus[] = ['APPROVED', 'APPROVED_WITH_COMMENTS'];
+
+/** Cutting and everything after it. */
+const CUTTING_ONWARD: ProductionStage[] = [
+  'IN_CUTTING',
+  'IN_STITCHING',
+  'IN_EMBROIDERY',
+  'IN_HANDWORK',
+  'IN_FINISHING',
+  'READY_TO_SHIP',
+  'SHIPPED',
+];
 
 /**
- * Which gates this customer actually enforces.
+ * Which gates this customer actually enforces — THE sample rule (owner, 2026-10-02).
  *
- * Shared by the work-order orchestrator and the order-level one so the rule is written once. The
- * `isRequired && blocksProduction` part is the subtle half: the customer screen keeps a hidden
- * `blocksProduction` on un-ticked sample types, so honouring `blocksProduction` alone would block
- * production for a customer who had explicitly opted out of FIT / size-set samples. No row at all
- * keeps the backward-compatible default of blocking.
+ * A sample type holds production up only when the customer's sample requirements mark it Required AND
+ * Blocks Production. No row = not required: that is what the customer screen has always shown ("Samples
+ * won't be auto-created for this customer"), while this function used to read the same state as FIT +
+ * Size Set required — Kashaya Fabs, which needs no samples, was refused cutting for one. The
+ * `isRequired &&` half matters too: the screen keeps a hidden `blocksProduction` on un-ticked types.
+ *
+ * Shared by both orchestrators and the production-status dashboards so the rule is written once.
  */
-function resolveCustomerGates(
-  customer:
-    | {
-        fptBlocksProduction?: boolean | null;
-        gptBlocksShipment?: boolean | null;
-        customer_sample_requirements?: SampleReq[] | null;
-      }
-    | null
-    | undefined
-): CustomerGates {
+export function resolveCustomerGates(customer: GateCustomer | null | undefined): CustomerGates {
   const sampleRequirements: SampleReq[] = customer?.customer_sample_requirements || [];
-  const blocks = (req: SampleReq | undefined) => (req ? req.isRequired && req.blocksProduction : true);
-
-  // The Shipment Sample gate is OPT-IN: only an explicit row blocks. It is a newer gate (2026-09-23)
-  // than FIT / Size Set, and "no row blocks" here would stop every dispatch of every customer who
-  // never configured sample requirements — House of Kasya, the live B2B buyer, has none.
-  const shipmentReq = sampleRequirements.find((r) => r.sampleType === 'SHIPMENT_SAMPLE');
+  const blocks = (sampleType: SampleType) => {
+    const req = sampleRequirements.find((r) => r.sampleType === sampleType);
+    return req ? req.isRequired && req.blocksProduction : false;
+  };
 
   return {
-    fitBlocks: blocks(sampleRequirements.find((r) => r.sampleType === 'FIT_SAMPLE')),
-    sizeSetBlocks: blocks(sampleRequirements.find((r) => r.sampleType === 'SIZE_SET_SAMPLE')),
-    shipmentSampleBlocks: shipmentReq ? shipmentReq.isRequired && shipmentReq.blocksProduction : false,
+    fitBlocks: blocks('FIT_SAMPLE'),
+    ppBlocks: blocks('PP_SAMPLE'),
+    sizeSetBlocks: blocks('SIZE_SET_SAMPLE'),
+    shipmentSampleBlocks: blocks('SHIPMENT_SAMPLE'),
     fptBlocksProduction: customer?.fptBlocksProduction ?? false,
     // Default to true for safety
     gptBlocksShipment: customer?.gptBlocksShipment ?? true,
+  };
+}
+
+/**
+ * Whose sample rules a production run follows: the order line's customer, else the run's order's
+ * customer, else the style's buyer. Stock runs have no order, so they follow the style's buyer (owner,
+ * 2026-10-02) — before, a run with no order line got the old "FIT + Size Set required" default.
+ */
+async function resolveRunCustomer(
+  workOrderId: string
+): Promise<{ styleId: string | null; customerId: string | null; customer: GateCustomer | null } | null> {
+  const workOrder = await prisma.work_orders.findUnique({
+    where: { id: workOrderId },
+    select: {
+      styleId: true,
+      order_items: {
+        select: { orders: { select: { customerId: true, customers: { select: GATE_CUSTOMER_SELECT } } } },
+      },
+      orders: { select: { customerId: true, customers: { select: GATE_CUSTOMER_SELECT } } },
+      styles: { select: { customerId: true, customer: { select: GATE_CUSTOMER_SELECT } } },
+    },
+  });
+  if (!workOrder) return null;
+
+  const fromLine = workOrder.order_items?.orders;
+  if (fromLine?.customers)
+    return { styleId: workOrder.styleId, customerId: fromLine.customerId, customer: fromLine.customers };
+  if (workOrder.orders?.customers) {
+    return {
+      styleId: workOrder.styleId,
+      customerId: workOrder.orders.customerId,
+      customer: workOrder.orders.customers,
+    };
+  }
+  return {
+    styleId: workOrder.styleId,
+    customerId: workOrder.styles?.customerId ?? null,
+    customer: workOrder.styles?.customer ?? null,
   };
 }
 
@@ -185,145 +252,105 @@ interface OverrideLogData {
  * Production Blocking Validation Service
  *
  * Centralizes all blocking logic for:
- * 1. FIT Sample → Blocks Printing & Dyeing
- * 2. Size Set Sample → Blocks Cutting & Beyond
+ * 1. FIT Sample → Blocks Printing, Dyeing, Cutting & Beyond   } only when the customer marks the
+ * 1b. PP Sample → Blocks Cutting & Beyond                      } type Required + Blocks Production
+ * 2. Size Set Sample → Blocks Cutting & Beyond                 } (resolveCustomerGates)
  * 3. FPT (Fabric Physical Test) → Blocks Cutting & Beyond
  * 4. GPT (Garment Physical Test) → Blocks Cutting & Beyond
  * 4b. Shipment Sample (approved + latest lab round passed) → Blocks Ready-to-ship, Shipped, Dispatch (opt-in)
- * 5. Sequential Sample Dependencies (PP requires FIT, SIZE_SET requires PP)
+ * 6. Sample creation order (FIT → PP → SIZE_SET, skipping types the customer does not require)
  */
 class ProductionBlockingValidationService {
   /**
-   * RULE 1: FIT Sample blocks IN_PRINTING and IN_DYING stages
-   * @param customerFitBlocks - If false, skip validation (customer doesn't require FIT approval)
+   * RULE 1: FIT Sample blocks printing, dyeing, cutting and everything after
+   * @param customerFitBlocks - false = the customer does not require FIT approval (resolveCustomerGates)
    */
   async validateFitSampleForStage(
     styleId: string,
     targetStage: ProductionStage,
-    customerFitBlocks = true
+    customerFitBlocks: boolean
   ): Promise<ValidationResult> {
-    // If customer doesn't require FIT blocking, skip validation
-    if (!customerFitBlocks) {
-      return { isBlocked: false, blockers: [] };
-    }
-
-    const blockedStages: ProductionStage[] = ['IN_PRINTING', 'IN_DYING'];
-
-    if (!blockedStages.includes(targetStage)) {
-      return { isBlocked: false, blockers: [] };
-    }
-
-    // Find latest FIT sample for this style
-    const fitSample = await prisma.samples.findFirst({
-      where: {
-        styleId,
-        sampleType: 'FIT_SAMPLE',
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    // No FIT sample exists — BLOCK. Previously this returned not-blocked, letting a style
-    // bypass the FIT gate entirely by never creating the sample, contradicting
-    // checkApprovalGate/validatePPSampleCreation which require an APPROVED sample
-    // (bug-hunt samples-embroidery-14). Admin override remains available.
-    if (!fitSample) {
-      return {
-        isBlocked: true,
-        blockers: [
-          {
-            type: 'FIT_SAMPLE_NOT_APPROVED',
-            message: `No FIT Sample exists for this style. An approved FIT Sample is required before ${targetStage}.`,
-            severity: 'CRITICAL',
-          },
-        ],
-      };
-    }
-
-    // Check if approved
-    const approvedStatuses: SampleStatus[] = ['APPROVED', 'APPROVED_WITH_COMMENTS'];
-    const isApproved = approvedStatuses.includes(fitSample.status);
-
-    if (!isApproved) {
-      return {
-        isBlocked: true,
-        blockers: [
-          {
-            type: 'FIT_SAMPLE_NOT_APPROVED',
-            message: `FIT Sample (${fitSample.sampleNumber}) must be approved before ${targetStage}. Current status: ${fitSample.status}`,
-            severity: 'CRITICAL',
-          },
-        ],
-      };
-    }
-
-    return { isBlocked: false, blockers: [] };
+    return this.validateApprovedSampleForStage(styleId, targetStage, 'FIT_SAMPLE', customerFitBlocks, [
+      'IN_PRINTING',
+      'IN_DYING',
+      ...CUTTING_ONWARD,
+    ]);
   }
 
   /**
-   * RULE 2: Size Set Sample blocks cutting and all subsequent stages
-   * @param customerSizeSetBlocks - If false, skip validation (customer doesn't require SIZE_SET approval)
+   * RULE 1b: PP Sample blocks cutting and everything after
+   * @param customerPPBlocks - false = the customer does not require PP approval (resolveCustomerGates)
+   */
+  async validatePPSampleForStage(
+    styleId: string,
+    targetStage: ProductionStage,
+    customerPPBlocks: boolean
+  ): Promise<ValidationResult> {
+    return this.validateApprovedSampleForStage(styleId, targetStage, 'PP_SAMPLE', customerPPBlocks, CUTTING_ONWARD);
+  }
+
+  /**
+   * RULE 2: Size Set Sample blocks cutting and everything after
+   * @param customerSizeSetBlocks - false = the customer does not require Size Set approval (resolveCustomerGates)
    */
   async validateSizeSetSampleForStage(
     styleId: string,
     targetStage: ProductionStage,
-    customerSizeSetBlocks = true
+    customerSizeSetBlocks: boolean
   ): Promise<ValidationResult> {
-    // If customer doesn't require SIZE_SET blocking, skip validation
-    if (!customerSizeSetBlocks) {
+    return this.validateApprovedSampleForStage(
+      styleId,
+      targetStage,
+      'SIZE_SET_SAMPLE',
+      customerSizeSetBlocks,
+      CUTTING_ONWARD
+    );
+  }
+
+  /**
+   * The style's LATEST sample of this type must be approved before any of `blockedStages`.
+   * No sample at all blocks too — returning not-blocked let a style skip the gate by never creating the
+   * sample (bug-hunt samples-embroidery-14). Admin override remains available.
+   */
+  private async validateApprovedSampleForStage(
+    styleId: string,
+    targetStage: ProductionStage,
+    sampleType: 'FIT_SAMPLE' | 'PP_SAMPLE' | 'SIZE_SET_SAMPLE',
+    customerBlocks: boolean,
+    blockedStages: ProductionStage[]
+  ): Promise<ValidationResult> {
+    if (!customerBlocks || !blockedStages.includes(targetStage)) {
       return { isBlocked: false, blockers: [] };
     }
 
-    const blockedStages: ProductionStage[] = [
-      'IN_CUTTING',
-      'IN_STITCHING',
-      'IN_EMBROIDERY',
-      'IN_HANDWORK',
-      'IN_FINISHING',
-      'READY_TO_SHIP',
-      'SHIPPED',
-    ];
-
-    if (!blockedStages.includes(targetStage)) {
-      return { isBlocked: false, blockers: [] };
-    }
-
-    // Find latest SIZE_SET sample
-    const sizeSetSample = await prisma.samples.findFirst({
-      where: {
-        styleId,
-        sampleType: 'SIZE_SET_SAMPLE',
-      },
+    const label = SAMPLE_LABEL[sampleType];
+    const type = `${sampleType}_NOT_APPROVED`;
+    const sample = await prisma.samples.findFirst({
+      where: { styleId, sampleType },
       orderBy: { createdAt: 'desc' },
+      select: { sampleNumber: true, status: true },
     });
 
-    // No SIZE_SET sample exists — BLOCK. Same invariant as checkApprovalGate
-    // (canCreateWorkOrder requires an approved Size Set sample); returning not-blocked here
-    // let cutting proceed for styles that simply never created the sample
-    // (bug-hunt samples-embroidery-14). Admin override remains available.
-    if (!sizeSetSample) {
+    if (!sample) {
       return {
         isBlocked: true,
         blockers: [
           {
-            type: 'SIZE_SET_SAMPLE_NOT_APPROVED',
-            message: `No Size Set Sample exists for this style. An approved Size Set Sample is required before ${targetStage}.`,
+            type,
+            message: `No ${label} exists for this style. The customer requires an approved ${label} before ${targetStage}.`,
             severity: 'CRITICAL',
           },
         ],
       };
     }
 
-    // Check if approved
-    const approvedStatuses: SampleStatus[] = ['APPROVED', 'APPROVED_WITH_COMMENTS'];
-    const isApproved = approvedStatuses.includes(sizeSetSample.status);
-
-    if (!isApproved) {
+    if (!APPROVED_SAMPLE_STATUSES.includes(sample.status)) {
       return {
         isBlocked: true,
         blockers: [
           {
-            type: 'SIZE_SET_SAMPLE_NOT_APPROVED',
-            message: `Size Set Sample (${sizeSetSample.sampleNumber}) must be approved before ${targetStage}. Current status: ${sizeSetSample.status}`,
+            type,
+            message: `${label} (${sample.sampleNumber}) must be approved before ${targetStage}. Current status: ${sample.status}`,
             severity: 'CRITICAL',
           },
         ],
@@ -814,57 +841,35 @@ class ProductionBlockingValidationService {
       return { isBlocked: false, blockers: [] };
     }
 
-    // Get work order with style and customer info (including sample requirements)
-    const workOrder = await prisma.work_orders.findUnique({
-      where: { id: workOrderId },
-      select: {
-        id: true,
-        styleId: true,
-        order_items: {
-          select: {
-            orders: {
-              select: {
-                customerId: true,
-                customers: {
-                  select: {
-                    fptBlocksProduction: true,
-                    gptBlocksShipment: true,
-                    customer_sample_requirements: {
-                      select: { sampleType: true, isRequired: true, blocksProduction: true },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
+    // The run's style and whose sample rules it follows (order line → order → style's buyer)
+    const run = await resolveRunCustomer(workOrderId);
 
-    if (!workOrder || !workOrder.styleId) {
+    if (!run || !run.styleId) {
       // No style - cannot validate, allow transition
       return { isBlocked: false, blockers: [] };
     }
+    const styleId = run.styleId;
 
-    const { fitBlocks, sizeSetBlocks, shipmentSampleBlocks, fptBlocksProduction, gptBlocksShipment } =
-      resolveCustomerGates(workOrder.order_items?.orders?.customers);
-    const customerId = workOrder.order_items?.orders?.customerId ?? null;
+    const { fitBlocks, ppBlocks, sizeSetBlocks, shipmentSampleBlocks, fptBlocksProduction, gptBlocksShipment } =
+      resolveCustomerGates(run.customer);
 
     // Run all validations in parallel
-    const [fitResult, sizeSetResult, fptResult, gptResult, shipmentResult, materialResult, cadResult] =
+    const [fitResult, ppResult, sizeSetResult, fptResult, gptResult, shipmentResult, materialResult, cadResult] =
       await Promise.all([
-        this.validateFitSampleForStage(workOrder.styleId, targetStage, fitBlocks),
-        this.validateSizeSetSampleForStage(workOrder.styleId, targetStage, sizeSetBlocks),
-        this.validateFPTForStage(workOrder.styleId, targetStage, fptBlocksProduction),
+        this.validateFitSampleForStage(styleId, targetStage, fitBlocks),
+        this.validatePPSampleForStage(styleId, targetStage, ppBlocks),
+        this.validateSizeSetSampleForStage(styleId, targetStage, sizeSetBlocks),
+        this.validateFPTForStage(styleId, targetStage, fptBlocksProduction),
         this.validateGPTForStage(workOrderId, targetStage, gptBlocksShipment),
-        this.validateShipmentSampleForStage(workOrder.styleId, targetStage, shipmentSampleBlocks, customerId),
+        this.validateShipmentSampleForStage(styleId, targetStage, shipmentSampleBlocks, run.customerId),
         this.validateMaterialAvailabilityForStage(workOrderId, targetStage),
-        this.validateProductionCADForStage(workOrder.styleId, targetStage),
+        this.validateProductionCADForStage(styleId, targetStage),
       ]);
 
     // Aggregate all blockers
     const allBlockers: BlockerInfo[] = [
       ...fitResult.blockers,
+      ...ppResult.blockers,
       ...sizeSetResult.blockers,
       ...fptResult.blockers,
       ...gptResult.blockers,
@@ -903,20 +908,8 @@ class ProductionBlockingValidationService {
         id: true,
         styleId: true,
         orderId: true,
-        orders: {
-          select: {
-            customerId: true,
-            customers: {
-              select: {
-                fptBlocksProduction: true,
-                gptBlocksShipment: true,
-                customer_sample_requirements: {
-                  select: { sampleType: true, isRequired: true, blocksProduction: true },
-                },
-              },
-            },
-          },
-        },
+        orders: { select: { customerId: true, customers: { select: GATE_CUSTOMER_SELECT } } },
+        styles: { select: { customerId: true, customer: { select: GATE_CUSTOMER_SELECT } } },
       },
     });
 
@@ -925,27 +918,29 @@ class ProductionBlockingValidationService {
       return { isBlocked: false, blockers: [], gptEvaluated: false };
     }
 
-    const { fitBlocks, sizeSetBlocks, shipmentSampleBlocks, fptBlocksProduction } = resolveCustomerGates(
-      orderItem.orders?.customers
-    );
+    // Same order as resolveRunCustomer: the order's customer, else the style's buyer.
+    const customer = orderItem.orders?.customers ?? orderItem.styles?.customer ?? null;
+    const customerId = orderItem.orders?.customers
+      ? orderItem.orders.customerId
+      : (orderItem.styles?.customerId ?? null);
+    const { fitBlocks, ppBlocks, sizeSetBlocks, shipmentSampleBlocks, fptBlocksProduction } =
+      resolveCustomerGates(customer);
     const run: RunIdentity = { styleId: orderItem.styleId, orderId: orderItem.orderId };
 
-    const [fitResult, sizeSetResult, fptResult, shipmentResult, materialResult, cadResult] = await Promise.all([
-      this.validateFitSampleForStage(orderItem.styleId, targetStage, fitBlocks),
-      this.validateSizeSetSampleForStage(orderItem.styleId, targetStage, sizeSetBlocks),
-      this.validateFPTForStage(orderItem.styleId, targetStage, fptBlocksProduction),
-      this.validateShipmentSampleForStage(
-        orderItem.styleId,
-        targetStage,
-        shipmentSampleBlocks,
-        orderItem.orders?.customerId ?? null
-      ),
-      this.validateMaterialAvailabilityForRun(run, targetStage),
-      this.validateProductionCADForStage(orderItem.styleId, targetStage),
-    ]);
+    const [fitResult, ppResult, sizeSetResult, fptResult, shipmentResult, materialResult, cadResult] =
+      await Promise.all([
+        this.validateFitSampleForStage(orderItem.styleId, targetStage, fitBlocks),
+        this.validatePPSampleForStage(orderItem.styleId, targetStage, ppBlocks),
+        this.validateSizeSetSampleForStage(orderItem.styleId, targetStage, sizeSetBlocks),
+        this.validateFPTForStage(orderItem.styleId, targetStage, fptBlocksProduction),
+        this.validateShipmentSampleForStage(orderItem.styleId, targetStage, shipmentSampleBlocks, customerId),
+        this.validateMaterialAvailabilityForRun(run, targetStage),
+        this.validateProductionCADForStage(orderItem.styleId, targetStage),
+      ]);
 
     const allBlockers: BlockerInfo[] = [
       ...fitResult.blockers,
+      ...ppResult.blockers,
       ...sizeSetResult.blockers,
       ...fptResult.blockers,
       ...shipmentResult.blockers,
@@ -1106,56 +1101,41 @@ class ProductionBlockingValidationService {
   }
 
   /**
-   * RULE 5a: PP Sample creation requires FIT Sample approval
+   * SAMPLE CREATION ORDER: a FIT → PP → Size Set sample may be raised once every EARLIER type in that
+   * chain that the sample's customer marks Required is approved (for this style). A type the customer
+   * does not require is skipped — Kashaya Fabs requires only a Size Set, and the old fixed chain made it
+   * raise and approve a FIT and a PP first (2026-10-02). No customer = nothing required.
    */
-  async validatePPSampleCreation(styleId: string): Promise<CreationValidationResult> {
-    // Check if FIT sample is approved
-    const fitApprovedCount = await prisma.samples.count({
-      where: {
-        styleId,
-        sampleType: 'FIT_SAMPLE',
-        status: {
-          in: ['APPROVED', 'APPROVED_WITH_COMMENTS'],
-        },
-      },
+  async validateSampleCreation(
+    styleId: string,
+    sampleType: SampleType,
+    customerId: string | null | undefined
+  ): Promise<CreationValidationResult> {
+    const position = SAMPLE_CHAIN.indexOf(sampleType);
+    if (position <= 0 || !customerId) return { canCreate: true, blocker: null };
+
+    const required = await prisma.customer_sample_requirements.findMany({
+      where: { customerId, isRequired: true, sampleType: { in: SAMPLE_CHAIN.slice(0, position) } },
+      select: { sampleType: true },
     });
+    // Nearest earlier type first, so the message names the step just before this one.
+    const earlier = SAMPLE_CHAIN.slice(0, position)
+      .reverse()
+      .filter((t) => required.some((r) => r.sampleType === t));
 
-    if (fitApprovedCount === 0) {
-      return {
-        canCreate: false,
-        blocker: {
-          message: 'FIT Sample must be approved before creating PP Sample',
-          prerequisiteType: 'FIT_SAMPLE',
-        },
-      };
-    }
-
-    return { canCreate: true, blocker: null };
-  }
-
-  /**
-   * RULE 5b: Size Set Sample creation requires PP Sample approval
-   */
-  async validateSizeSetSampleCreation(styleId: string): Promise<CreationValidationResult> {
-    // Check if PP sample is approved
-    const ppApprovedCount = await prisma.samples.count({
-      where: {
-        styleId,
-        sampleType: 'PP_SAMPLE',
-        status: {
-          in: ['APPROVED', 'APPROVED_WITH_COMMENTS'],
-        },
-      },
-    });
-
-    if (ppApprovedCount === 0) {
-      return {
-        canCreate: false,
-        blocker: {
-          message: 'PP Sample must be approved before creating Size Set Sample',
-          prerequisiteType: 'PP_SAMPLE',
-        },
-      };
+    for (const prerequisite of earlier) {
+      const approved = await prisma.samples.count({
+        where: { styleId, sampleType: prerequisite, status: { in: APPROVED_SAMPLE_STATUSES } },
+      });
+      if (approved === 0) {
+        return {
+          canCreate: false,
+          blocker: {
+            message: `${SAMPLE_LABEL[prerequisite]} must be approved before creating ${SAMPLE_LABEL[sampleType]} — this customer requires it`,
+            prerequisiteType: prerequisite,
+          },
+        };
+      }
     }
 
     return { canCreate: true, blocker: null };

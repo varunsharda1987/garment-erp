@@ -1,6 +1,5 @@
 import { useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,20 +7,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Send, MessageSquare, CheckCircle, RefreshCcw, Play, MoreHorizontal } from 'lucide-react';
+import { Send, MessageSquare, CheckCircle, RefreshCcw, MoreHorizontal } from 'lucide-react';
 import { sampleService } from '@/services/sample.service';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import type { Sample, SampleStatus } from '@/types/sample.types';
+import type { Sample } from '@/types/sample.types';
 import { isVersionedSampleType } from '@/types/sample.types';
-import { cn } from '@/lib/utils';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { MarkAsSentDialog } from '@/components/MarkAsSentDialog';
 import { RecordFeedbackDialog } from '@/components/RecordFeedbackDialog';
@@ -50,29 +40,9 @@ export function SampleActionMenu({
   onRevisionCreated,
 }: SampleActionMenuProps) {
   const [isUpdating, setIsUpdating] = useState(false);
-  const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
-  const [completionDate, setCompletionDate] = useState<Date>(new Date());
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
-  const [startConfirmOpen, setStartConfirmOpen] = useState(false);
   const [revisionConfirmOpen, setRevisionConfirmOpen] = useState(false);
-
-  const updateStatus = async (status: SampleStatus, completedOn?: Date) => {
-    try {
-      setIsUpdating(true);
-      await sampleService.updateSample(sample.id, {
-        status,
-        ...(status === 'SUBMITTED' && completedOn && { completionDate: completedOn.toISOString() }),
-      });
-      handleApiSuccess('Status updated', `Sample marked as ${status.replace(/_/g, ' ').toLowerCase()}`);
-      onActionComplete();
-    } catch (err) {
-      handleApiError(err, 'Failed to update status');
-    } finally {
-      setIsUpdating(false);
-      setCompleteDialogOpen(false);
-    }
-  };
 
   const createRevision = async () => {
     try {
@@ -96,22 +66,12 @@ export function SampleActionMenu({
   const canRevise = isVersionedSampleType(sample.sampleType);
   const isApproved = sample.status === 'APPROVED' || sample.status === 'APPROVED_WITH_COMMENTS';
 
+  // Steps: To make → Mark Sent → Record Feedback (owner, 2026-10-02). Start Progress / Mark Complete
+  // were dropped — a sample is made in a day. IN_PROGRESS / SUBMITTED are only on older samples.
   const statusItem = (() => {
     switch (sample.status) {
       case 'REQUESTED':
-        return (
-          <DropdownMenuItem onSelect={() => setStartConfirmOpen(true)} disabled={isUpdating}>
-            <Play className="h-4 w-4 mr-2" />
-            Start Progress
-          </DropdownMenuItem>
-        );
       case 'IN_PROGRESS':
-        return (
-          <DropdownMenuItem onSelect={() => setCompleteDialogOpen(true)} disabled={isUpdating}>
-            <CheckCircle className="h-4 w-4 mr-2" />
-            Mark Complete
-          </DropdownMenuItem>
-        );
       case 'SUBMITTED':
         return (
           <DropdownMenuItem onSelect={() => setSendDialogOpen(true)} disabled={isUpdating}>
@@ -168,16 +128,6 @@ export function SampleActionMenu({
       </DropdownMenu>
 
       <ConfirmDialog
-        open={startConfirmOpen}
-        onOpenChange={setStartConfirmOpen}
-        title="Start progress on this sample?"
-        description={`${sample.sampleNumber} will be marked as being made. You can change the status again later.`}
-        confirmText="Start Progress"
-        onConfirm={() => updateStatus('IN_PROGRESS')}
-        isLoading={isUpdating}
-      />
-
-      <ConfirmDialog
         open={revisionConfirmOpen}
         onOpenChange={setRevisionConfirmOpen}
         title="Create a new revision?"
@@ -186,30 +136,6 @@ export function SampleActionMenu({
         onConfirm={createRevision}
         isLoading={isUpdating}
       />
-
-      <Dialog open={completeDialogOpen} onOpenChange={setCompleteDialogOpen}>
-        <DialogContent className="sm:max-w-fit">
-          <DialogHeader>
-            <DialogTitle>Mark Sample Complete</DialogTitle>
-            <DialogDescription>When was {sample.sampleNumber} completed?</DialogDescription>
-          </DialogHeader>
-          <Calendar
-            mode="single"
-            selected={completionDate}
-            onSelect={(date) => date && setCompletionDate(date)}
-            autoFocus
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCompleteDialogOpen(false)} disabled={isUpdating}>
-              Cancel
-            </Button>
-            <Button onClick={() => updateStatus('SUBMITTED', completionDate)} disabled={isUpdating}>
-              <CheckCircle className={cn('h-4 w-4 mr-2')} />
-              {isUpdating ? 'Saving...' : 'Mark Complete'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <MarkAsSentDialog
         open={sendDialogOpen}

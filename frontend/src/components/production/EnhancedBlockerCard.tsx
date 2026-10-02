@@ -24,22 +24,22 @@ interface EnhancedBlockerCardProps {
 const getResolutionSteps = (blockerType: string): string[] => {
   const resolutionMap: Record<string, string[]> = {
     FIT_SAMPLE_NOT_APPROVED: [
-      'Navigate to Samples page for this style',
-      'Review FIT sample details and measurements',
-      'If measurements are acceptable, approve the sample',
-      'Sample approval will automatically unblock printing/dyeing stages',
+      "This customer's sample settings require an approved FIT sample",
+      'Open the Samples page for this style',
+      'Mark the FIT sample Sent, then Record Feedback as Approved',
+      'Approval unblocks printing, dyeing and cutting',
     ],
     PP_SAMPLE_NOT_APPROVED: [
-      'Navigate to Samples page for this style',
-      'Review PP (Pre-Production) sample',
-      'Verify quality and construction details',
-      'Approve sample to proceed with SIZE_SET sample creation',
+      "This customer's sample settings require an approved PP (Pre-Production) sample",
+      'Open the Samples page for this style',
+      'Mark the PP sample Sent, then Record Feedback as Approved',
+      'Approval unblocks cutting',
     ],
     SIZE_SET_SAMPLE_NOT_APPROVED: [
-      'Navigate to Samples page for this style',
-      'Review SIZE_SET sample for all sizes',
-      'Verify grading and fit across size range',
-      'Approve sample to unblock cutting and subsequent stages',
+      "This customer's sample settings require an approved Size Set sample",
+      'Open the Samples page for this style',
+      'Mark the Size Set sample Sent, then Record Feedback as Approved',
+      'Approval unblocks cutting and the stages after it',
     ],
     FPT_NOT_PASSED: [
       'Navigate to Testing module and locate the FPT record',

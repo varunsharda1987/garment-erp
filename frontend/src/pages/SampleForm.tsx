@@ -246,7 +246,11 @@ export default function SampleForm() {
       // SEQUENTIAL SAMPLE VALIDATION (only for new samples, not edits)
       if (!isEditing && formData.styleId && ['PP_SAMPLE', 'SIZE_SET_SAMPLE'].includes(formData.sampleType)) {
         try {
-          const validation = await stageValidationService.checkSampleCreation(formData.styleId, formData.sampleType);
+          const validation = await stageValidationService.checkSampleCreation(
+            formData.styleId,
+            formData.sampleType,
+            formData.customerId
+          );
 
           if (!validation.canCreate) {
             if (user?.role === 'ADMIN') {

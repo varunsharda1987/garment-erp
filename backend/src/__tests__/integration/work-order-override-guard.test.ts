@@ -32,6 +32,7 @@ let pmHeader: Record<string, string>;
 let originalAllowed: boolean | null = null;
 let warehouseId: string;
 let styleId: string;
+let customerId: string;
 let sizeId: string;
 let workOrderId: string;
 
@@ -88,10 +89,24 @@ beforeAll(async () => {
   });
   warehouseId = warehouse.id;
 
-  // A style with a size and nothing else: no samples, no CAD — every gate is closed.
+  // A style with a size and nothing else: no samples, no CAD — every gate is closed. Its buyer
+  // requires a Size Set Sample (no requirement rows = no sample gate since 2026-10-02).
+  const customer = await prisma.customers.create({
+    data: {
+      code: `${RUN}-CUS`,
+      name: `${RUN} Buyer`,
+      type: 'BUYER',
+      category: 'DOMESTIC',
+      createdById: adminId,
+      customer_sample_requirements: {
+        create: { sampleType: 'SIZE_SET_SAMPLE', isRequired: true, blocksProduction: true },
+      },
+    },
+  });
+  customerId = customer.id;
   styleId = randomUUID();
   await prisma.styles.create({
-    data: { id: styleId, styleCode: `${RUN}-STY`, styleName: `${RUN} Kurta`, createdById: adminId },
+    data: { id: styleId, styleCode: `${RUN}-STY`, styleName: `${RUN} Kurta`, customerId, createdById: adminId },
   });
   sizeId = randomUUID();
   await prisma.size_options.create({ data: { id: sizeId, styleId, sizeName: 'M', sizeCode: 'M' } });
@@ -128,6 +143,7 @@ afterAll(async () => {
   await prisma.style_variants.deleteMany({ where: { styleId: only(styleId) } });
   await prisma.size_options.deleteMany({ where: { styleId: only(styleId) } });
   await prisma.styles.deleteMany({ where: { id: only(styleId) } });
+  await prisma.customers.deleteMany({ where: { id: only(customerId) } }); // requirement rows cascade
   await prisma.warehouses.deleteMany({ where: { id: only(warehouseId) } });
   await prisma.users.deleteMany({ where: { id: { in: [adminId, pmId].map((id) => only(id)) } } });
   await prisma.$disconnect();

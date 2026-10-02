@@ -354,7 +354,7 @@ export const SampleTypeLabels: Record<SampleType, string> = {
 };
 
 export const SampleStatusLabels: Record<SampleStatus, string> = {
-  REQUESTED: 'Requested',
+  REQUESTED: 'To make', // the stored value stays REQUESTED (owner, 2026-10-02)
   IN_PROGRESS: 'In Progress',
   SUBMITTED: 'Submitted',
   APPROVED: 'Approved',

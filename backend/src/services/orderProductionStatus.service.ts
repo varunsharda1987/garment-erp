@@ -4,6 +4,7 @@ import { Prisma, ProductionStage, CADStatus } from '@prisma/client';
 import { InternalError } from '../errors';
 import { systemSettingsService } from './system-settings.service';
 import { applySearch } from '../utils/search-filter';
+import { GATE_CUSTOMER_SELECT, resolveCustomerGates } from './productionBlockingValidation.service';
 
 // Types for order production status
 interface OrderProductionStatusQueryOptions {
@@ -154,11 +155,14 @@ class OrderProductionStatusService {
         include: {
           orders: {
             include: {
-              customers: true,
+              customers: {
+                include: { customer_sample_requirements: GATE_CUSTOMER_SELECT.customer_sample_requirements },
+              },
             },
           },
           styles: {
             include: {
+              customer: { select: GATE_CUSTOMER_SELECT },
               samples: {
                 orderBy: { createdAt: 'desc' },
               },
@@ -763,31 +767,49 @@ class OrderProductionStatusService {
       });
     }
 
-    // Check sample approvals
-    if (
-      sampleStatus.fitSample.exists &&
-      sampleStatus.fitSample.status !== 'APPROVED' &&
-      sampleStatus.fitSample.status !== 'APPROVED_WITH_COMMENTS'
-    ) {
-      blockers.push({
+    // Sample approvals — only the types this order's customer requires (resolveCustomerGates), the same
+    // rule the cutting gate applies. Before 2026-10-02 any unapproved FIT showed here, for every customer.
+    const gates = resolveCustomerGates(orderItem.orders?.customers ?? style?.customer ?? null);
+    const sampleChecks = [
+      {
+        blocks: gates.fitBlocks,
+        sample: sampleStatus.fitSample,
         type: 'FIT_SAMPLE_NOT_APPROVED',
+        label: 'Fit sample',
         severity: 'HIGH',
-        message: 'Fit sample awaiting approval',
-        daysStuck: sampleStatus.fitSample.daysPending,
-      });
-    }
-
-    if (
-      sampleStatus.ppSample.exists &&
-      sampleStatus.ppSample.status !== 'APPROVED' &&
-      sampleStatus.ppSample.status !== 'APPROVED_WITH_COMMENTS'
-    ) {
-      blockers.push({
+      },
+      {
+        blocks: gates.ppBlocks,
+        sample: sampleStatus.ppSample,
         type: 'PP_SAMPLE_NOT_APPROVED',
+        label: 'PP sample',
         severity: 'MEDIUM',
-        message: 'PP sample awaiting approval',
-        daysStuck: sampleStatus.ppSample.daysPending,
-      });
+      },
+      {
+        blocks: gates.sizeSetBlocks,
+        sample: sampleStatus.sizeSetSample,
+        type: 'SIZE_SET_SAMPLE_NOT_APPROVED',
+        label: 'Size set sample',
+        severity: 'HIGH',
+      },
+    ] as const;
+    for (const check of sampleChecks) {
+      if (!check.blocks) continue;
+      if (!check.sample.exists) {
+        blockers.push({
+          type: check.type,
+          severity: check.severity,
+          message: `${check.label} not raised yet`,
+          daysStuck: null,
+        });
+      } else if (check.sample.status !== 'APPROVED' && check.sample.status !== 'APPROVED_WITH_COMMENTS') {
+        blockers.push({
+          type: check.type,
+          severity: check.severity,
+          message: `${check.label} awaiting approval`,
+          daysStuck: check.sample.daysPending,
+        });
+      }
     }
 
     return blockers;

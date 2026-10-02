@@ -16,8 +16,8 @@
  *   - a line with a stamped fabricId keeps the old rule (that master's lots)
  *   - the shortage message says what to do when nothing could be matched
  *
- * Runs against the LIVE database on tagged fixtures; everything is deleted in afterAll. Samples are
- * deliberately absent, so push-to-cutting is always refused — the assertions are on WHICH blockers
+ * Runs against the LIVE database on tagged fixtures; everything is deleted in afterAll. The buyer
+ * requires a Size Set Sample and none exists, so push-to-cutting is always refused — the assertions are on WHICH blockers
  * the refusal names, exactly as the run page would show them.
  */
 
@@ -98,8 +98,19 @@ beforeAll(async () => {
   adminId = admin.id;
   adminHeader = getAuthHeader(admin.id, 'ADMIN');
 
+  // The buyer requires a Size Set Sample, so samples keep blocking (no requirement rows = no sample
+  // gate since 2026-10-02).
   const customer = await prisma.customers.create({
-    data: { code: `${RUN}-CUST`, name: `${RUN} Buyer`, type: 'BUYER', category: 'DOMESTIC', createdById: adminId },
+    data: {
+      code: `${RUN}-CUST`,
+      name: `${RUN} Buyer`,
+      type: 'BUYER',
+      category: 'DOMESTIC',
+      createdById: adminId,
+      customer_sample_requirements: {
+        create: { sampleType: 'SIZE_SET_SAMPLE', isRequired: true, blocksProduction: true },
+      },
+    },
   });
   customerId = customer.id;
 

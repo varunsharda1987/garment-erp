@@ -2,7 +2,7 @@ import prisma from '../config/database';
 import { randomUUID } from 'crypto';
 import { logInfo, logWarn } from '../utils/logger';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
-import type { SampleType, SampleStatus, Prisma } from '@prisma/client';
+import type { SampleType } from '@prisma/client';
 
 /**
  * Sample Service
@@ -20,9 +20,6 @@ const SAMPLE_LEAD_DAYS: Record<SampleType, number> = {
   PRODUCTION_SAMPLE: 5, // 5 days before ship
   SHIPMENT_SAMPLE: 3, // 3 days before ship
 };
-
-// Default fallback if customer has no requirements defined
-const DEFAULT_REQUIRED_TYPES: SampleType[] = ['FIT_SAMPLE', 'PP_SAMPLE', 'SIZE_SET_SAMPLE'];
 
 interface AutoCreateResult {
   created: Array<{
@@ -72,24 +69,15 @@ class SampleService {
   }
 
   /**
-   * Get customer's sample requirements
-   * Falls back to defaults if none configured
+   * Get customer's sample requirements.
+   * No rows = no samples required — what the customer screen shows ("Samples won't be auto-created for
+   * this customer") and what the production gate reads (resolveCustomerGates). Until 2026-10-02 this
+   * fell back to FIT + PP + Size Set, so orders for a customer with nothing ticked still raised all three.
    */
   async getCustomerSampleRequirements(customerId: string): Promise<CustomerSampleRequirement[]> {
     const requirements = await prisma.customer_sample_requirements.findMany({
       where: { customerId },
     });
-
-    if (requirements.length === 0) {
-      // No custom requirements - return defaults (FIT, PP, SIZE_SET all required)
-      return DEFAULT_REQUIRED_TYPES.map((sampleType) => ({
-        sampleType,
-        isRequired: true,
-        blocksProduction: true,
-        targetDaysToSend: null,
-        targetDaysToFeedback: null,
-      }));
-    }
 
     return requirements.map((r) => ({
       sampleType: r.sampleType,
@@ -252,35 +240,6 @@ class SampleService {
     });
 
     return result;
-  }
-
-  /**
-   * Quick status update for inline actions
-   */
-  async quickStatusUpdate(
-    sampleId: string,
-    data: {
-      status: SampleStatus;
-      sentDate?: Date;
-      completionDate?: Date;
-    }
-  ): Promise<void> {
-    const updateData: Prisma.samplesUpdateInput = {
-      status: data.status,
-    };
-
-    if (data.status === 'SENT' && data.sentDate) {
-      updateData.sentDate = data.sentDate;
-    }
-
-    if (data.status === 'SUBMITTED' && data.completionDate) {
-      updateData.completionDate = data.completionDate;
-    }
-
-    await prisma.samples.update({
-      where: { id: sampleId },
-      data: updateData,
-    });
   }
 }
 

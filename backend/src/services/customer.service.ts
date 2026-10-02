@@ -782,12 +782,12 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
       blockers.push({ type: 'Unpaid Invoices', count: unpaidInvoices });
     }
 
-    // 3. Pending Samples (not approved or rejected)
+    // 3. Pending Samples (no verdict yet — approved, approved with comments or rejected are settled)
     const pendingSamples = await this.prisma.samples.count({
       where: {
         customerId,
         isActive: true,
-        status: { notIn: ['APPROVED', 'REJECTED'] },
+        status: { notIn: ['APPROVED', 'APPROVED_WITH_COMMENTS', 'REJECTED'] },
       },
     });
     if (pendingSamples > 0) {
@@ -1081,10 +1081,10 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
       throw new NotFoundError('Customer', customerId);
     }
 
-    // Default blocksProduction based on sample type
-    // FIT/PP block production, SHIPMENT blocks dispatch
+    // Default blocksProduction based on sample type: FIT / PP / Size Set block production, SHIPMENT
+    // blocks dispatch. Size Set included (2026-10-02): ticking it "Required" is meant to hold up cutting.
     const getDefaultBlocks = (type: SampleType) =>
-      (['FIT_SAMPLE', 'PP_SAMPLE', 'SHIPMENT_SAMPLE'] as SampleType[]).includes(type);
+      (['FIT_SAMPLE', 'PP_SAMPLE', 'SIZE_SET_SAMPLE', 'SHIPMENT_SAMPLE'] as SampleType[]).includes(type);
 
     // One transaction: a row the database refuses must not leave the earlier rows half-written
     const results = await this.prisma.$transaction((tx) =>

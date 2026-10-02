@@ -3,6 +3,7 @@ import logger from '../utils/logger';
 import { Prisma, ProductionStage, CADStatus } from '@prisma/client';
 import { InternalError } from '../errors';
 import { applySearch } from '../utils/search-filter';
+import { GATE_CUSTOMER_SELECT, resolveCustomerGates } from './productionBlockingValidation.service';
 
 // Types for production status
 interface ProductionStatusQueryOptions {
@@ -85,11 +86,14 @@ class ProductionStatusService {
       const styles = await prisma.styles.findMany({
         where: styleWhere,
         include: {
+          customer: { select: GATE_CUSTOMER_SELECT },
           order_items: {
             include: {
               orders: {
                 include: {
-                  customers: true,
+                  customers: {
+                    include: { customer_sample_requirements: GATE_CUSTOMER_SELECT.customer_sample_requirements },
+                  },
                 },
               },
             },
@@ -479,18 +483,53 @@ class ProductionStatusService {
       });
     }
 
-    // Check sample approvals
+    // Sample approvals — only the types the style's buyer requires (resolveCustomerGates), the same
+    // rule the cutting gate applies. Before 2026-10-02 any unapproved FIT showed here, for every customer.
     const samples = style.samples || [];
-    const fitSample = samples.find((s: any) => s.sampleType === 'FIT_SAMPLE');
-    if (fitSample && fitSample.status !== 'APPROVED' && fitSample.status !== 'APPROVED_WITH_COMMENTS') {
-      blockers.push({
+    const gates = resolveCustomerGates(style.customer ?? style.order_items?.[0]?.orders?.customers ?? null);
+    const sampleChecks = [
+      {
+        blocks: gates.fitBlocks,
+        sampleType: 'FIT_SAMPLE',
         type: 'FIT_SAMPLE_NOT_APPROVED',
+        label: 'Fit sample',
         severity: 'HIGH',
-        message: 'Fit sample awaiting approval',
-        daysStuck: fitSample.requestDate
-          ? Math.floor((new Date().getTime() - new Date(fitSample.requestDate).getTime()) / (1000 * 60 * 60 * 24))
-          : null,
-      });
+      },
+      {
+        blocks: gates.ppBlocks,
+        sampleType: 'PP_SAMPLE',
+        type: 'PP_SAMPLE_NOT_APPROVED',
+        label: 'PP sample',
+        severity: 'MEDIUM',
+      },
+      {
+        blocks: gates.sizeSetBlocks,
+        sampleType: 'SIZE_SET_SAMPLE',
+        type: 'SIZE_SET_SAMPLE_NOT_APPROVED',
+        label: 'Size set sample',
+        severity: 'HIGH',
+      },
+    ] as const;
+    for (const check of sampleChecks) {
+      if (!check.blocks) continue;
+      const sample = samples.find((s: any) => s.sampleType === check.sampleType);
+      if (!sample) {
+        blockers.push({
+          type: check.type,
+          severity: check.severity,
+          message: `${check.label} not raised yet`,
+          daysStuck: null,
+        });
+      } else if (sample.status !== 'APPROVED' && sample.status !== 'APPROVED_WITH_COMMENTS') {
+        blockers.push({
+          type: check.type,
+          severity: check.severity,
+          message: `${check.label} awaiting approval`,
+          daysStuck: sample.requestDate
+            ? Math.floor((new Date().getTime() - new Date(sample.requestDate).getTime()) / (1000 * 60 * 60 * 24))
+            : null,
+        });
+      }
     }
 
     return blockers;

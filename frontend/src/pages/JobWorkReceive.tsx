@@ -91,6 +91,9 @@ export default function JobWorkReceive() {
   // ---- Each colour --------------------------------------------------------------------------------------------
   const [rows, setRows] = useState<Record<string, ReceiveRow>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  // Which colours came on THIS truck. Colours of one job often come back on different days: a colour not ticked
+  // is simply not part of this delivery and stays open for a later one. The only open colour is ticked for you.
+  const [onTruck, setOnTruck] = useState<Record<string, boolean>>({});
   const rowOf = (lineId: string) => rows[lineId] ?? emptyReceiveRow(lineId);
   const updateRow = (lineId: string, patch: Partial<ReceiveRow>) =>
     setRows((prev) => ({ ...prev, [lineId]: { ...(prev[lineId] ?? emptyReceiveRow(lineId)), ...patch } }));
@@ -122,8 +125,14 @@ export default function JobWorkReceive() {
   const uom = jwo?.uom ?? 'MTR';
   const unit = unitShort(uom);
   const processorName = jwo?.processor?.name ?? 'the processor';
-  const allRows = lines.map((l) => rowOf(l.id));
-  const entered = allRows.filter(rowEntered);
+  const isOnTruck = (lineId: string) => {
+    const line = lines.find((l) => l.id === lineId);
+    return !!line && !line.closedAt && (onTruck[lineId] ?? openLines.length === 1);
+  };
+  /** The colours of this delivery — only these are checked, counted and sent */
+  const truckRows = lines.filter((l) => isOnTruck(l.id)).map((l) => rowOf(l.id));
+  const entered = truckRows.filter(rowEntered);
+  const tickedEmpty = lines.filter((l) => isOnTruck(l.id) && !rowEntered(rowOf(l.id)));
   const dirty = entered.length > 0 || !!challanRef.trim() || !!invoiceNumber.trim();
   const { setIsDirty, promptUnsaved, UnsavedDialog } = useUnsavedChanges({
     enabled: dirty,
@@ -152,18 +161,20 @@ export default function JobWorkReceive() {
   const checks = Object.fromEntries(
     lines.map((l) => [l.id, checkRow(rowOf(l.id), l, { isLace, maxReceivable: maxOf(l.id), tolerancePercent, unit })])
   );
-  const closesJob = deliveryClosesJob(lines, allRows, tolerancePercent);
+  const closesJob = deliveryClosesJob(lines, truckRows, tolerancePercent);
   const jobShort = closesJob && !!preview?.isOverTolerance;
 
   // ---- What blocks the press ----------------------------------------------------------------------------------
   const sentDay = jwo?.sentDate ? jwo.sentDate.slice(0, 10) : undefined;
   const dateBeforeSend = !!sentDay && !!receivedDate && receivedDate < sentDay;
   const invoiceReady = invoiceToFollow || (!!invoiceNumber.trim() && !!invoiceDate);
-  const rowsReady = entered.length > 0 && entered.every((row) => checks[row.lineId]?.problems.length === 0);
+  const rowsReady =
+    entered.length > 0 && tickedEmpty.length === 0 && entered.every((row) => checks[row.lineId]?.problems.length === 0);
   const canSubmit = rowsReady && !!storeId && !!receivedDate && !dateBeforeSend && invoiceReady && !inFlight;
   const waitingFor = [
-    entered.length === 0 && 'the metres of at least one colour',
-    entered.length > 0 && !rowsReady && 'the colours marked in red',
+    truckRows.length === 0 && 'tick the colour(s) that came on this truck',
+    tickedEmpty.length > 0 && `the metres of ${tickedEmpty.map(lineName).join(', ')}`,
+    entered.length > 0 && entered.some((row) => checks[row.lineId]?.problems.length) && 'the colours marked in red',
     !storeId && (toProcessor ? "the next processor's unit" : 'the warehouse'),
     dateBeforeSend && 'a date on or after the day the greige was sent',
     !invoiceReady && "the processor's invoice (or tick Invoice not received yet)",
@@ -184,7 +195,7 @@ export default function JobWorkReceive() {
             warehouseId: storeId,
             vehicle,
           },
-          allRows,
+          truckRows,
           lines,
           { tolerancePercent, submissionKey, shortCloseConfirmed }
         )
@@ -490,7 +501,7 @@ export default function JobWorkReceive() {
           <CardTitle>What came back</CardTitle>
           <CardDescription>
             {severalLines
-              ? 'One row per colour / order. Leave a row empty if that colour did not come on this truck — each colour that came becomes its own receipt and fabric lot, counted only for its own order.'
+              ? 'Tick each colour that came on this truck — colours of one job often come back on different days. A colour not ticked stays open for a later delivery. Each colour that came becomes its own receipt and fabric lot, counted only for its own order.'
               : 'Enter what came back. Open the row for than-, bale- or roll-wise entry, the fold length and quality.'}
           </CardDescription>
         </CardHeader>
@@ -499,11 +510,12 @@ export default function JobWorkReceive() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-8" />
+                {severalLines && <TableHead className="w-28">On this truck</TableHead>}
                 <TableHead>{severalLines ? 'Colour / order' : 'Expected back'}</TableHead>
                 <TableHead className="text-right">Expected</TableHead>
                 <TableHead className="text-right">Received so far</TableHead>
-                <TableHead className="w-44">This delivery ({unit}) *</TableHead>
-                {!isLace && <TableHead className="w-36">Measured width (&quot;) *</TableHead>}
+                <TableHead className="w-44">This delivery ({unit})</TableHead>
+                {!isLace && <TableHead className="w-36">Measured width (&quot;)</TableHead>}
                 <TableHead className="w-40">Final for this colour</TableHead>
               </TableRow>
             </TableHeader>
@@ -512,7 +524,8 @@ export default function JobWorkReceive() {
                 const row = rowOf(line.id);
                 const closed = !!line.closedAt;
                 const check = checks[line.id];
-                const open = expanded[line.id] ?? !severalLines;
+                const here = isOnTruck(line.id);
+                const open = here && (expanded[line.id] ?? !severalLines);
                 const expected = line.qtyExpected != null ? Number(line.qtyExpected) : null;
                 const received = Number(line.receivedQty ?? 0);
                 const orders = line.requirementLinks
@@ -520,14 +533,14 @@ export default function JobWorkReceive() {
                   .filter(Boolean)
                   .join(', ');
                 const output = line.finishedLace ?? line.finishedFabric;
-                const cols = isLace ? 6 : 7;
+                const cols = (isLace ? 6 : 7) + (severalLines ? 1 : 0);
                 const final = rowIsFinal(row, line, tolerancePercent);
                 const lastOpen = openLines.length === 1 || stillOpenAfter.every((l) => l.id === line.id);
                 return (
                   <Fragment key={line.id}>
-                    <TableRow className={closed ? 'opacity-60' : rowEntered(row) ? 'bg-primary/5' : undefined}>
+                    <TableRow className={closed ? 'opacity-60' : here ? 'bg-primary/5' : undefined}>
                       <TableCell className="align-top">
-                        {!closed && (
+                        {here && (
                           <Button
                             variant="ghost"
                             size="icon"
@@ -539,6 +552,24 @@ export default function JobWorkReceive() {
                           </Button>
                         )}
                       </TableCell>
+                      {severalLines && (
+                        <TableCell className="align-top">
+                          {!closed && (
+                            <label className="flex items-center gap-2 pt-2 text-sm">
+                              <Checkbox
+                                checked={here}
+                                aria-label={`${lineName(line)} came on this truck`}
+                                onCheckedChange={(v) => {
+                                  setOnTruck((prev) => ({ ...prev, [line.id]: v === true }));
+                                  if (v === true)
+                                    setExpanded((prev) => ({ ...prev, [line.id]: prev[line.id] ?? false }));
+                                }}
+                              />
+                              {here ? 'Yes' : 'No'}
+                            </label>
+                          )}
+                        </TableCell>
+                      )}
                       <TableCell className="align-top">
                         <div className="font-medium">
                           {severalLines
@@ -574,7 +605,11 @@ export default function JobWorkReceive() {
                         )}
                       </TableCell>
                       <TableCell className="align-top">
-                        {closed ? null : row.entryMode === 'TOTAL_METERS' ? (
+                        {closed ? null : !here ? (
+                          <div className="pt-2 text-xs text-muted-foreground">
+                            Not on this truck — stays open for a later delivery
+                          </div>
+                        ) : row.entryMode === 'TOTAL_METERS' ? (
                           <Input
                             type="number"
                             min={0.01}
@@ -591,7 +626,7 @@ export default function JobWorkReceive() {
                             </div>
                           </div>
                         )}
-                        {!closed && row.foldLengthCm > 0 && rowCounted(row) > 0 && (
+                        {here && row.foldLengthCm > 0 && rowCounted(row) > 0 && (
                           <div className="mt-1 text-xs text-muted-foreground">
                             = {formatQuantity(rowActual(row), uom)} at L {row.foldLengthCm}
                           </div>
@@ -599,7 +634,7 @@ export default function JobWorkReceive() {
                       </TableCell>
                       {!isLace && (
                         <TableCell className="align-top">
-                          {!closed && (
+                          {here && (
                             <>
                               <Input
                                 type="number"
@@ -626,7 +661,7 @@ export default function JobWorkReceive() {
                         </TableCell>
                       )}
                       <TableCell className="align-top">
-                        {!closed && rowEntered(row) && (
+                        {here && rowEntered(row) && (
                           <label className="flex items-start gap-2 pt-2 text-sm">
                             <Checkbox
                               checked={final}
@@ -641,7 +676,7 @@ export default function JobWorkReceive() {
                       </TableCell>
                     </TableRow>
 
-                    {!closed && (check.problems.length > 0 || check.shortBy != null) && (
+                    {here && (check.problems.length > 0 || check.shortBy != null) && (
                       <TableRow className="hover:bg-transparent">
                         <TableCell />
                         <TableCell colSpan={cols - 1} className="pt-0">
@@ -659,7 +694,7 @@ export default function JobWorkReceive() {
                       </TableRow>
                     )}
 
-                    {!closed && open && (
+                    {open && (
                       <TableRow className="hover:bg-transparent">
                         <TableCell />
                         <TableCell colSpan={cols - 1}>
@@ -708,7 +743,11 @@ export default function JobWorkReceive() {
                 </div>
               </>
             ) : (
-              <div className="text-muted-foreground">Enter what came back to see what will be booked.</div>
+              <div className="text-muted-foreground">
+                {severalLines && truckRows.length === 0
+                  ? 'Tick the colour(s) that came on this truck, then enter their metres.'
+                  : 'Enter what came back to see what will be booked.'}
+              </div>
             )}
             {!canSubmit && waitingFor.length > 0 && entered.length > 0 && (
               <div className="text-xs text-amber-700">Still needed: {waitingFor.join(' · ')}</div>

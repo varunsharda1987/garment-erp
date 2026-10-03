@@ -5,7 +5,9 @@ import prisma from '../config/database';
 import { getDerivedOnHand } from './helpers/derived-stock.helper';
 import { latestSampleRoundForStyle } from './helpers/lab-round.helper';
 import { notInProcessorUnitWhere } from './helpers/lot-location.helper';
+import { LINE_RECEIPTS_SELECT, lineReceivedQty } from './helpers/jwo-lines.helper';
 import { styleCodeLabel } from '../utils/style-code';
+import { isQtyZero, qtyRemaining } from '../utils/quantity';
 
 // Shortfall tolerance: ignore shortfalls below 0.5% of required quantity
 // (handles BOM wastage rounding — e.g. need 1670.29m, have 1670.00m → 0.017% short → pass)
@@ -174,7 +176,8 @@ async function resolveRunCustomer(
 }
 
 /**
- * How much AVAILABLE finished fabric answers one Order BOM fabric/greige line.
+ * How much finished fabric answers one Order BOM fabric/greige line: AVAILABLE in store, plus what this
+ * order's runs of the style have taken to Cutting and not returned (on the floor, or already cut).
  *
  * `order_bom_items.fabricId` is null BY DESIGN at BOM time — the finished fabric does not exist yet
  * (see schema.prisma) — and it is stamped later only when the CAD row's style slot already carries a
@@ -216,15 +219,127 @@ async function availableFabricForBomLine(bom: BomFabricLine, run: RunIdentity): 
   const inStore = Number(agg._sum.quantityAvailable || 0);
 
   if (!run.orderId) return inStore;
+  // The requirement is the WHOLE order's, so fabric this run's completed batches already cut counts too:
+  // everything issued to Cutting and not returned — on the floor or cut. Without the cut part every batch
+  // after the first read short by what the earlier ones used (2026-10-03).
   const position = await getRunFabricPosition(await runIdsForOrderStyle(run.orderId, run.styleId));
-  const withCutting = [...position.lots.values()].filter((l) => l.atCutting > 0);
-  if (withCutting.length === 0) return inStore;
+  const outForRun = (l: { issued: number; returned: number }) => qtyRemaining(l.issued, l.returned);
+  const runLots = [...position.lots.values()].filter((l) => !isQtyZero(outForRun(l)));
+  if (runLots.length === 0) return inStore;
   const matching = await prisma.fabric_stock.findMany({
-    where: { AND: [lineage, { id: { in: withCutting.map((l) => l.fabricStockId) } }] },
+    where: { AND: [lineage, { id: { in: runLots.map((l) => l.fabricStockId) } }] },
     select: { id: true },
   });
   const ids = new Set(matching.map((m) => m.id));
-  return inStore + withCutting.filter((l) => ids.has(l.fabricStockId)).reduce((sum, l) => sum + l.atCutting, 0);
+  return inStore + runLots.filter((l) => ids.has(l.fabricStockId)).reduce((sum, l) => sum + outForRun(l), 0);
+}
+
+/** A BOM line and the lines it replaced (previousItemId chain) — a requirement keeps the line id it was planned on */
+async function bomLineAndAncestors(bomItemId: string): Promise<string[]> {
+  const ids = [bomItemId];
+  let current: string | null = bomItemId;
+  while (current && ids.length < 50) {
+    const row: { previousItemId: string | null } | null = await prisma.order_bom_items.findUnique({
+      where: { id: current },
+      select: { previousItemId: true },
+    });
+    current = row?.previousItemId ?? null;
+    if (!current || ids.includes(current)) break;
+    ids.push(current);
+  }
+  return ids;
+}
+
+/**
+ * Metres of a BOM line's fabric the team has accepted will NEVER arrive — the short close (owner, 03-Oct-2026).
+ *
+ * Short-closing a source used to change nothing here: the line still asked for its full Order BOM quantity and
+ * cutting was refused for exactly the metres that had been written off (ESSKY082LS, 47.70 m). Two sources:
+ *   - job work: a CLOSED job line serving this line (final delivery in, or Close short) that brought back less
+ *     than it was expected to — `qtyExpected − received`, in finished metres. A job line serving several orders
+ *     counts only this order's share (by its requirement links' allocations).
+ *   - purchase: a requirement of this line closed short on its PO (`shortQuantity`). A greige requirement's short
+ *     is greige metres, so for a fabric line it is taken at the shrinkage the requirement was planned with.
+ * "Don't order more" decisions (CANCELLED / NOT_ORDERED) are not a short close and never count.
+ */
+async function shortClosedFabricForBomLine(
+  bom: { id: string; greigeId: string | null; materialType: string },
+  run: RunIdentity
+): Promise<number> {
+  if (!run.orderId) return 0;
+  const lineIds = await bomLineAndAncestors(bom.id);
+  const thisLine: Prisma.material_requirementsWhereInput = { orderId: run.orderId, orderBomItemId: { in: lineIds } };
+  const isThisLine = (r: { orderId: string | null; orderBomItemId: string | null }) =>
+    r.orderId === run.orderId && !!r.orderBomItemId && lineIds.includes(r.orderBomItemId);
+
+  const [jobLines, poShorts] = await Promise.all([
+    prisma.job_work_order_lines.findMany({
+      where: {
+        closedAt: { not: null },
+        qtyExpected: { not: null },
+        jobWorkOrder: { jwoStatus: { not: 'CANCELLED' } },
+        requirementLinks: { some: { material_requirements: thisLine } },
+      },
+      select: {
+        qtyExpected: true,
+        receiptItems: LINE_RECEIPTS_SELECT,
+        requirementLinks: {
+          select: {
+            allocatedQuantity: true,
+            material_requirements: { select: { orderId: true, orderBomItemId: true } },
+          },
+        },
+      },
+    }),
+    prisma.material_requirements.findMany({
+      where: {
+        ...thisLine,
+        requirementType: 'MATERIAL',
+        status: { not: 'CANCELLED' },
+        shortQuantity: { gt: 0 },
+      },
+      select: { materialId: true, shortQuantity: true, shrinkagePercentUsed: true },
+    }),
+  ]);
+
+  let written = 0;
+  for (const line of jobLines) {
+    const short = qtyRemaining(line.qtyExpected ?? 0, lineReceivedQty(line.receiptItems));
+    const all = line.requirementLinks.reduce((sum, l) => sum + Number(l.allocatedQuantity), 0);
+    const mine = line.requirementLinks
+      .filter((l) => isThisLine(l.material_requirements))
+      .reduce((sum, l) => sum + Number(l.allocatedQuantity), 0);
+    written += isQtyZero(all) ? short : short * Math.min(1, mine / all);
+  }
+  for (const req of poShorts) {
+    const short = Number(req.shortQuantity ?? 0);
+    const greigeForFabric = bom.materialType === 'FABRIC' && !!bom.greigeId && req.materialId === bom.greigeId;
+    const shrinkage = Math.min(100, Math.max(0, Number(req.shrinkagePercentUsed ?? 0)));
+    written += greigeForFabric ? short * (1 - shrinkage / 100) : short;
+  }
+  return Math.round(written * 100) / 100;
+}
+
+/**
+ * What a fabric BOM line still needs before cutting: its Order BOM quantity less what the team short-closed at
+ * source. ONE rule for the cutting gate and the run page's material readiness.
+ */
+async function fabricRequiredForBomLine(
+  bom: { id: string; greigeId: string | null; materialType: string; totalWithWastage: unknown; totalQuantity: unknown },
+  run: RunIdentity
+): Promise<{ bomRequired: number; shortClosed: number; required: number }> {
+  const bomRequired = Number(bom.totalWithWastage || bom.totalQuantity || 0);
+  const shortClosed = Math.min(bomRequired, await shortClosedFabricForBomLine(bom, run));
+  return { bomRequired, shortClosed, required: qtyRemaining(bomRequired, shortClosed) };
+}
+
+/** "1941.20 METER" → with a short close, "1893.50 METER (1941.20 on the Order BOM less 47.70 short-closed at source)" */
+function requiredText(need: { bomRequired: number; shortClosed: number; required: number }, unit: string): string {
+  if (isQtyZero(need.shortClosed)) return `${need.required.toFixed(2)} ${unit}`;
+  return (
+    `${need.required.toFixed(2)} ${unit} (${need.bomRequired.toFixed(2)} on the Order BOM less ` +
+    `${need.shortClosed.toFixed(2)} short-closed at source)`
+  );
 }
 
 /** The one-line "what to do" appended to a shortage on a line the lineage lookup could not answer. */
@@ -723,17 +838,20 @@ class ProductionBlockingValidationService {
     }
 
     for (const bom of orderBom.items || []) {
-      const totalRequired = Number(bom.totalWithWastage || bom.totalQuantity || 0);
       const isFabricType = FABRIC_MATERIAL_TYPES.includes(bom.materialType);
+      const bomRequired = Number(bom.totalWithWastage || bom.totalQuantity || 0);
+      let need = { bomRequired, shortClosed: 0, required: bomRequired };
 
       let availableStock: number;
       if (isFabricType) {
         availableStock = await availableFabricForBomLine(bom, run);
+        need = await fabricRequiredForBomLine(bom, run);
       } else {
         if (!bom.materialId) continue;
         // T2-1 Stage B3: derived on-hand (per-lot truth) instead of hand-maintained stock_levels.quantity.
         availableStock = await getDerivedOnHand(bom.materialId);
       }
+      const totalRequired = need.required;
 
       const shortfall = totalRequired - availableStock;
       const toleranceQty = totalRequired * SHORTFALL_TOLERANCE_PERCENT;
@@ -749,7 +867,7 @@ class ProductionBlockingValidationService {
 
         blockers.push({
           type: 'MATERIAL_SHORTAGE',
-          message: `Insufficient stock for ${materialName} (${materialCode}). Required: ${totalRequired.toFixed(2)} ${bom.unit}, Available: ${availableStock.toFixed(2)} ${bom.unit}, Short: ${shortfall.toFixed(2)} ${bom.unit}${hint}`,
+          message: `Insufficient stock for ${materialName} (${materialCode}). Required: ${requiredText(need, bom.unit)}, Available: ${availableStock.toFixed(2)} ${bom.unit}, Short: ${shortfall.toFixed(2)} ${bom.unit}${hint}`,
           severity: 'CRITICAL',
         });
       }
@@ -1053,12 +1171,14 @@ class ProductionBlockingValidationService {
     let availableCount = 0;
 
     for (const bom of allBOMs) {
-      const totalRequired = Number(bom.totalWithWastage || bom.totalQuantity || 0);
+      let totalRequired = Number(bom.totalWithWastage || bom.totalQuantity || 0);
       const isFabricType = FABRIC_MATERIAL_TYPES.includes(bom.materialType);
 
       let availableStock: number;
       if (isFabricType) {
         availableStock = await availableFabricForBomLine(bom, workOrder);
+        // Less what was short-closed at source — the same rule the cutting gate applies
+        totalRequired = (await fabricRequiredForBomLine(bom, workOrder)).required;
       } else {
         if (!bom.materialId) {
           availableCount++; // No materialId means no stock check possible — skip

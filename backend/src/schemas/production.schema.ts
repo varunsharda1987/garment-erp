@@ -95,6 +95,14 @@ export const createCuttingBatchSchema = z.object({
   remarks: z.string().max(1000).optional(),
   skuOutputs: z.array(skuOutputSchema).min(1, 'At least one SKU output is required'),
   fabricStocks: z.array(fabricStockInputSchema).optional(),
+  // An ADMIN cutting past a fabric shortage says why (owner, 03-Oct-2026). Overrides a MATERIAL_SHORTAGE
+  // only — samples, tests and the Production CAD still refuse. Logged in stage_transition_overrides.
+  materialShortageOverrideReason: z
+    .string()
+    .trim()
+    .min(10, 'Give a reason of at least 10 characters for cutting past the fabric shortage')
+    .max(1000)
+    .optional(),
 });
 
 /**

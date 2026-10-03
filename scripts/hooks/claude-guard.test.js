@@ -49,7 +49,7 @@ test('git commands that take or wipe other terminals\' work are blocked', () => 
     'git pull',
     'cd backend && git stash',
     'git status; git stash',
-    'git -C C:/Users/NEW/garment-erp stash',
+    `git -C ${MAIN.replace(/\\/g, '/')} stash`,
   ]) {
     assert.ok(blocked(cmd), `should block: ${cmd}`);
   }
@@ -116,7 +116,6 @@ test('building into the live dist is blocked; type-checking is not', () => {
   }
   for (const [cmd, cwd] of [
     ['npm run type-check', BACKEND],
-    ['npx tsc --noEmit', BACKEND],
     ['npx tsc -b', FRONTEND],
     ['npx tsc --noEmit -p tsconfig.app.json', FRONTEND],
     ['npm test -- src/__tests__/unit/date.test.ts', BACKEND],
@@ -178,4 +177,29 @@ test('inside a worktree: no prisma generate / live migrate, no shared-cache tsc 
   assert.ok(!blocked('npm run build', WTF), 'a worktree build writes the worktree\'s own dist, not the live one');
   assert.ok(!blocked('git reset --hard', WT));
   assert.ok(blocked('pm2 restart garment-erp-api', WT), 'pm2 rules still apply from a worktree');
+});
+
+test('heavy backend jobs go through the one-at-a-time slot', () => {
+  const WTB = path.join(MAIN, '.claude', 'worktrees', 'x', 'backend');
+  for (const [cmd, cwd] of [
+    ['npx tsc --noEmit', BACKEND],
+    ['node --max-old-space-size=16384 ./node_modules/typescript/bin/tsc --noEmit', BACKEND],
+    ['npx tsc --noEmit -p tsconfig.json', WTB],
+    ['npx ts-node --files scripts/repair-x.ts', BACKEND],
+    ['npx ts-node scripts/check-order-system-integrity.ts', WTB],
+    ['cd backend && npx ts-node --files scripts/x.ts', MAIN],
+  ]) {
+    assert.ok(blocked(cmd, cwd), `should block: ${cmd} (in ${cwd})`);
+  }
+  for (const [cmd, cwd] of [
+    ['npm run type-check', BACKEND],
+    ['npx ts-node --files --transpile-only scripts/repair-x.ts', BACKEND],
+    ['npx ts-node -T scripts/x.ts', WTB],
+    ['TS_NODE_TRANSPILE_ONLY=true npx ts-node --files scripts/x.ts', BACKEND],
+    ['npx tsc --noEmit src/utils/date.ts', BACKEND],
+    ['npx tsc --noEmit', FRONTEND],
+    ['npm test -- src/__tests__/unit/date.test.ts', BACKEND],
+  ]) {
+    assert.ok(!blocked(cmd, cwd), `should allow: ${cmd} (in ${cwd})`);
+  }
 });

@@ -34,6 +34,7 @@ const S = require('./state');
 const { ensureBuildTree, copyEnvFiles } = require('./setup-build-tree');
 const notices = require('../hooks/notices');
 const migrationContract = require('../hooks/migration-contract');
+const heavySlot = require('./heavy-slot');
 
 /** Tell every Claude terminal (notice board) — not in a dry run. */
 function announce(text, opts) {
@@ -648,8 +649,15 @@ async function deploy(sha) {
       return log(`BLOCKED ${S.short(sha)}:\n${blocked}`);
     }
 
-    if (sides.backend) await buildBackend();
-    if (sides.frontend) await buildFrontend();
+    // Builds take ~4 GB: one heavy job at a time on this PC, the deployer first in the queue.
+    step('waiting for the heavy-job slot');
+    await heavySlot.acquire(`deployer build ${S.short(sha)}`, { isDeployer: true, log });
+    try {
+      if (sides.backend) await buildBackend();
+      if (sides.frontend) await buildFrontend();
+    } finally {
+      heavySlot.release();
+    }
     if (DRY) return log(`dry run: ${S.short(sha)} builds cleanly — nothing was swapped`);
 
     if (!pm2VersionsMatch()) {

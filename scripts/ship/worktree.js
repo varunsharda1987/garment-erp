@@ -173,14 +173,16 @@ function typeCheck(dir) {
   const cache = path.join(dir, CACHE);
   fs.mkdirSync(cache, { recursive: true });
   const steps = [
-    ['backend', path.join(dir, 'backend'), ['node', '--max-old-space-size=16384', './node_modules/typescript/bin/tsc', '--noEmit', '--tsBuildInfoFile', path.join(cache, 'backend.tsbuildinfo')]],
+    // ~4.3 GB: waits its turn behind other heavy jobs on this PC (heavy-slot.js).
+    ['backend', path.join(dir, 'backend'), ['node', path.join(dir, 'scripts', 'ship', 'heavy-slot.js'), 'run', '--', 'node', '--max-old-space-size=6144', './node_modules/typescript/bin/tsc', '--noEmit', '--tsBuildInfoFile', path.join(cache, 'backend.tsbuildinfo')]],
     ['frontend (app)', path.join(dir, 'frontend'), ['node', './node_modules/typescript/bin/tsc', '-p', 'tsconfig.app.json', '--noEmit', '--tsBuildInfoFile', path.join(cache, 'frontend-app.tsbuildinfo')]],
     ['frontend (node)', path.join(dir, 'frontend'), ['node', './node_modules/typescript/bin/tsc', '-p', 'tsconfig.node.json', '--noEmit', '--tsBuildInfoFile', path.join(cache, 'frontend-node.tsbuildinfo')]],
   ];
   let ok = true;
   for (const [label, cwd, [cmd, ...args]] of steps) {
     process.stdout.write(`  type-check ${label} ... `);
-    const r = spawnSync(cmd, args, { cwd, encoding: 'utf-8', maxBuffer: 64 << 20 });
+    // stderr straight through: heavy-slot says there while it waits its turn (tsc reports on stdout).
+    const r = spawnSync(cmd, args, { cwd, encoding: 'utf-8', maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'inherit'] });
     if (r.status === 0) {
       console.log('ok');
       continue;

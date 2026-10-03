@@ -1,0 +1,9 @@
+{
+  // Tests compile each file on its own (no whole-backend type-check): one test file took 4.4 GB and
+  // 123 s that way, and several terminals running tests at once froze the live app (2026-10-03).
+  // Type errors are caught by `npm run type-check` / `npm run wt -- check` and the commit hook.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "isolatedModules": true
+  }
+}

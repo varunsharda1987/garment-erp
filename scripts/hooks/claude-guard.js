@@ -357,6 +357,40 @@ function worktreeRule(cmd, words, wt, command) {
   return null;
 }
 
+const HEAVY_TSC =
+  'A whole-backend type-check takes ~4.3 GB; two or three at once (plus a deploy build) left this PC at 0.1 GB ' +
+  'free and froze the LIVE app for up to 4 minutes (2026-10-03). Run `npm run type-check` in backend (or ' +
+  '`npm run wt -- check` in a worktree) — it waits its turn (scripts/ship/heavy-slot.js).';
+const HEAVY_TS_NODE =
+  '`ts-node` without --transpile-only type-checks the whole backend before the script runs (~3 GB for a repair ' +
+  'script that read 2 rows, 2026-10-03). Add --transpile-only (keep --files): npx ts-node --files --transpile-only scripts/x.ts';
+
+/** Backend jobs that skip the one-heavy-job-at-a-time slot (main folder and worktrees). */
+function heavyJobRule(cmd, words, dir, command) {
+  const wt = worktreeOf(dir);
+  if (sideOf(dir) !== 'backend' && !(wt && wt.side === 'backend')) return null;
+  let tool = cmd;
+  let args = words.slice(1);
+  if (cmd === 'npx' || cmd === 'pnpm' || cmd === 'yarn') {
+    const at = words.findIndex((w, k) => k > 0 && !w.startsWith('-'));
+    tool = at < 0 ? '' : base(words[at]);
+    args = at < 0 ? [] : words.slice(at + 1);
+  } else if (cmd === 'node') {
+    const k = args.findIndex((w) => !w.startsWith('-'));
+    const s = k < 0 ? '' : args[k].replace(/\\/g, '/');
+    if (/typescript\/bin\/tsc$/.test(s)) tool = 'tsc';
+    else if (/ts-node\/dist\/bin(\.js)?$/.test(s)) tool = 'ts-node';
+    args = args.slice(k + 1);
+  }
+  if (tool === 'tsc' && args.includes('--noEmit') && !args.some((w) => /\.tsx?$/.test(w))) return HEAVY_TSC;
+  if (tool === 'ts-node') {
+    const light = args.some((w) => w === '--transpile-only' || w === '-T' || w === '--transpileOnly' || w === '--swc') ||
+      /\bTS_NODE_TRANSPILE_ONLY=['"]?(true|1)\b/.test(command);
+    if (!light && !args.some((w) => /server\.ts$/.test(w))) return HEAVY_TS_NODE;
+  }
+  return null;
+}
+
 // analysis
 // ---------------------------------------------------------------------------------------------
 /** Returns a list of reasons to refuse `command` run from `cwd` (empty = allow). */
@@ -398,6 +432,7 @@ function analyze(command, cwd, ctx) {
     else if (cmd === 'nodemon' && sideOf(dir) === 'backend') reason = NO_DEV_API;
     else if (cmd === 'node') reason = nodeRule(words, dir);
     if (cmd === 'pm2') reason = pm2Rule(words, ctx);
+    if (!reason && cmd !== 'git') reason = heavyJobRule(cmd, words, dir, command);
     if (reason) reasons.push(reason);
   }
   return reasons;

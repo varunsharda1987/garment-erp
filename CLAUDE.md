@@ -754,7 +754,16 @@ Several terminals edit this ONE folder at once and share ONE git index and ONE l
    `npm run ship:status` shows what is live, queued, running, failed or paused.
 3. **Saving deploys nothing.** Never build in `backend/` or `frontend/` here (`npm run build`, `tsc`
    without `--noEmit`, `vite build`) — `dist/` is the LIVE app. Type-check with `npm run type-check`
-   (backend) / `npx tsc -b` (frontend). Preview uncommitted frontend work with `npx vite` in
+   (backend) / `npx tsc -b` (frontend).
+   **One heavy job at a time on this PC (2026-10-03).** A whole-backend type-check or a deploy build
+   takes ~4.3 GB; two or three at once left 0.1 GB free and froze the LIVE app for up to 4 minutes.
+   `npm run type-check` (backend), `npm run wt -- check` / `land`, the commit hook's type-check and the
+   deployer's builds wait their turn in ONE machine-wide slot (`scripts/ship/heavy-slot.js`; the deployer
+   goes first; `node scripts/ship/heavy-slot.js status` shows who holds it). The guard refuses a bare
+   `npx tsc --noEmit` in backend. **Repair / check scripts:** `npx ts-node --files --transpile-only
+   scripts/x.ts` — without `--transpile-only` ts-node type-checks the whole backend first (~3 GB; the
+   guard refuses it). **Tests compile file by file** (`backend/tsconfig.jest.json`, isolatedModules):
+   one test file went from 4.4 GB / 123 s to 1.0 GB / 19 s; type errors are the type-check's job. Preview uncommitted frontend work with `npx vite` in
    `frontend/` (port 5173, talks to the live API). Test backend work with jest, never a second API
    (its port-5000 reclaim kills the live one).
 4. **Commit only your own files, by name:** `git commit -m "…" -- <your files>`. The pre-commit hook

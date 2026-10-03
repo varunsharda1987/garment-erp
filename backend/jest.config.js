@@ -18,8 +18,10 @@ module.exports = {
     '**/__tests__/**/*.test.ts',
     '**/?(*.)+(spec|test).ts',
   ],
+  // tsconfig.jest.json turns on isolatedModules: ts-jest then compiles file by file instead of
+  // type-checking the whole backend for every run (4.4 GB → see tsconfig.jest.json).
   transform: {
-    '^.+\\.ts$': 'ts-jest',
+    '^.+\\.ts$': ['ts-jest', { tsconfig: 'tsconfig.jest.json' }],
   },
   collectCoverageFrom: [
     'src/**/*.ts',

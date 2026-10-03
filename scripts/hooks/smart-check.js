@@ -785,14 +785,15 @@ function checkFrontendTypeScript() {
  * but missing from the TypeScript interface. Would have caught it in 10 seconds.
  */
 function checkBackendTypeScript() {
-  console.log(`\n${c.cyan}Checking backend TypeScript compilation...${c.reset}`);
+  console.log(`\n${c.cyan}Checking backend TypeScript compilation (waits its turn behind other heavy jobs — scripts/ship/heavy-slot.js)...${c.reset}`);
 
   try {
-    execSync('npx tsc --noEmit', {
+    // ~4.3 GB: through the one-heavy-job-at-a-time slot, or two commits + a deploy froze the live app.
+    execSync('node ../scripts/ship/heavy-slot.js run -- node --max-old-space-size=6144 ./node_modules/typescript/bin/tsc --noEmit', {
       encoding: 'utf-8',
       stdio: 'pipe',
       cwd: path.join(process.cwd(), 'backend'),
-      timeout: 120000, // 2 min timeout
+      timeout: 15 * 60 * 1000, // includes waiting for the slot
     });
     console.log(`${c.green}  ✓ Backend TypeScript compiles${c.reset}`);
     return true;

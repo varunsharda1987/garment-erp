@@ -317,6 +317,46 @@ function pm2Rule(words, ctx) {
 }
 
 // ---------------------------------------------------------------------------------------------
+/** A Claude worktree (npm run wt -- new): { side: 'backend' | 'frontend' | 'root' } or null. */
+function worktreeOf(dir) {
+  const rel = path.relative(MAIN_ROOT, dir);
+  if (rel.startsWith('..') || path.isAbsolute(rel)) return null;
+  const parts = rel.split(path.sep).join('/').split('/');
+  if (parts[0].toLowerCase() !== '.claude' || (parts[1] || '').toLowerCase() !== 'worktrees' || !parts[2]) return null;
+  const top = (parts[3] || '').toLowerCase();
+  return { side: top === 'backend' || top === 'frontend' ? top : 'root' };
+}
+
+const WT_PRISMA =
+  "node_modules in a worktree is a junction to the LIVE app's — `prisma generate` here rewrites the Prisma client the " +
+  'running API uses (and once baked in a worktree path: 2026-09-26 outage), and `migrate` here moves the live database. ' +
+  'Use `npm run wt -- migrate` (applies to garment_erp_test first, then live, then generates in the main folder). ' +
+  'Applying to the TEST database only is fine: DATABASE_URL=…/garment_erp_test npx prisma migrate deploy.';
+const WT_TSC_B =
+  'In a worktree `tsc -b` reads and writes the build cache in the SHARED frontend/node_modules/.tmp and trusts its ' +
+  "timestamps — another folder's cache can make it pass falsely, and yours can do that to theirs. Use `npm run wt -- check` " +
+  '(type-checks this worktree with its own caches).';
+
+/** Rules that apply only inside a Claude worktree. */
+function worktreeRule(cmd, words, wt, command) {
+  const tool = cmd === 'npx' || cmd === 'pnpm' || cmd === 'yarn' ? base(words.find((w, k) => k > 0 && !w.startsWith('-')) || '') : cmd;
+  const args = cmd === tool ? words.slice(1) : words.slice(words.findIndex((w, k) => k > 0 && !w.startsWith('-')) + 1);
+  if (tool === 'prisma' || (cmd === 'node' && args.some((w) => /prisma(\/build\/index\.js)?$/.test(w.replace(/\\/g, '/'))))) {
+    const verb = args.filter((w) => !w.startsWith('-'));
+    if (verb.includes('generate')) return WT_PRISMA;
+    if (verb[0] === 'migrate' || verb[0] === 'db') {
+      if (verb[1] === 'deploy' && /garment_erp_test\b/.test(command)) return null;
+      if (verb[1] === 'status' || verb[1] === 'diff') return null;
+      return WT_PRISMA;
+    }
+  }
+  if (wt.side === 'frontend') {
+    if (tool === 'tsc' && args.some((w) => w === '-b' || w === '--build')) return WT_TSC_B;
+    if (cmd === 'npm' && /\b(type-check|typecheck)\b/.test(words.join(' '))) return WT_TSC_B;
+  }
+  return null;
+}
+
 // analysis
 // ---------------------------------------------------------------------------------------------
 /** Returns a list of reasons to refuse `command` run from `cwd` (empty = allow). */
@@ -340,7 +380,9 @@ function analyze(command, cwd, ctx) {
     }
 
     let reason = null;
+    const wt = cmd === 'git' ? null : worktreeOf(dir);
     if (cmd === 'git') reason = gitRule(tokens, dir, ctx);
+    else if (wt) reason = worktreeRule(cmd, words, wt, command);
     else if (relToMain(dir) === null && cmd !== 'pm2') reason = null;
     else if (cmd === 'npm') reason = npmRule(tokens, dir);
     else if (cmd === 'npx' || cmd === 'pnpm' || cmd === 'yarn') {

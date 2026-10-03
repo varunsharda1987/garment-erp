@@ -131,7 +131,12 @@ function sessionStart() {
   const notices = load();
   const cutoff = Date.now() - 48 * HOUR;
   const relevant = notices.filter((e) => e.sticky || e.ms >= cutoff);
-  const out = ['[garment-erp shared folder] Several Claude terminals work in this folder at once — see CLAUDE.md "How changes go live".'];
+  const out = [
+    '[garment-erp shared folder] Several Claude terminals work in this folder at once — see CLAUDE.md "How changes go live".',
+    'Before editing code: `npm run wt -- new <task-name>` in the main folder, then work ONLY in .claude/worktrees/<task-name> ' +
+      '(commit there freely; `npm run wt -- check` to type-check; `npm run land` to put it on main → live). ' +
+      'Another terminal\'s half-done files then never break your tests or commits.',
+  ];
   const status = deployStatus();
   if (status) out.push(status);
   if (relevant.length) {

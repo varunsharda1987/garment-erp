@@ -8,6 +8,8 @@
     "ship:status": "node scripts/ship/ship.js status",
     "ship:wait": "node scripts/ship/ship.js wait",
     "notice": "node scripts/hooks/notices.js post",
+    "wt": "node scripts/ship/worktree.js",
+    "land": "node scripts/ship/worktree.js land",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky",

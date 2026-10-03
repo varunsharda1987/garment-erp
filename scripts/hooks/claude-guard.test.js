@@ -158,3 +158,24 @@ test('the owner-approved escape hatch', () => {
   assert.ok(!blocked('CLAUDE_GUARD_OK=1 git stash'));
   assert.ok(!blocked('$env:CLAUDE_GUARD_OK=1; git stash'));
 });
+
+test('inside a worktree: no prisma generate / live migrate, no shared-cache tsc -b', () => {
+  const WT = path.join(MAIN, '.claude', 'worktrees', 'x');
+  const WTB = path.join(WT, 'backend');
+  const WTF = path.join(WT, 'frontend');
+  assert.ok(blocked('npx prisma generate', WTB));
+  assert.ok(blocked('node node_modules/prisma/build/index.js generate', WTB));
+  assert.ok(blocked('npx prisma migrate deploy', WTB));
+  assert.ok(blocked('cd backend && npx prisma migrate resolve --applied x', WT));
+  assert.ok(blocked('npx prisma db push', WTB));
+  assert.ok(!blocked('DATABASE_URL="postgresql://u:p@localhost:5432/garment_erp_test" npx prisma migrate deploy', WTB));
+  assert.ok(!blocked('npx prisma migrate status', WTB));
+  assert.ok(!blocked('npx prisma format', WTB));
+  assert.ok(blocked('npx tsc -b', WTF));
+  assert.ok(blocked('npm run type-check', WTF));
+  assert.ok(!blocked('npx tsc --noEmit -p tsconfig.app.json', WTF));
+  assert.ok(!blocked('npm run type-check', WTB));
+  assert.ok(!blocked('npm run build', WTF), 'a worktree build writes the worktree\'s own dist, not the live one');
+  assert.ok(!blocked('git reset --hard', WT));
+  assert.ok(blocked('pm2 restart garment-erp-api', WT), 'pm2 rules still apply from a worktree');
+});

@@ -727,6 +727,17 @@ PM2 commands (user-run only):
 
 Several terminals edit this ONE folder at once and share ONE git index and ONE live app. So:
 
+0. **Work in your own worktree (2026-10-03).** In the main folder: `npm run wt -- new <task-name>`, then
+   work ONLY in `.claude/worktrees/<task-name>` (branch `wt/<task-name>`). Commit there as often as you
+   like — nothing deploys. `npm run wt -- check` type-checks it with its own caches (never `tsc -b` /
+   frontend `npm run type-check` there: their cache is in the SHARED node_modules); jest runs there as
+   usual. `npm run land` rebases onto main, type-checks and FAST-FORWARDS main in the main folder —
+   git refuses (and names the terminal) if another terminal has uncommitted edits to a file you
+   changed. Finished: `npm run wt -- remove <task-name>` from the main folder (it unlinks the
+   node_modules junctions first — never delete a worktree folder by hand). Shared on purpose:
+   node_modules, the Prisma client (never `prisma generate` / `migrate` in a worktree — the guard
+   refuses), `garment_erp_test`, the live API. Steps 3–5 below are for terminals still working in the
+   main folder. `scripts/ship/worktree.js`.
 1. **A commit on `main` is shipped by the deployer, not by you.** The PM2 app `garment-erp-deployer`
    (`scripts/ship/deployer.js`) notices the commit, builds EXACTLY that commit in a private folder
    (`C:\Users\NEW\garment-erp-build`), swaps it in, restarts safely and runs fleet-check. One deploy

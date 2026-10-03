@@ -727,9 +727,11 @@ class ProductionBlockingValidationService {
     const warnings: BlockerInfo[] = [];
     for (const line of position.shortLines) {
       const entry: BlockerInfo = { type: 'MATERIAL_SHORTAGE', message: line.message, severity: 'CRITICAL' };
-      const blocks = blockingTypes.includes(line.materialType) && !line.sizedLabel;
+      // A line with no material cannot be checked — it warns (fix the BOM line); it never stops a stage move
+      const blocks = blockingTypes.includes(line.materialType) && !line.sizedLabel && !line.unlinked;
       if (blocks) blockers.push(entry);
-      else if (targetStage === 'IN_CUTTING' || line.sizedLabel) warnings.push({ ...entry, severity: 'MEDIUM' });
+      else if (targetStage === 'IN_CUTTING' || line.sizedLabel || line.unlinked)
+        warnings.push({ ...entry, severity: 'MEDIUM' });
     }
 
     return { isBlocked: blockers.length > 0, blockers, warnings };

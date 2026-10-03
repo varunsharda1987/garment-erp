@@ -169,7 +169,7 @@ export interface SizeLabelCover {
 }
 
 /**
- * How many pieces of each size the order's SIZED labels cover for stitching — a size label is sewn at
+ * How many pieces of each size the order's SIZE labels (label type names "size") cover for stitching — a size label is sewn at
  * stitching, so a size whose label is not there cannot be issued to stitching (owner, 2026-10-03).
  * Covered = for every sized label on the approved Order BOM, what the order can use of that size's label
  * (`usableByMaterial`) ÷ labels per garment; the scarcest label decides. A label that does not come in the
@@ -206,9 +206,21 @@ export async function labelCoverForStitching(db: Db, workOrderId: string): Promi
       code: material.code,
     });
   }
-  const sizeRows = await labelSizeRows(db, [...new Set([...labelOf.values()].map((l) => l.labelId))]);
+  const labelIds = [...new Set([...labelOf.values()].map((l) => l.labelId))];
+  // Only a SIZE label is sewn at stitching (Main Cum Size Label, Size Label). A price tag, hang tag or other
+  // label that also comes in sizes goes on at finishing and never holds pieces back from stitching (owner,
+  // 2026-10-03: "size label is needed in stitching").
+  const stitchLabels = new Set(
+    (
+      await db.label_master.findMany({
+        where: { id: { in: labelIds }, labelType: { contains: 'size', mode: 'insensitive' } },
+        select: { id: true },
+      })
+    ).map((l) => l.id)
+  );
+  const sizeRows = await labelSizeRows(db, [...stitchLabels]);
   const sizedLines = [...labelOf.values()].filter(
-    (l) => (sizeRows.get(l.labelId)?.length ?? 0) > 0 && l.perGarment > 0
+    (l) => stitchLabels.has(l.labelId) && (sizeRows.get(l.labelId)?.length ?? 0) > 0 && l.perGarment > 0
   );
   if (sizedLines.length === 0) return null;
 

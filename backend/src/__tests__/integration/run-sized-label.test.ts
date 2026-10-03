@@ -32,6 +32,9 @@ let workOrderId: string;
 let warehouseId: string;
 let labelId: string;
 let labelBaseRow: string;
+let priceTagId: string;
+let priceTagBaseRow: string;
+const priceTagRows: string[] = [];
 let otherRequirementId: string;
 const sizeRow: Record<string, string> = {}; // label size → materials.id
 const sizeIds: Record<string, string> = {}; // style size → size_options.id
@@ -61,7 +64,12 @@ beforeAll(async () => {
   // A label made in S and M only — the order also has XS
   labelId = (
     await prisma.label_master.create({
-      data: { labelCode: `${RUN}-LBL`, labelName: `${RUN} Main Cum Size Label`, pricePerPiece: 0.6 },
+      data: {
+        labelCode: `${RUN}-LBL`,
+        labelName: `${RUN} Main Cum Size Label`,
+        labelType: 'Main Cum Size Label',
+        pricePerPiece: 0.6,
+      },
     })
   ).id;
   for (const size of ['S', 'M']) {
@@ -69,6 +77,17 @@ beforeAll(async () => {
     sizeRow[size] = await ensureLabelSizeMaterialRecord(v.id);
   }
   labelBaseRow = await ensureMaterialRecord(labelId, 'LABEL');
+  // A price tag that also comes in sizes, none in store — it goes on at finishing, never holds back stitching
+  priceTagId = (
+    await prisma.label_master.create({
+      data: { labelCode: `${RUN}-TAG`, labelName: `${RUN} Price Tag`, labelType: 'Price Tag', pricePerPiece: 1 },
+    })
+  ).id;
+  for (const size of ['S', 'M']) {
+    const v = await prisma.label_size_variants.create({ data: { labelId: priceTagId, size } });
+    priceTagRows.push(await ensureLabelSizeMaterialRecord(v.id));
+  }
+  priceTagBaseRow = await ensureMaterialRecord(priceTagId, 'LABEL');
   // In store: S 8, M 6 — each on its SIZE row, as a receipt books it
   for (const [size, qty] of [
     ['S', 8],
@@ -142,20 +161,36 @@ beforeAll(async () => {
       status: 'APPROVED',
       createdById: userId,
       items: {
-        create: {
-          id: randomUUID(),
-          materialType: 'LABEL',
-          materialId: labelBaseRow,
-          labelId,
-          quantityPerGarment: 1,
-          orderQuantity: 18,
-          totalQuantity: 18,
-          wastagePercent: 0,
-          totalWithWastage: 18,
-          unit: 'PIECE',
-          unitPrice: 0.6,
-          totalCost: 10.8,
-        },
+        create: [
+          {
+            id: randomUUID(),
+            materialType: 'LABEL',
+            materialId: labelBaseRow,
+            labelId,
+            quantityPerGarment: 1,
+            orderQuantity: 18,
+            totalQuantity: 18,
+            wastagePercent: 0,
+            totalWithWastage: 18,
+            unit: 'PIECE',
+            unitPrice: 0.6,
+            totalCost: 10.8,
+          },
+          {
+            id: randomUUID(),
+            materialType: 'LABEL',
+            materialId: priceTagBaseRow,
+            labelId: priceTagId,
+            quantityPerGarment: 1,
+            orderQuantity: 18,
+            totalQuantity: 18,
+            wastagePercent: 0,
+            totalWithWastage: 18,
+            unit: 'PIECE',
+            unitPrice: 1,
+            totalCost: 18,
+          },
+        ],
       },
     },
   });
@@ -211,7 +246,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
   const orders = onlyAll([orderId, otherOrderId]);
-  const materialIds = onlyAll([labelBaseRow, ...Object.values(sizeRow)]);
+  const materialIds = onlyAll([labelBaseRow, ...Object.values(sizeRow), priceTagBaseRow, ...priceTagRows]);
+  const labelIds = onlyAll([labelId, priceTagId]);
   const steps: Array<[string, () => Promise<unknown>]> = [
     ['stitching_issues', () => prisma.stitching_issues.deleteMany({ where: { workOrderId: only(workOrderId) } })],
     ['production_tracking', () => prisma.production_tracking.deleteMany({ where: { workOrderId: only(workOrderId) } })],
@@ -225,12 +261,12 @@ afterAll(async () => {
     ['orders', () => prisma.orders.deleteMany({ where: { id: { in: orders } } })], // cascades items + breakup
     ['size_options', () => prisma.size_options.deleteMany({ where: { styleId: only(styleId) } })],
     ['styles', () => prisma.styles.deleteMany({ where: { id: only(styleId) } })],
-    ['label_stock', () => prisma.label_stock.deleteMany({ where: { labelId: only(labelId) } })],
+    ['label_stock', () => prisma.label_stock.deleteMany({ where: { labelId: { in: labelIds } } })],
     ['stock_levels', () => prisma.stock_levels.deleteMany({ where: { materialId: { in: materialIds } } })],
     ['stock_settings', () => prisma.stock_settings.deleteMany({ where: { materialId: { in: materialIds } } })],
     ['materials', () => prisma.materials.deleteMany({ where: { id: { in: materialIds } } })],
-    ['label_size_variants', () => prisma.label_size_variants.deleteMany({ where: { labelId: only(labelId) } })],
-    ['label_master', () => prisma.label_master.deleteMany({ where: { id: only(labelId) } })],
+    ['label_size_variants', () => prisma.label_size_variants.deleteMany({ where: { labelId: { in: labelIds } } })],
+    ['label_master', () => prisma.label_master.deleteMany({ where: { id: { in: labelIds } } })],
     ['warehouses', () => prisma.warehouses.deleteMany({ where: { id: only(warehouseId) } })],
     ['users', () => prisma.users.deleteMany({ where: { id: only(userId) } })],
   ];
@@ -251,9 +287,9 @@ describe('the run page reads a sized label per size', () => {
       .set(authHeader)
       .expect(200);
     const r = res.body.data;
-    expect(r).toMatchObject({ isReady: true, allAvailable: false, hasApprovedBom: true, totalMaterials: 1 });
-    expect(r.missingMaterials).toHaveLength(1);
-    const label = r.missingMaterials[0];
+    expect(r).toMatchObject({ isReady: true, allAvailable: false, hasApprovedBom: true, totalMaterials: 2 });
+    expect(r.missingMaterials).toHaveLength(2);
+    const label = r.missingMaterials.find((m: { materialCode: string }) => m.materialCode === `${RUN}-LBL`);
     expect(label).toMatchObject({ materialCode: `${RUN}-LBL`, blocksCutting: false, sizedLabel: true, required: 18 });
     // S: need 10, have 8. M: need 6, have 6 − 3 held for the other order = 3. XS: the label is not made in XS.
     expect(label.sizes).toEqual(
@@ -278,7 +314,7 @@ describe('the run page reads a sized label per size', () => {
       'IN_STITCHING'
     );
     expect(stitching.isBlocked).toBe(false);
-    expect(stitching.warnings).toHaveLength(1);
+    expect(stitching.warnings).toHaveLength(2); // the size label and the price tag
   });
 
   it('Trim Issuance offers the label size by size, each on its own size row', async () => {

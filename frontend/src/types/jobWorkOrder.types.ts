@@ -75,7 +75,10 @@ export interface JobWorkOrderLine {
   /** Worked out from the line's accepted receipts — never stored */
   receivedQty: number;
   closedAt?: string | null;
-  closedHow?: 'FINAL' | 'SHORT' | null;
+  /** FINAL / SHORT: came back; RETURNED: its greige came back undyed; DROPPED: taken off the job before it was sent */
+  closedHow?: 'FINAL' | 'SHORT' | 'RETURNED' | 'DROPPED' | null;
+  /** Greige of this colour that came back undyed */
+  qtyReturned?: number | string | null;
   style?: { id: string; styleCode: string; buyerStyleRef?: string | null; styleName?: string | null } | null;
   colorMaster?: { colorName: string; hexCode?: string | null } | null;
   finishedFabric?: { id: string; fabricCode: string; fabricName: string; colorName?: string | null } | null;

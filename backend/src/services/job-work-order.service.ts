@@ -22,7 +22,7 @@ import { formatDate } from '../utils/date';
 import { isQtyZero } from '../utils/quantity';
 import { logWarn } from '../utils/logger';
 import { closeOutwardChallanForJwo } from './helpers/jwo-challan-lifecycle.helper';
-import { closeOpenLinesShort } from './helpers/jwo-lines.helper';
+import { closeOpenLinesShort, jobSentForLoss } from './helpers/jwo-lines.helper';
 import { resettleJobRequirements } from './helpers/jwo-requirement-settle.helper';
 import {
   toCurrency,
@@ -301,7 +301,8 @@ class JobWorkOrderService {
       throw new Error(`Job work order ${jwoId} not found`);
     }
 
-    const qtySent = toCurrency(jwo.qtySentMeters);
+    // Greige the processor really worked on — a colour that came back undyed is not his loss (jwo-lines.helper)
+    const qtySent = toCurrency(await jobSentForLoss(client, jwo.id, jwo.qtySentMeters));
 
     // Guard: qtySent must be positive
     if (qtySent.lte(0)) {
@@ -401,7 +402,7 @@ class JobWorkOrderService {
       // door and applyLossSplit.
       const tolerancePercent = Number(jwo.tolerancePercent ?? jwo.processTypeMaster?.tolerancePercent ?? 0);
       const split = this.calculateLossSplit({
-        qtySent: jwo.qtySentMeters,
+        qtySent: await jobSentForLoss(tx, jwo.id, jwo.qtySentMeters),
         qtyReceived: total,
         qtyExpected: jwo.qtyBillable,
         expectedShrinkagePercent: jwo.expectedShrinkage,

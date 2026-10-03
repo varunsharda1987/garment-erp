@@ -189,6 +189,12 @@ export const returnUnprocessedSchema = z.object({
   remarks: z.string().max(500).optional(),
   // Required only for a job that took cloth where it lay at the processor: the store it came back into
   storeWarehouseId: z.string().uuid('Pick the store').nullish(),
+  // One colour of a job with several (2026-10-03): only that colour's greige came back undyed
+  lineId: z.string().uuid().nullish(),
+  // The lot(s) it came back on — needed when the job's greige went out on several lots
+  lots: z.array(z.object({ greigeStockLotId: z.string().uuid(), qty: formNumber(z.number().positive()) })).optional(),
+  // Returning the last colour out finishes a job that came back short — the question was asked and answered yes
+  shortCloseConfirmed: z.boolean().optional(),
 });
 
 export type ReturnUnprocessedInput = z.infer<typeof returnUnprocessedSchema>;

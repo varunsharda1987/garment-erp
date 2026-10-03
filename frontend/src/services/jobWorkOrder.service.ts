@@ -683,11 +683,24 @@ export const jobWorkOrderService = {
    */
   async returnUnprocessed(
     id: string,
-    payload: { returnedQty: number; returnDate?: string; remarks?: string; storeWarehouseId?: string | null }
+    payload: {
+      returnedQty: number;
+      returnDate?: string;
+      remarks?: string;
+      storeWarehouseId?: string | null;
+      /** One colour of a job with several: only its greige came back undyed */
+      lineId?: string;
+      /** The lot(s) it came back on, when the greige went out on several */
+      lots?: Array<{ greigeStockLotId: string; qty: number }>;
+      /** The last colour out finishes the job short — the user said yes */
+      shortCloseConfirmed?: boolean;
+    }
   ): Promise<{
     jobWorkOrderId: string;
     jobWorkNumber: string;
     returnedQty: number;
+    lineLabel?: string;
+    jobClosed?: boolean;
     creditedTo: 'GREIGE' | 'LACE' | 'FABRIC' | 'NONE';
     inwardChallanId: string;
     inwardChallanNumber: string;

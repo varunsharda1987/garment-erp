@@ -49,6 +49,34 @@ export interface JwoLineShape {
   qtySent: Num;
   /** Fabric (or lace) expected back; null = piece work / not known */
   qtyExpected?: Num;
+  /** How the line closed — a RETURNED (came back undyed) or DROPPED (never sent) line is out of the job's work */
+  closedHow?: string | null;
+  /** Greige of this line that came back undyed */
+  qtyReturned?: Num;
+}
+
+/** A line the job no longer works on: its greige came back undyed, or it was dropped before it was sent */
+export const isLineOut = (line: { closedHow?: string | null }) =>
+  line.closedHow === 'RETURNED' || line.closedHow === 'DROPPED';
+
+/**
+ * What the job really sent and expects back (2026-10-03): a DROPPED line never went out; a RETURNED line went out
+ * but its greige came back undyed — neither counts toward the fabric expected, the bill or the dyer's loss. The
+ * loss split, Close short and the receipt's short-close question all read these, never the planned header.
+ */
+export function effectiveJobTotals(lines: readonly JwoLineShape[]): { sent: number; expected: number | null } {
+  const working = lines.filter((l) => l.closedHow !== 'DROPPED');
+  const sent = toNumber(
+    roundToCent(addCurrency(0, ...working.map((l) => toCurrency(num(l.qtySent) ?? 0).minus(num(l.qtyReturned) ?? 0))))
+  );
+  const live = lines.filter((l) => !isLineOut(l));
+  const expected = live.map((l) => num(l.qtyExpected));
+  return {
+    sent,
+    expected: expected.every((e) => e != null)
+      ? toNumber(roundToCent(addCurrency(0, ...(expected as number[]))))
+      : null,
+  };
 }
 
 export interface JwoLineInput extends JwoLineShape {
@@ -96,26 +124,33 @@ export function impliedShrinkagePercent(qtySent: Num, qtyExpected: Num): number 
  */
 export function headerFromLines(lines: readonly JwoLineShape[]): JwoHeaderMirror {
   if (lines.length === 0) throw new BusinessError('A job work order needs at least one line');
-  const sent = lines.map((l) => num(l.qtySent) ?? 0);
-  const expected = lines.map((l) => num(l.qtyExpected));
-  const qtySentMeters = toNumber(roundToCent(addCurrency(...sent)));
+  // Greige SENT is what physically went out (a dropped line never did; a returned one did — its return is on its
+  // own inward challan, which the processor statement and ITC-04 read). The fabric expected back / billed leaves
+  // out every line that is out of the job's work.
+  const sent = lines.filter((l) => l.closedHow !== 'DROPPED').map((l) => num(l.qtySent) ?? 0);
+  const live = lines.filter((l) => !isLineOut(l));
+  const expected = live.map((l) => num(l.qtyExpected));
+  const qtySentMeters = toNumber(roundToCent(addCurrency(0, ...sent)));
   const qtyBillable = expected.every((e) => e != null)
-    ? toNumber(roundToCent(addCurrency(...(expected as number[]))))
+    ? toNumber(roundToCent(addCurrency(0, ...(expected as number[]))))
     : null;
+  // Style, colour, fabric and width: what the lines still worked on share (all of them when every line is out)
+  const named = live.length > 0 ? live : lines;
 
   const text = (pick: (l: JwoLineShape) => string | null | undefined) =>
     shared(
-      lines.map((l) => pick(l)?.trim() || null),
+      named.map((l) => pick(l)?.trim() || null),
       (a, b) => a === b
     );
   const number = (pick: (l: JwoLineShape) => Num) =>
     shared(
-      lines.map((l) => num(pick(l))),
+      named.map((l) => num(pick(l))),
       (a, b) => Math.abs(a - b) < 0.005
     );
 
   const sharedShrinkage = number((l) => l.expectedShrinkage);
-  const impliedShrinkage = impliedShrinkagePercent(qtySentMeters, qtyBillable);
+  const effective = effectiveJobTotals(lines);
+  const impliedShrinkage = impliedShrinkagePercent(effective.sent, effective.expected);
 
   return {
     qtySentMeters,
@@ -346,6 +381,13 @@ export async function pickReceiptLine(
     );
   }
   const label = await lineLabel(tx, line);
+  if (isLineOut(line)) {
+    throw new BusinessError(
+      `${label} on ${job.jobWorkNumber} is ${line.closedHow === 'RETURNED' ? 'back undyed' : 'dropped from the job'} — ` +
+        `nothing more comes back on it.`,
+      { reason: 'JWO_LINE_OUT', lineId: line.id }
+    );
+  }
   if (line.closedAt) {
     throw new BusinessError(
       `${label} on ${job.jobWorkNumber} is already closed — its final delivery is in. Reverse that receipt to ` +
@@ -409,7 +451,9 @@ export async function reopenLinesClosedBy(
     ? await tx.job_work_order_lines.updateMany({
         where: {
           jobWorkOrderId,
+          // A line that came back undyed or was dropped is never reopened by a receipt's reversal
           OR: [{ closingGrnItemId: { in: itemIds } }, { id: { in: lineIds }, closedHow: 'SHORT' }],
+          closedHow: { notIn: ['RETURNED', 'DROPPED'] },
         },
         data: { closedAt: null, closedHow: null, closingGrnItemId: null },
       })
@@ -421,9 +465,46 @@ export async function reopenLinesClosedBy(
 /** Every receipt of the job is gone: every line is open again, as before anything came back */
 export async function reopenAllLines(tx: Tx, jobWorkOrderId: string): Promise<void> {
   await tx.job_work_order_lines.updateMany({
-    where: { jobWorkOrderId, closedAt: { not: null } },
+    where: { jobWorkOrderId, closedAt: { not: null }, closedHow: { notIn: ['RETURNED', 'DROPPED'] } },
     data: { closedAt: null, closedHow: null, closingGrnItemId: null },
   });
+}
+
+/**
+ * Take a line out of the job's work (2026-10-03): its greige came back undyed (RETURNED, with the metres) or it was
+ * never sent (DROPPED). Its orders go back to "needs processing" — their links on this job are removed and their
+ * processing requirements return to PO_REQUIRED, so a new job can be raised — and the header follows. Returns the
+ * requirement ids released (and their greige requirements), so the caller can hold returned greige for them again.
+ */
+export async function takeLineOut(
+  tx: Tx,
+  line: { id: string; jobWorkOrderId: string },
+  how: 'RETURNED' | 'DROPPED',
+  closedAt: Date,
+  qtyReturned: number | null
+): Promise<{ released: string[]; jobClosed: boolean }> {
+  await tx.job_work_order_lines.update({
+    where: { id: line.id },
+    data: { closedAt, closedHow: how, closingGrnItemId: null, qtyReturned: how === 'RETURNED' ? qtyReturned : null },
+  });
+  const links = await tx.requirement_jwo_links.findMany({
+    where: { lineId: line.id },
+    select: { id: true, requirementId: true, material_requirements: { select: { linkedRequirementId: true } } },
+  });
+  const requirementIds = links.map((l) => l.requirementId);
+  if (requirementIds.length > 0) {
+    await tx.material_requirements.updateMany({
+      where: { id: { in: requirementIds }, status: { in: ['PO_GENERATED', 'PO_SENT'] } },
+      data: { status: 'PO_REQUIRED' },
+    });
+    await tx.requirement_jwo_links.deleteMany({ where: { id: { in: links.map((l) => l.id) } } });
+  }
+  await syncJwoHeaderFromLines(tx, line.jobWorkOrderId);
+  const open = await tx.job_work_order_lines.count({ where: { jobWorkOrderId: line.jobWorkOrderId, closedAt: null } });
+  const released = [
+    ...new Set(links.flatMap((l) => [l.requirementId, l.material_requirements.linkedRequirementId]).filter(Boolean)),
+  ] as string[];
+  return { released, jobClosed: open === 0 };
 }
 
 /** Tie a requirement to the line that brings back its fabric */
@@ -432,4 +513,18 @@ export function linkRequirementToLine(
   link: { jobWorkOrderId: string; lineId: string; requirementId: string; allocatedQuantity: number }
 ) {
   return tx.requirement_jwo_links.create({ data: link });
+}
+
+/**
+ * The greige the processor really worked on: the job's greige sent less every line that came back undyed. The loss
+ * split, Close short and the receipt's short-close question read this — counting a returned colour's greige would
+ * charge the dyer for cloth that is back on our rack. (The fabric expected back is the header's qtyBillable, which
+ * already leaves that colour out.)
+ */
+export async function jobSentForLoss(tx: Tx, jobWorkOrderId: string, headerSent: Num): Promise<number> {
+  const returned = await tx.job_work_order_lines.aggregate({
+    where: { jobWorkOrderId, closedHow: 'RETURNED' },
+    _sum: { qtyReturned: true },
+  });
+  return toNumber(roundToCent(toCurrency(num(headerSent) ?? 0).minus(num(returned._sum.qtyReturned) ?? 0)));
 }

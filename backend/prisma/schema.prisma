@@ -7734,40 +7734,58 @@ model job_work_orders {
 /// A line's received quantity is never stored — it is the sum of its ACCEPTED receipt rows.
 /// The only writer is services/helpers/jwo-lines.helper.ts.
 model job_work_order_lines {
-  id                String        @id @default(uuid())
-  jobWorkOrderId    String
-  lineNo            Int
-  styleId           String?
-  colorMasterId     String?
-  colorName         String?
+  id                 String        @id @default(uuid())
+  jobWorkOrderId     String
+  lineNo             Int
+  styleId            String?
+  colorMasterId      String?
+  colorName          String?
   /// BACK — the finished fabric this line expects (the sent material lives on the job / its components)
-  finishedFabricId  String?
+  finishedFabricId   String?
   /// BACK — the dyed lace variant this line expects
-  finishedLaceId    String?
+  finishedLaceId     String?
   /// The FINISHED width asked of the processor for this output
-  sentWidthInches   Decimal?      @db.Decimal(10, 2)
-  expectedShrinkage Decimal?      @db.Decimal(5, 2)
+  sentWidthInches    Decimal?      @db.Decimal(10, 2)
+  expectedShrinkage  Decimal?      @db.Decimal(5, 2)
   /// This line's share of the greige sent (planned — the greige is issued for the whole job at once)
-  qtySent           Decimal       @db.Decimal(10, 2)
+  qtySent            Decimal       @db.Decimal(10, 2)
   /// Fabric / lace expected back; NULL for piece work
-  qtyExpected       Decimal?      @db.Decimal(10, 2)
-  closedAt          DateTime?
-  closedHow         JwoLineClose?
+  qtyExpected        Decimal?      @db.Decimal(10, 2)
+  closedAt           DateTime?
+  closedHow          JwoLineClose?
   /// The receipt row whose "final delivery" closed this line (reversing it reopens the line)
-  closingGrnItemId  String?       @unique
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  closingGrnItemId   String?       @unique
+  /// Greige of this line that came back UNDYED (closedHow RETURNED) — out of the bill and the dyer's loss
+  qtyReturned        Decimal?      @db.Decimal(10, 2)
+  /// When / on which challan this line's greige went out (colour by colour; NULL = not sent yet)
+  sentDate           DateTime?
+  outwardChallanId   String?
+  statutoryDueDate   DateTime?
+  /// This line's rate per unit, and where it came from (rate card at the line's metres, or typed)
+  ratePerUnit        Decimal?      @db.Decimal(12, 2)
+  rateSource         String?
+  rateCardId         String?
+  slabId             String?
+  rateBasisQuantity  Decimal?      @db.Decimal(12, 2)
+  costedRatePerUnit  Decimal?      @db.Decimal(12, 2)
+  rateVarianceReason String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
 
-  jobWorkOrder     job_work_orders         @relation(fields: [jobWorkOrderId], references: [id], onDelete: Cascade)
-  style            styles?                 @relation(fields: [styleId], references: [id])
-  colorMaster      color_master?           @relation(fields: [colorMasterId], references: [id])
-  finishedFabric   fabric_master?          @relation("JwoLineFinishedFabric", fields: [finishedFabricId], references: [id])
-  finishedLace     lace_master?            @relation("JwoLineFinishedLace", fields: [finishedLaceId], references: [id])
-  closingGrnItem   grn_items?              @relation("JwoLineClosingReceipt", fields: [closingGrnItemId], references: [id])
+  jobWorkOrder     job_work_orders             @relation(fields: [jobWorkOrderId], references: [id], onDelete: Cascade)
+  style            styles?                     @relation(fields: [styleId], references: [id])
+  colorMaster      color_master?               @relation(fields: [colorMasterId], references: [id])
+  finishedFabric   fabric_master?              @relation("JwoLineFinishedFabric", fields: [finishedFabricId], references: [id])
+  finishedLace     lace_master?                @relation("JwoLineFinishedLace", fields: [finishedLaceId], references: [id])
+  closingGrnItem   grn_items?                  @relation("JwoLineClosingReceipt", fields: [closingGrnItemId], references: [id])
   requirementLinks requirement_jwo_links[]
-  receiptItems     grn_items[]             @relation("JwoLineReceiptItems")
+  receiptItems     grn_items[]                 @relation("JwoLineReceiptItems")
+  outwardChallan   challans?                   @relation("JwoLineOutwardChallan", fields: [outwardChallanId], references: [id])
+  components       job_work_order_components[]
+  challanItems     challan_items[]             @relation("ChallanItemJwoLine")
 
   @@unique([jobWorkOrderId, lineNo])
+  @@index([outwardChallanId])
   @@index([styleId])
   @@index([colorMasterId])
   @@index([finishedFabricId])
@@ -7822,19 +7840,23 @@ model job_work_order_components {
   updatedAt DateTime @updatedAt
 
   // Relations
-  jobWorkOrder job_work_orders @relation(fields: [jobWorkOrderId], references: [id], onDelete: Cascade)
-  greige       greige_master?  @relation(fields: [greigeId], references: [id])
-  fabric       fabric_master?  @relation("JWOComponentFabric", fields: [fabricId], references: [id])
-  lace         lace_master?    @relation(fields: [laceId], references: [id])
-  greigeStock  greige_stock?   @relation("JWOComponentGreigeStock", fields: [greigeStockId], references: [id])
-  fabricStock  fabric_stock?   @relation("JWOComponentFabricStock", fields: [fabricStockId], references: [id])
-  laceStock    lace_stock?     @relation("JWOComponentLaceStock", fields: [laceStockId], references: [id])
-  threadStock  thread_stock?   @relation("JWOComponentThreadStock", fields: [threadStockId], references: [id])
-  challanItems challan_items[] @relation("ChallanItemJWOComponent")
+  jobWorkOrder job_work_orders       @relation(fields: [jobWorkOrderId], references: [id], onDelete: Cascade)
+  /// The job line (colour) this issue went out for — NULL = sent for the whole job at once
+  lineId       String?
+  line         job_work_order_lines? @relation(fields: [lineId], references: [id])
+  greige       greige_master?        @relation(fields: [greigeId], references: [id])
+  fabric       fabric_master?        @relation("JWOComponentFabric", fields: [fabricId], references: [id])
+  lace         lace_master?          @relation(fields: [laceId], references: [id])
+  greigeStock  greige_stock?         @relation("JWOComponentGreigeStock", fields: [greigeStockId], references: [id])
+  fabricStock  fabric_stock?         @relation("JWOComponentFabricStock", fields: [fabricStockId], references: [id])
+  laceStock    lace_stock?           @relation("JWOComponentLaceStock", fields: [laceStockId], references: [id])
+  threadStock  thread_stock?         @relation("JWOComponentThreadStock", fields: [threadStockId], references: [id])
+  challanItems challan_items[]       @relation("ChallanItemJWOComponent")
 
   @@index([jobWorkOrderId])
   @@index([materialType])
   @@index([threadStockId])
+  @@index([lineId])
 }
 
 /// ASN Application - Advance Shipping Notice
@@ -9828,6 +9850,7 @@ model challans {
   // Back-references from existing models
   jobWorkOutward       job_work_orders[]      @relation("JobWorkOutwardChallan")
   jobWorkInward        job_work_orders[]      @relation("JobWorkInwardChallan")
+  jwoLinesOutward      job_work_order_lines[] @relation("JwoLineOutwardChallan")
   processingMovements  processing_movement[]
   processingDeliveries processing_delivery[]
   cuttingBatchReturn   cutting_batches?       @relation("CuttingReturnChallan")
@@ -9897,6 +9920,8 @@ model challan_items {
   // Phase 3: Job Work Order line-level linkage
   jobWorkOrderId          String? // FK to job_work_orders (line-level order attribution)
   jobWorkOrderComponentId String? // FK to job_work_order_components (D5 reconciliation)
+  /// The job line (colour) this item went out or came back for
+  jobWorkOrderLineId      String?
   declaredValue           Decimal? @db.Decimal(12, 2) // Value for e-way bill/insurance
 
   /// Transit challan: the PO line these goods are. The receipt is matched to the challan line by it — never by a
@@ -9923,11 +9948,13 @@ model challan_items {
   serviceRequirement    work_order_service_requirements? @relation(fields: [serviceRequirementId], references: [id])
   jobWorkOrder          job_work_orders?                 @relation("ChallanItemJobWorkOrder", fields: [jobWorkOrderId], references: [id])
   jobWorkOrderComponent job_work_order_components?       @relation("ChallanItemJWOComponent", fields: [jobWorkOrderComponentId], references: [id])
+  jobWorkOrderLine      job_work_order_lines?            @relation("ChallanItemJwoLine", fields: [jobWorkOrderLineId], references: [id])
   fabricIssueDetails    fabric_issue_details[]
 
   @@index([challanId])
   @@index([jobWorkOrderId])
   @@index([jobWorkOrderComponentId])
+  @@index([jobWorkOrderLineId])
   @@index([itemType])
   @@index([greigeStockId])
   @@index([fabricStockId])
@@ -10844,6 +10871,8 @@ enum BuyerApprovalStatus {
 enum JwoLineClose {
   FINAL
   SHORT
+  RETURNED
+  DROPPED
 }
 
 enum JobWorkOrderStatus {

@@ -66,6 +66,8 @@ export interface CreateChallanItemInput {
   serviceRequirementId?: string;
   jobWorkOrderId?: string; // Phase 4a: line-level JWO attribution (D5 reconciliation)
   jobWorkOrderComponentId?: string;
+  /** The job line (colour) this item went out or came back for */
+  jobWorkOrderLineId?: string;
   foldLengthCm?: number;
   thanCount?: number;
   componentName?: string;
@@ -258,6 +260,7 @@ export async function createChallan(input: CreateChallanInput, outerTx?: Prisma.
             serviceRequirementId: item.serviceRequirementId,
             jobWorkOrderId: item.jobWorkOrderId,
             jobWorkOrderComponentId: item.jobWorkOrderComponentId,
+            jobWorkOrderLineId: item.jobWorkOrderLineId,
             componentName: item.componentName || null,
             colorName: item.colorName || null,
             foldLengthCm: item.foldLengthCm,

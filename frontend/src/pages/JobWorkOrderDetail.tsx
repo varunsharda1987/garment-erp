@@ -7,6 +7,7 @@ import { unitPer, unitShort } from '@/lib/units';
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { lineName } from '@/lib/jwo-lines';
+import type { JobWorkOrderLine } from '@/types/jobWorkOrder.types';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { toast } from 'sonner';
@@ -190,6 +191,8 @@ export default function JobWorkOrderDetail() {
   const [closeShortOpen, setCloseShortOpen] = useState(false);
   // Returned unprocessed — the processor sent it back untouched.
   const [returnUnprocessedOpen, setReturnUnprocessedOpen] = useState(false);
+  // One colour of a several-colour job came back undyed (2026-10-03)
+  const [returnLine, setReturnLine] = useState<JobWorkOrderLine | null>(null);
   // Phase 4c: operational issue dialog (greige lots + transport)
   const [issueDialogOpen, setIssueDialogOpen] = useState(false);
   const [issueRows, setIssueRows] = useState<IssueLotRow[]>([{ lotId: '', qty: '' }]);
@@ -804,6 +807,11 @@ export default function JobWorkOrderDetail() {
       jwo.colorName ??
       null);
   const showLines = severalLines || jobLines.some((line) => line.requirementLinks.length > 0);
+  // A greige job out with the processor: one colour of several can come back undyed on its own
+  const canReturnLine =
+    severalLines &&
+    jwo.fabricType === 'GREIGE' &&
+    ['ISSUED', 'IN_TRANSIT', 'AT_PROCESSOR', 'PARTIALLY_RECEIVED'].includes(jwo.jwoStatus ?? '');
   const isOverdue = daysOutstanding !== null && daysOutstanding > SECTION_143_CRITICAL_DAYS && !jwo.receivedDate;
   const hasAbnormalLoss = (jwo.qtyAbnormalLoss || 0) > 0;
   const currentStatus = jwo.jwoStatus;
@@ -1337,7 +1345,20 @@ export default function JobWorkOrderDetail() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <JobWorkLinesTable lines={jobLines} uom={jwo.uom} />
+                <JobWorkLinesTable
+                  lines={jobLines}
+                  uom={jwo.uom}
+                  actions={
+                    canReturnLine
+                      ? (line) =>
+                          !line.closedAt && isQtyZero(line.receivedQty) ? (
+                            <Button variant="outline" size="sm" onClick={() => setReturnLine(line)}>
+                              Return undyed
+                            </Button>
+                          ) : null
+                      : undefined
+                  }
+                />
               </CardContent>
             </Card>
           )}
@@ -1731,6 +1752,26 @@ export default function JobWorkOrderDetail() {
         // Took its cloth where it lay at the processor (no outward challan): the user names the store it came into
         drewWhereItLay={!jwo.outwardChallanId && !!jwo.sentDate}
       />
+      {returnLine && (
+        <ReturnFromProcessorDialog
+          open={!!returnLine}
+          onOpenChange={(open) => !open && setReturnLine(null)}
+          jobWorkOrderId={jwo.id}
+          jobWorkNumber={jwo.jobWorkNumber}
+          processorName={jwo.processor?.name ?? 'The processor'}
+          qtySent={Number(returnLine.qtySent)}
+          uom={jwo.uom}
+          drewWhereItLay={!jwo.outwardChallanId && !!jwo.sentDate}
+          line={{ id: returnLine.id, label: lineName(returnLine) }}
+          lots={(jwo.components ?? [])
+            .filter((c) => c.materialType === 'GREIGE' && c.greigeStockId)
+            .map((c) => ({
+              greigeStockLotId: c.greigeStockId as string,
+              label: c.greige?.greigeCode ? `${c.greige.greigeCode} lot` : 'Greige lot',
+              qtyOut: Number(c.qtySent),
+            }))}
+        />
+      )}
 
       {/* Receive Dialog — piece work only */}
       <Dialog open={receiveDialogOpen} onOpenChange={setReceiveDialogOpen}>

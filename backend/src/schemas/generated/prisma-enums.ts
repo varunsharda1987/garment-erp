@@ -626,7 +626,7 @@ export type LabDipStatus = z.infer<typeof LabDipStatusEnum>;
 export const BuyerApprovalStatusEnum = z.enum(['NOT_SENT', 'PENDING', 'APPROVED', 'REJECTED', 'RESUBMIT_REQUIRED']);
 export type BuyerApprovalStatus = z.infer<typeof BuyerApprovalStatusEnum>;
 
-export const JwoLineCloseEnum = z.enum(['FINAL', 'SHORT']);
+export const JwoLineCloseEnum = z.enum(['FINAL', 'SHORT', 'RETURNED', 'DROPPED']);
 export type JwoLineClose = z.infer<typeof JwoLineCloseEnum>;
 
 export const JobWorkOrderStatusEnum = z.enum([

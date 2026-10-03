@@ -42,6 +42,7 @@ import {
 } from './helpers/jwo-status.helper';
 import {
   closeLine,
+  jobSentForLoss,
   lineReceivedSoFar,
   pickReceiptLine,
   reopenAllLines,
@@ -3369,7 +3370,7 @@ class GRNService {
       let split: ReturnType<typeof jobWorkOrderService.calculateLossSplit>;
       try {
         split = jobWorkOrderService.calculateLossSplit({
-          qtySent: jwo.qtySentMeters,
+          qtySent: await jobSentForLoss(client, jwo.id, jwo.qtySentMeters),
           qtyReceived: cumulative,
           qtyExpected: jwo.qtyBillable,
           expectedShrinkagePercent: jwo.expectedShrinkage,
@@ -4040,7 +4041,7 @@ class GRNService {
     // until the last one is in.
     const receivedSoFar = Number(jobWorkOrder.qtyReceivedMeters ?? 0);
     const cumulativeReceived = toNumber(roundToCent(addCurrency(receivedSoFar, qtyReceived)));
-    const sentMeters = Number(jobWorkOrder.qtySentMeters ?? 0);
+    const sentMeters = await jobSentForLoss(tx, jobWorkOrder.id, jobWorkOrder.qtySentMeters);
     const actualShrinkage = sentMeters > 0 ? ((sentMeters - cumulativeReceived) / sentMeters) * 100 : 0;
     const partThanCount: number | null = grnItem?.thanCount ?? null;
     const thanCount: number | null =
@@ -5052,7 +5053,7 @@ class GRNService {
         .flatMap((r) => r.grn_items.map((i) => i.thanCount))
         .filter((n): n is number => n != null);
       const thanCount = thanCounts.length ? thanCounts.reduce((a, b) => a + b, 0) : null;
-      const sentMeters = Number(jobWorkOrder.qtySentMeters ?? 0);
+      const sentMeters = await jobSentForLoss(tx, jobWorkOrder.id, jobWorkOrder.qtySentMeters);
       const latest = remaining[remaining.length - 1];
       const latestChallan = await tx.challans.findFirst({
         where: { grnId: latest.id, challanType: 'INWARD' },

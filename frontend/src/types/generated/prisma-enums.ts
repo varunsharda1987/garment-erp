@@ -949,6 +949,8 @@ export type BuyerApprovalStatus = (typeof BuyerApprovalStatus)[keyof typeof Buye
 export const JwoLineClose = {
   FINAL: 'FINAL',
   SHORT: 'SHORT',
+  RETURNED: 'RETURNED',
+  DROPPED: 'DROPPED',
 } as const;
 export type JwoLineClose = (typeof JwoLineClose)[keyof typeof JwoLineClose];
 

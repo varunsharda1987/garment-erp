@@ -52,10 +52,11 @@ import {
 } from '../services/helpers/lot-location.helper';
 import { toDateInputValue } from '../utils/date';
 import { echoShadowPoStatus } from '../services/helpers/shadow-po.helper';
-import { returnJobWorkUnprocessed } from '../services/helpers/jwo-return-unprocessed.helper';
+import { returnJobWorkUnprocessed, returnLineUnprocessed } from '../services/helpers/jwo-return-unprocessed.helper';
 import {
   closeLine,
   createOneLineJobWorkOrder,
+  jobSentForLoss,
   JWO_LINES_BRIEF,
   LINE_RECEIPTS_SELECT,
   lineReceivedQty,
@@ -874,6 +875,27 @@ class JobWorkOrderController {
     const body = req.body as ReturnUnprocessedInput;
     const userId = req.user?.userId || req.user?.id;
     if (!userId) throw new UnauthorizedError();
+
+    if (body.lineId) {
+      const line = await returnLineUnprocessed({
+        jobWorkOrderId: id,
+        lineId: body.lineId,
+        returnedQty: Number(body.returnedQty),
+        lots: body.lots?.map((l) => ({ greigeStockLotId: l.greigeStockLotId, qty: Number(l.qty) })),
+        returnDate: body.returnDate,
+        remarks: body.remarks,
+        storeWarehouseId: body.storeWarehouseId ?? null,
+        shortCloseConfirmed: body.shortCloseConfirmed,
+        userId,
+      });
+      return res.json({
+        success: true,
+        data: line,
+        message:
+          `${line.lineLabel} on ${line.jobWorkNumber}: ${line.returnedQty} back undyed on challan ` +
+          `${line.inwardChallanNumber}${line.jobClosed ? ' — the job is finished' : ''}`,
+      });
+    }
 
     const result = await returnJobWorkUnprocessed({
       jobWorkOrderId: id,
@@ -2374,6 +2396,7 @@ class JobWorkOrderController {
       const jwo = await prisma.job_work_orders.findUnique({
         where: { id },
         select: {
+          id: true,
           jobWorkNumber: true,
           qtySentMeters: true,
           qtyBillable: true,
@@ -2391,7 +2414,7 @@ class JobWorkOrderController {
       const tolerancePercent = Number(jwo.tolerancePercent ?? jwo.processTypeMaster?.tolerancePercent ?? 0);
 
       const split = jobWorkOrderService.calculateLossSplit({
-        qtySent: jwo.qtySentMeters,
+        qtySent: await jobSentForLoss(prisma, jwo.id, jwo.qtySentMeters),
         qtyReceived: qty,
         qtyExpected: jwo.qtyBillable,
         expectedShrinkagePercent: jwo.expectedShrinkage,

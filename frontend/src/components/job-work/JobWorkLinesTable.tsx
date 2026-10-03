@@ -8,6 +8,7 @@ import { StyleIdentity } from '@/components/StyleIdentity';
 import { formatQuantity } from '@/lib/formatters';
 import { isQtyZero } from '@/lib/quantity';
 import { lineColour } from '@/lib/jwo-lines';
+import type { ReactNode } from 'react';
 import type { JobWorkOrderLine } from '@/types/jobWorkOrder.types';
 
 interface JobWorkLinesTableProps {
@@ -15,12 +16,22 @@ interface JobWorkLinesTableProps {
   uom: string;
   /** Issue dialog: what the greige is for — no received column */
   compact?: boolean;
+  /** Per-colour actions (Return undyed, Drop…) — a last column when given */
+  actions?: (line: JobWorkOrderLine) => ReactNode;
 }
+
+/** How a finished line reads under its Received figure */
+const CLOSED_LABEL: Record<string, string> = {
+  FINAL: 'complete',
+  SHORT: 'closed short',
+  RETURNED: 'back undyed — order back to needs processing',
+  DROPPED: 'dropped — order back to needs processing',
+};
 
 const sum = (lines: JobWorkOrderLine[], pick: (l: JobWorkOrderLine) => number | string | null | undefined) =>
   lines.reduce((total, l) => total + Number(pick(l) ?? 0), 0);
 
-export function JobWorkLinesTable({ lines, uom, compact = false }: JobWorkLinesTableProps) {
+export function JobWorkLinesTable({ lines, uom, compact = false, actions }: JobWorkLinesTableProps) {
   const many = lines.length > 1;
   const received = sum(lines, (l) => l.receivedQty);
   return (
@@ -34,6 +45,7 @@ export function JobWorkLinesTable({ lines, uom, compact = false }: JobWorkLinesT
           <TableHead className="text-right">Greige</TableHead>
           <TableHead className="text-right">Expected back</TableHead>
           {!compact && <TableHead className="text-right">Received</TableHead>}
+          {actions && <TableHead className="text-right">Actions</TableHead>}
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -96,13 +108,17 @@ export function JobWorkLinesTable({ lines, uom, compact = false }: JobWorkLinesT
               {!compact && (
                 <TableCell className="text-right whitespace-nowrap">
                   {!isQtyZero(line.receivedQty) ? formatQuantity(line.receivedQty, uom) : '-'}
-                  {many && line.closedAt && (
+                  {(many || line.closedHow === 'RETURNED' || line.closedHow === 'DROPPED') && line.closedAt && (
                     <div className="text-xs text-muted-foreground">
-                      {line.closedHow === 'SHORT' ? 'closed short' : 'complete'}
+                      {CLOSED_LABEL[line.closedHow ?? 'FINAL']}
+                      {line.closedHow === 'RETURNED' && line.qtyReturned != null
+                        ? ` (${formatQuantity(line.qtyReturned, uom)})`
+                        : ''}
                     </div>
                   )}
                 </TableCell>
               )}
+              {actions && <TableCell className="text-right">{actions(line)}</TableCell>}
             </TableRow>
           );
         })}
@@ -130,6 +146,7 @@ export function JobWorkLinesTable({ lines, uom, compact = false }: JobWorkLinesT
                 {isQtyZero(received) ? '-' : formatQuantity(received, uom)}
               </TableCell>
             )}
+            {actions && <TableCell />}
           </TableRow>
         </TableFooter>
       )}

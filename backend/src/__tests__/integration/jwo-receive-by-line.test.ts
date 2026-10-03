@@ -56,6 +56,11 @@ const linkReceived = async (requirementId: string) =>
   );
 const line = (id: string) => prisma.job_work_order_lines.findUniqueOrThrow({ where: { id } });
 const job = () => prisma.job_work_orders.findUniqueOrThrow({ where: { id: jobId } });
+const requirement = (id: string) =>
+  prisma.material_requirements.findUniqueOrThrow({
+    where: { id },
+    select: { status: true, shortQuantity: true, shortCloseReason: true },
+  });
 
 beforeAll(async () => {
   const user = await createTestUser({
@@ -330,6 +335,15 @@ describe('receiving a job work order one colour at a time', () => {
     expect(Number(j.qtyAbnormalLoss)).toBeGreaterThan(0);
     expect(await linkReceived(blackReqId)).toBe(300);
     expect(await linkReceived(redReqId)).toBe(900);
+    // The finished Black settles its order at what came back, the 150 m gap on record — MRP no longer counts it
+    // as on order. The Red came back in full: received, nothing short.
+    const blackReq = await requirement(blackReqId);
+    expect(blackReq.status).toBe('RECEIVED');
+    expect(Number(blackReq.shortQuantity)).toBe(150);
+    expect(blackReq.shortCloseReason).toMatch(/final delivery in/);
+    const redReq = await requirement(redReqId);
+    expect(redReq.status).toBe('RECEIVED');
+    expect(redReq.shortQuantity).toBeNull();
 
     // Two fabrics in stock, one per style
     const black = await line(blackLineId);
@@ -363,6 +377,9 @@ describe('receiving a job work order one colour at a time', () => {
     expect(j.jwoStatus).toBe('PARTIALLY_RECEIVED');
     expect(j.receivedDate).toBeNull();
     expect(Number(j.qtyReceivedMeters)).toBe(800);
+    // The Red's order is on order again; the Black — still finished — keeps its settled short
+    expect((await requirement(redReqId)).status).toBe('PARTIALLY_RECEIVED');
+    expect(Number((await requirement(blackReqId)).shortQuantity)).toBe(150);
   });
 
   it('Close short closes the colours still open and finishes the job on its total', async () => {
@@ -376,5 +393,10 @@ describe('receiving a job work order one colour at a time', () => {
     const j = await job();
     expect(j.jwoStatus).toBe('STOCK_UPDATED');
     expect(Number(j.qtyReceivedMeters)).toBe(800);
+    // Nothing more is coming of the Red: its order closes at the 500 m that came, 400 m short on record
+    const redReq = await requirement(redReqId);
+    expect(redReq.status).toBe('RECEIVED');
+    expect(Number(redReq.shortQuantity)).toBe(400);
+    expect(redReq.shortCloseReason).toMatch(/closed short/);
   });
 });

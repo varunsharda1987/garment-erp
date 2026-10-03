@@ -2353,7 +2353,10 @@ function OutsourcedWorkTab({
                 ? 'Job Work Required'
                 : req.status === 'PO_SENT'
                   ? 'Sent to Processor'
-                  : MaterialRequirementStatusLabels[req.status] || req.status,
+                  : // A finished colour closed with less than allocated: done, and the gap is on record
+                    req.status === 'RECEIVED' && Number(req.shortQuantity ?? 0) > 0
+                    ? `Received — ${formatQuantity(req.shortQuantity, req.unit)} short`
+                    : MaterialRequirementStatusLabels[req.status] || req.status,
           isSelectable: req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK',
           createdAt: req.createdAt,
           componentName: req.componentName || null,

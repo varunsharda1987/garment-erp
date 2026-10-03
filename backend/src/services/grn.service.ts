@@ -49,6 +49,7 @@ import {
   theOnlyLine,
 } from './helpers/jwo-lines.helper';
 import { closeOutwardChallanForJwo, resyncOutwardChallanAfterReversal } from './helpers/jwo-challan-lifecycle.helper';
+import { resettleJobRequirements } from './helpers/jwo-requirement-settle.helper';
 import { updateGreigeLastPurchaseRate } from './helpers/greige-rate.helper';
 import { determineFinishType } from './helpers/processing-fabric.helper';
 import { jobWorkOrderService } from './job-work-order.service';
@@ -3138,6 +3139,8 @@ class GRNService {
             // Phase 5a: symmetric reversal for service-requirement links (no-op without links)
             await updateWosrReceivedQuantity(grn.jobWorkOrderId, -totalAccepted, tx);
           }
+          // A colour this receipt finished is open again: its requirements are no longer settled
+          await resettleJobRequirements(tx, grn.jobWorkOrderId);
         }
       }
 
@@ -4173,6 +4176,8 @@ class GRNService {
     await mrpService.updateJwoReceivedQuantity(jobWorkOrder.id, qtyReceived, tx, line.id);
     // Phase 5a: same hook for service requirements (no-ops when no links exist)
     await updateWosrReceivedQuantity(jobWorkOrder.id, qtyReceived, tx);
+    // A colour whose final delivery this was settles its requirements at what came back (short recorded)
+    await resettleJobRequirements(tx, jobWorkOrder.id);
 
     logInfo('PO-less JWO GRN approved — fabric_stock created', {
       grnId,
@@ -4358,6 +4363,7 @@ class GRNService {
 
     await mrpService.updateJwoReceivedQuantity(jobWorkOrder.id, qtyReceived, tx, receipt.line.id);
     await updateWosrReceivedQuantity(jobWorkOrder.id, qtyReceived, tx);
+    await resettleJobRequirements(tx, jobWorkOrder.id);
 
     logInfo('Lace JWO GRN approved — lace_stock created', {
       grnId,

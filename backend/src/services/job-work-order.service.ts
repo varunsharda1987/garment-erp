@@ -23,6 +23,7 @@ import { isQtyZero } from '../utils/quantity';
 import { logWarn } from '../utils/logger';
 import { closeOutwardChallanForJwo } from './helpers/jwo-challan-lifecycle.helper';
 import { closeOpenLinesShort } from './helpers/jwo-lines.helper';
+import { resettleJobRequirements } from './helpers/jwo-requirement-settle.helper';
 import {
   toCurrency,
   multiplyCurrency,
@@ -434,6 +435,9 @@ class JobWorkOrderService {
       const receivedDate = jwo.receivingGRNs[0].receivingDate;
       // Nothing more is coming on any colour: every line still open closes short with the job (2026-10-02)
       await closeOpenLinesShort(tx, jwoId, receivedDate ?? new Date());
+      // ...and the requirements those colours served are settled at what came back, the shortfall recorded —
+      // MRP stops counting them as still on order
+      await resettleJobRequirements(tx, jwoId);
       const note =
         `[CLOSED SHORT ${formatDate(new Date())}] nothing more expected from ${processorName}; ` +
         `total ${total.toFixed(2)} of ${split.qtyExpected.toFixed(2)} ${uom}` +

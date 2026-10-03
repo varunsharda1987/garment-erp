@@ -53,6 +53,7 @@ import { productionBlockingValidationService } from '../src/services/productionB
 import { findMirrorDrift } from './repair-material-mirror-names';
 import { findOrderStatusDrift } from '../src/services/helpers/order-status.helper';
 import { headerFromLines } from '../src/services/helpers/jwo-lines.helper';
+import { resettleJobRequirements } from '../src/services/helpers/jwo-requirement-settle.helper';
 import { findSizelessLinkedItems } from '../src/services/helpers/sale-order-sizes.helper';
 import { lotPiecesSummary } from '../src/services/fabric-lot-pieces.service';
 
@@ -662,17 +663,27 @@ async function main() {
       for (const c of rows) {
         const waiting = c.status === 'IN_TRANSIT';
         if (waiting && c.directSupplyGrn && c.directSupplyGrn.status !== 'PENDING_QC') {
-          out.push({ challan: c.challanNumber, problem: `claimed by ${c.directSupplyGrn.grnNumber} (${c.directSupplyGrn.status})` });
+          out.push({
+            challan: c.challanNumber,
+            problem: `claimed by ${c.directSupplyGrn.grnNumber} (${c.directSupplyGrn.status})`,
+          });
         }
-        if (!waiting && !c.directSupplyGrn) out.push({ challan: c.challanNumber, problem: `${c.status} with no receipt` });
+        if (!waiting && !c.directSupplyGrn)
+          out.push({ challan: c.challanNumber, problem: `${c.status} with no receipt` });
         if (
           !waiting &&
-          c.items.some((i) => i.arrivedQty != null && Number(i.arrivedQty) > 0 && !i.greigeStockId && !i.laceStockId && !i.fabricStockId)
+          c.items.some(
+            (i) =>
+              i.arrivedQty != null && Number(i.arrivedQty) > 0 && !i.greigeStockId && !i.laceStockId && !i.fabricStockId
+          )
         ) {
           out.push({ challan: c.challanNumber, problem: 'a line arrived but names no lot' });
         }
         if (waiting && c.purchaseOrder && ['RECEIVED', 'SHORT_CLOSED', 'CANCELLED'].includes(c.purchaseOrder.status)) {
-          out.push({ challan: c.challanNumber, problem: `still on the way on ${c.purchaseOrder.poNumber} (${c.purchaseOrder.status})` });
+          out.push({
+            challan: c.challanNumber,
+            problem: `still on the way on ${c.purchaseOrder.poNumber} (${c.purchaseOrder.status})`,
+          });
         }
       }
       return out;
@@ -714,22 +725,34 @@ async function main() {
           continue;
         }
         if (j.lines.length > 1 && ((j.uom ?? 'MTR') !== 'MTR' || j.fabricType === 'LACE')) {
-          out.push({ job: j.jobWorkNumber, problem: `${j.lines.length} lines on a ${j.fabricType === 'LACE' ? 'lace' : j.uom} job` });
+          out.push({
+            job: j.jobWorkNumber,
+            problem: `${j.lines.length} lines on a ${j.fabricType === 'LACE' ? 'lace' : j.uom} job`,
+          });
         }
         const mirror = headerFromLines(j.lines);
         const numbers = ['qtySentMeters', 'sentWidthInches', 'expectedShrinkage'] as const;
         for (const field of numbers) {
           if (!sameNumber(j[field], mirror[field])) {
-            out.push({ job: j.jobWorkNumber, problem: `${field} ${j[field] ?? 'blank'} ≠ lines ${mirror[field] ?? 'blank'}` });
+            out.push({
+              job: j.jobWorkNumber,
+              problem: `${field} ${j[field] ?? 'blank'} ≠ lines ${mirror[field] ?? 'blank'}`,
+            });
           }
         }
         if (j.jwoStatus !== 'CLOSED' && !sameNumber(j.qtyBillable, mirror.qtyBillable)) {
-          out.push({ job: j.jobWorkNumber, problem: `qtyBillable ${j.qtyBillable ?? 'blank'} ≠ lines ${mirror.qtyBillable ?? 'blank'}` });
+          out.push({
+            job: j.jobWorkNumber,
+            problem: `qtyBillable ${j.qtyBillable ?? 'blank'} ≠ lines ${mirror.qtyBillable ?? 'blank'}`,
+          });
         }
         const texts = ['styleId', 'colorMasterId', 'colorName', 'finishedFabricId', 'finishedLaceId'] as const;
         for (const field of texts) {
           if ((j[field]?.trim() || null) !== mirror[field]) {
-            out.push({ job: j.jobWorkNumber, problem: `${field} ${j[field] ?? 'blank'} ≠ lines ${mirror[field] ?? 'blank'}` });
+            out.push({
+              job: j.jobWorkNumber,
+              problem: `${field} ${j[field] ?? 'blank'} ≠ lines ${mirror[field] ?? 'blank'}`,
+            });
           }
         }
       }
@@ -781,10 +804,37 @@ async function main() {
         if (j.lines.length === 0) continue;
         const open = j.lines.filter((l) => !l.closedAt);
         if (j.receivedDate && open.length > 0 && j.lines.length > 1) {
-          out.push({ job: j.jobWorkNumber, problem: `received, but line ${open.map((l) => l.lineNo).join(', ')} still open` });
+          out.push({
+            job: j.jobWorkNumber,
+            problem: `received, but line ${open.map((l) => l.lineNo).join(', ')} still open`,
+          });
         }
         if (!j.receivedDate && open.length === 0) {
           out.push({ job: j.jobWorkNumber, problem: 'every line closed, but the job is not received' });
+        }
+      }
+
+      // A finished colour settles its requirements at what came back (jwo-requirement-settle.helper, 2026-10-03):
+      // one still "on order" here never leaves the order's material count. Checked by running the one rule in a
+      // transaction that is always rolled back. Fix: npx ts-node --files scripts/repair-jwo-requirement-settle.ts
+      class RolledBack extends Error {}
+      const finishedJobs = await prisma.job_work_orders.findMany({
+        where: { lines: { some: { closedAt: { not: null } } }, jwoStatus: { not: 'CANCELLED' } },
+        select: { id: true, jobWorkNumber: true },
+      });
+      for (const j of finishedJobs) {
+        try {
+          await prisma.$transaction(async (tx) => {
+            for (const o of await resettleJobRequirements(tx, j.id)) {
+              out.push({
+                job: j.jobWorkNumber,
+                problem: `${o.requirementNumber} ${o.change === 'settled' ? 'still on order though its colour is finished' : 'settled though its colour is open'}`,
+              });
+            }
+            throw new RolledBack();
+          });
+        } catch (err) {
+          if (!(err instanceof RolledBack)) throw err;
         }
       }
       return out;
@@ -879,7 +929,9 @@ async function main() {
   console.log('CAD rows by purpose (and how many carry a cadAverage):');
   for (const r of cadByPurpose) {
     const key = r.purposeEnum ?? 'null';
-    console.log(`  ${String(r._count._all).padStart(7)}  ${String(key).padEnd(28)} withCadAverage=${avgMap.get(key) ?? 0}`);
+    console.log(
+      `  ${String(r._count._all).padStart(7)}  ${String(key).padEnd(28)} withCadAverage=${avgMap.get(key) ?? 0}`
+    );
   }
   console.log('');
 

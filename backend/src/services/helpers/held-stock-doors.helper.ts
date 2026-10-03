@@ -133,10 +133,20 @@ async function placeHeldLot(tx: Tx, line: BringToStoreLine): Promise<PlacedLot> 
       : ((lot as { fabricMaster?: { fabricCode: string } | null }).fabricMaster?.fabricCode ?? 'Fabric');
   const holderId = unitLotHolderId(lot);
   if (!holderId) throw fail(`${code} is in our store, not at a processor.`, 'LOT_NOT_HELD');
-  const free = Number(lot.quantityAvailable);
+  // Metres held for an order stay on the lot, as greige's do (2026-10-03) — moving them left the hold on a lot
+  // with nothing on it. Read from the holds themselves: lace's quantityReserved also carries issue notes and
+  // allocations that already left `quantityAvailable`.
+  const holds = await tx.stock_reservations.findMany({
+    where: { status: 'ACTIVE', ...(line.lotType === 'LACE' ? { laceStockId: lot.id } : { fabricStockId: lot.id }) },
+    select: { reservedQuantity: true, consumedQuantity: true },
+  });
+  const held = holds.reduce((sum, h) => sum + Math.max(0, Number(h.reservedQuantity) - Number(h.consumedQuantity)), 0);
+  const free = Math.max(0, Math.round((Number(lot.quantityAvailable) - held) * 1000) / 1000);
   if (qtyExceeds(line.quantity, free)) {
     throw fail(
-      `Only ${free} m of ${code} is at ${lot.warehouse?.supplier?.name ?? 'the processor'}.`,
+      `Only ${free} m of ${code} is free at ${lot.warehouse?.supplier?.name ?? 'the processor'}` +
+        (held > 0 ? ` (${Math.round(held * 1000) / 1000} m is held for an order)` : '') +
+        '.',
       'QTY_EXCEEDS_HELD'
     );
   }

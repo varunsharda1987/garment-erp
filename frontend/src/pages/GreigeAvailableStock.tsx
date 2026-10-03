@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, Fragment } from 'react';
+import { useHeldStockConfirm } from '@/hooks/useHeldStockConfirm';
 import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -112,6 +113,8 @@ export default function GreigeAvailableStock() {
 
   // Adjust dialog
   const [adjustingEntry, setAdjustingEntry] = useState<GreigeStockDetail | null>(null);
+  // A write-off of metres held for an order asks first (po-allocation D10)
+  const { withHeldStockConfirm, heldStockDialog } = useHeldStockConfirm();
   // Move to another processor (Phase 4c): a lot held at one processor goes on to another, on a challan
   const [moveTarget, setMoveTarget] = useState<{ greigeId: string; lot: MoveLot; fromName: string } | null>(null);
   // "Record bales & thans" on a lot with no list (2026-09-28) — then its pieces can be picked at issue
@@ -318,12 +321,18 @@ export default function GreigeAvailableStock() {
         toast.error('Enter a valid quantity');
         return;
       }
-      await greigeStockService.adjustStock(adjustingEntry.id, {
-        adjustmentType: adjustForm.type,
-        quantity: qty,
-        reason: adjustForm.reason,
-        remarks: adjustForm.remarks,
-      });
+      const done = await withHeldStockConfirm(
+        (takeHeld) =>
+          greigeStockService.adjustStock(adjustingEntry.id, {
+            adjustmentType: adjustForm.type,
+            quantity: qty,
+            reason: adjustForm.reason,
+            remarks: adjustForm.remarks,
+            ...(takeHeld ? { takeHeld: true } : {}),
+          }),
+        'METER'
+      );
+      if (done === undefined) return; // kept for the order
       toast.success(`Stock ${adjustForm.type === 'INCREASE' ? 'increased' : 'decreased'} by ${qty} meters`);
       setAdjustingEntry(null);
       setAdjustForm({ type: 'DECREASE', quantity: '', reason: 'CORRECTION', remarks: '' });
@@ -1028,6 +1037,7 @@ export default function GreigeAvailableStock() {
       </Dialog>
 
       {/* Stock Adjustment Dialog */}
+      {heldStockDialog}
       <Dialog open={!!adjustingEntry} onOpenChange={(open) => !open && setAdjustingEntry(null)}>
         <DialogContent>
           <DialogHeader>

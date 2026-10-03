@@ -302,6 +302,7 @@ export const createStockOut = async (req: Request, res: Response) => {
     referenceId,
     referenceNumber,
     remarks,
+    takeHeld,
   } = req.body;
 
   // Resolve materialId from polymorphic itemType/itemId if not provided directly
@@ -338,7 +339,12 @@ export const createStockOut = async (req: Request, res: Response) => {
     performedById: userId,
   };
 
-  const movement = await stockMovementService.createStockOut(movementData);
+  // Goods held for other orders are refused (409 STOCK_HELD_FOR_ORDER) unless the user confirmed taking them
+  const movement = await stockMovementService.createStockOut(movementData, undefined, {
+    takeHeld: !!takeHeld,
+    userId,
+    reference: referenceNumber ? `Stock-Out ${referenceNumber}` : 'Stock-Out',
+  });
 
   res.status(201).json({
     success: true,
@@ -401,7 +407,7 @@ export const createStockAdjustment = async (req: Request, res: Response) => {
     throw new ValidationError('User not authenticated');
   }
 
-  const { materialId, warehouseId, adjustmentQuantity, unit, reason, remarks } = req.body;
+  const { materialId, warehouseId, adjustmentQuantity, unit, reason, remarks, takeHeld } = req.body;
 
   // Validation
   if (!materialId || !warehouseId || adjustmentQuantity === undefined || !unit || !reason) {
@@ -418,7 +424,12 @@ export const createStockAdjustment = async (req: Request, res: Response) => {
     performedById: userId,
   };
 
-  const movement = await stockMovementService.createStockAdjustment(adjustmentData);
+  // A decrease that would take goods held for other orders is refused unless the user confirmed (takeHeld)
+  const movement = await stockMovementService.createStockAdjustment(adjustmentData, undefined, {
+    takeHeld: !!takeHeld,
+    userId,
+    reference: `Adjustment (${reason})`,
+  });
 
   res.status(201).json({
     success: true,

@@ -76,6 +76,8 @@ export interface ExternalProcessSendOut {
 }
 
 export interface CreateExternalProcessSendOutRequest {
+  /** FABRIC_STOCK: the user confirmed taking metres held for other orders (STOCK_HELD_FOR_ORDER) */
+  takeHeld?: boolean;
   processType: ExternalProcessType;
   sourceType: ExternalProcessSourceType;
   workOrderId: string;

@@ -4,6 +4,7 @@
  */
 
 import { unitShort } from '@/lib/units';
+import { useHeldStockConfirm } from '@/hooks/useHeldStockConfirm';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -304,9 +305,16 @@ export default function SmockingSendOut() {
     }
   }, [skuQtys, sourceType, selectedBatch]);
 
+  // Metres held for another order on the lot ask first (po-allocation D10)
+  const { withHeldStockConfirm, heldStockDialog } = useHeldStockConfirm();
   const sendOutMutation = useMutation({
-    mutationFn: (data: CreateExternalProcessSendOutRequest) => externalProcessService.createSendOut(data),
-    onSuccess: () => {
+    mutationFn: (data: CreateExternalProcessSendOutRequest) =>
+      withHeldStockConfirm(
+        (takeHeld) => externalProcessService.createSendOut(takeHeld ? { ...data, takeHeld: true } : data),
+        data.unit
+      ),
+    onSuccess: (created) => {
+      if (created === undefined) return; // kept for the other order
       toast.success('Smocking send-out created successfully');
       navigate('/manufacturing/smocking');
     },
@@ -364,6 +372,7 @@ export default function SmockingSendOut() {
 
   return (
     <div className="space-y-6 p-6">
+      {heldStockDialog}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => navigate('/manufacturing/smocking')}>
           <ArrowLeft className="h-4 w-4" />

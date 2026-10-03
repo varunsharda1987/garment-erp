@@ -372,7 +372,9 @@ class StockCountService {
               remarks: `Physical count adjustment - Count #${stockCount.countNumber}`,
               performedById: approvedById,
             },
-            tx
+            tx,
+            // The goods are physically gone: a count takes them even when held — the holding order's need reopens
+            { mode: 'take', userId: approvedById, reference: `Stock count ${stockCount.countNumber}` }
           );
 
           adjustments.push(adjustment);

@@ -339,6 +339,8 @@ export interface CreateStockAdjustmentDTO {
   unit: Unit;
   reason: AdjustmentReason;
   remarks?: string;
+  /** The user confirmed taking goods held for other orders (STOCK_HELD_FOR_ORDER) */
+  takeHeld?: boolean;
 }
 
 export interface MovementSummary {

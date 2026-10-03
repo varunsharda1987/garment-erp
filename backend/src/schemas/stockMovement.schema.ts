@@ -149,6 +149,8 @@ export const createStockOutSchema = z.object({
   referenceId: z.string().uuid().optional(),
   referenceNumber: z.string().max(100).optional(),
   remarks: z.string().max(500).optional(),
+  /** The user confirmed taking goods held for other orders (STOCK_HELD_FOR_ORDER) */
+  takeHeld: z.boolean().optional(),
 });
 
 // ============================================================================
@@ -190,6 +192,8 @@ export const createStockAdjustmentSchema = z.object({
   unit: UnitEnum,
   reason: AdjustmentReasonEnum,
   remarks: z.string().max(500).optional(),
+  /** The user confirmed taking goods held for other orders (STOCK_HELD_FOR_ORDER) */
+  takeHeld: z.boolean().optional(),
 });
 
 // ============================================================================

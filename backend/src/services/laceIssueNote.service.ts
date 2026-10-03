@@ -15,6 +15,8 @@ import { applySearch } from '../utils/search-filter';
 import { qtyExceeds, qtyRemaining, isQtyZero, snapToLimit } from '../utils/quantity';
 import { LOT_WAREHOUSE_SELECT } from './helpers/lot-location.helper';
 import { assertLaceInOurStore } from './laceStock.service';
+import { heldForOtherOrders, heldStockConflict, takeHeldGoods } from './helpers/po-allocation.helper';
+import { consumeReservations } from './helpers/stock-reservation.helper';
 
 // ============================================
 // Types
@@ -29,6 +31,8 @@ export interface CreateLaceIssueNoteInput {
   issuedQuantity: number;
   notes?: string;
   issuedById: string;
+  /** The user confirmed taking lace held for other orders (STOCK_HELD_FOR_ORDER) */
+  takeHeld?: boolean;
 }
 
 export interface RecordConsumptionInput {
@@ -93,12 +97,37 @@ export async function createLaceIssueNote(input: CreateLaceIssueNoteInput) {
 
     assertLaceInOurStore(stock, 'issued to the production floor');
 
-    const available = Number(stock.quantityAvailable) - Number(stock.quantityReserved);
-    // Quantity rule (utils/quantity): issuing the whole lot typed at 2 decimals is issuing the lot.
-    if (qtyExceeds(input.issuedQuantity, available)) {
-      throw new Error(`Insufficient stock available. Required: ${input.issuedQuantity}, Available: ${available}`);
+    // What the order may issue: the lot, less what it holds for OTHER orders. It used to subtract the lot's whole
+    // quantityReserved — which also counts this order's own holds (so the order could not issue lace held FOR it)
+    // and earlier issue notes, whose metres had already left quantityAvailable (counted twice). 2026-10-03.
+    const onLot = Number(stock.quantityAvailable);
+    if (qtyExceeds(input.issuedQuantity, onLot)) {
+      throw new Error(`Insufficient stock available. Required: ${input.issuedQuantity}, Available: ${onLot}`);
     }
-    const issuedQty = snapToLimit(input.issuedQuantity, available);
+    // Quantity rule (utils/quantity): issuing the whole lot typed at 2 decimals is issuing the lot.
+    const issuedQty = snapToLimit(input.issuedQuantity, onLot);
+    const othersHeld = await heldForOtherOrders(tx, {
+      materialId: stock.laceId,
+      lotIds: [stock.id],
+      excludeOrderId: input.orderId,
+    });
+    const short = Math.round((issuedQty - (onLot - othersHeld.reduce((sum, h) => sum + h.qty, 0))) * 1000) / 1000;
+    if (qtyExceeds(short, 0)) {
+      if (!input.takeHeld) {
+        throw heldStockConflict(
+          `${short} m of this lace lot is held for other orders. Take it anyway, or issue less.`,
+          othersHeld
+        );
+      }
+      await takeHeldGoods(tx, {
+        materialId: stock.laceId,
+        lotIds: [stock.id],
+        quantity: short,
+        takerOrderId: input.orderId,
+        userId: input.issuedById,
+        reference: `Lace issue ${issueNumber}`,
+      });
+    }
 
     // Create issue note
     const issueNote = await tx.lace_issue_note.create({
@@ -134,6 +163,21 @@ export async function createLaceIssueNote(input: CreateLaceIssueNoteInput) {
         quantityReserved: { increment: issuedQty },
       },
     });
+
+    // The issue uses the order's own holds on this lot — the metres are now the issue note's, not a hold's
+    const own = await tx.material_requirements.findMany({
+      where: { orderId: input.orderId, materialId: stock.laceId, status: { not: 'CANCELLED' } },
+      select: { id: true },
+    });
+    if (own.length > 0) {
+      await consumeReservations(
+        tx,
+        own.map((r) => r.id),
+        issuedQty,
+        new Date(),
+        [stock.id]
+      );
+    }
 
     // Create stock transaction
     const newBalance = Number(stock.quantityAvailable) - issuedQty;

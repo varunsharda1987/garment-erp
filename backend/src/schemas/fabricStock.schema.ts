@@ -195,6 +195,8 @@ export const adjustGreigeStockSchema = z.object({
   quantity: z.number().positive('Quantity must be positive'),
   reason: AdjustmentReasonEnum,
   remarks: z.string().max(500).optional(),
+  /** The user confirmed taking metres held for other orders (STOCK_HELD_FOR_ORDER) */
+  takeHeld: z.boolean().optional(),
 });
 
 /** One counted piece — a than (optionally in a bale) or a roll — as the Record / Check dialogs post it. */

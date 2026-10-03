@@ -30,6 +30,8 @@ export const createIssueNoteSchema = z.object({
   issuedQuantity: z.number().positive('Issued quantity must be positive'),
   cuttingBatchId: z.string().uuid('Invalid cutting batch ID').optional(),
   notes: z.string().max(1000).optional(),
+  /** The user confirmed taking lace held for other orders (STOCK_HELD_FOR_ORDER) */
+  takeHeld: z.boolean().optional(),
 });
 
 /**

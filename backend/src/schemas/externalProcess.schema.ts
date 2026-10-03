@@ -68,6 +68,8 @@ export const sendOutSchema = z.object({
    * come to at the lot's fold — the server works it out; a lot without a list goes by quantitySent.
    */
   fabricDetails: z.array(fabricPiecePickSchema).max(2000).optional(),
+  /** FABRIC_STOCK: the user confirmed taking metres held for other orders (STOCK_HELD_FOR_ORDER) */
+  takeHeld: z.boolean().optional(),
 });
 
 /**

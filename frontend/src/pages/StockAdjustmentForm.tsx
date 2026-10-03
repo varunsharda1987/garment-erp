@@ -20,6 +20,7 @@ import stockLevelService from '../services/stockLevel.service';
 import { Unit, AdjustmentReason } from '../types/inventory-exports';
 import type { StockLevel } from '../types/inventory-exports';
 import { logError } from '../lib/logger';
+import { useHeldStockConfirm } from '@/hooks/useHeldStockConfirm';
 
 export default function StockAdjustmentForm() {
   const navigate = useNavigate();
@@ -28,6 +29,8 @@ export default function StockAdjustmentForm() {
   const [success, setSuccess] = useState(false);
   const [availableStock, setAvailableStock] = useState<StockLevel[]>([]);
   const [selectedStock, setSelectedStock] = useState<StockLevel | null>(null);
+  // A decrease that would take goods held for other orders asks first (po-allocation D10)
+  const { withHeldStockConfirm, heldStockDialog } = useHeldStockConfirm();
 
   const [formData, setFormData] = useState({
     materialId: '',
@@ -96,14 +99,20 @@ export default function StockAdjustmentForm() {
           : // A full decrease typed at 2 decimals IS the full stock (see @/lib/quantity)
             -(selectedStock ? snapToLimit(formData.quantity, selectedStock.quantity) : Number(formData.quantity));
 
-      await stockMovementService.createAdjustment({
-        materialId: formData.materialId,
-        warehouseId: formData.warehouseId,
-        adjustmentQuantity,
-        unit: formData.unit as Unit,
-        reason: formData.reason as AdjustmentReason,
-        remarks: formData.remarks || undefined,
-      });
+      const saved = await withHeldStockConfirm(
+        (takeHeld) =>
+          stockMovementService.createAdjustment({
+            materialId: formData.materialId,
+            warehouseId: formData.warehouseId,
+            adjustmentQuantity,
+            unit: formData.unit as Unit,
+            reason: formData.reason as AdjustmentReason,
+            remarks: formData.remarks || undefined,
+            ...(takeHeld ? { takeHeld: true } : {}),
+          }),
+        formData.unit
+      );
+      if (saved === undefined) return; // kept for the other order
 
       setSuccess(true);
       setTimeout(() => navigate('/inventory/movements'), 2000);
@@ -121,6 +130,7 @@ export default function StockAdjustmentForm() {
 
   return (
     <div>
+      {heldStockDialog}
       <PageHeader title="Stock Adjustment" />
 
       {error && (

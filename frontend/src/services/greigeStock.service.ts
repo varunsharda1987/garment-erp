@@ -136,7 +136,14 @@ export const greigeStockService = {
   // BUG-GR11 fix: added return type
   async adjustStock(
     stockId: string,
-    data: { adjustmentType: 'INCREASE' | 'DECREASE'; quantity: number; reason: string; remarks?: string }
+    data: {
+      adjustmentType: 'INCREASE' | 'DECREASE';
+      quantity: number;
+      reason: string;
+      remarks?: string;
+      /** The user confirmed taking metres held for other orders (STOCK_HELD_FOR_ORDER) */
+      takeHeld?: boolean;
+    }
   ): Promise<GreigeStockAdjustmentResult> {
     const response = await api.post<ApiResponse<GreigeStockAdjustmentResult>>(
       `${BASE_URL}/stock/${stockId}/adjust`,

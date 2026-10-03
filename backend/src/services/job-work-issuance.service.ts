@@ -209,9 +209,9 @@ const jwoOrderId = (jwo: Pick<JwoForIssue, 'requirementLinks' | 'workOrder'>): s
   jwo.workOrder?.orderId ??
   null;
 
-/** One picked greige / lace lot, as the held-goods gate reads it */
+/** One picked greige / lace / fabric lot, as the held-goods gate reads it */
 interface PickedLot {
-  table: 'greige' | 'lace';
+  table: 'greige' | 'lace' | 'fabric';
   lotId: string;
   /** materials.id === master.id, so a lot's greigeId / laceId IS its materials id */
   materialId: string;
@@ -226,7 +226,22 @@ export interface HeldShortLot extends PickedLot {
   held: HeldForOther[];
 }
 
-const pickedLotsOf = (v: Pick<ValidateIssueResult, 'lots' | 'laceLots'>): PickedLot[] => [
+const pickedLotsOf = (
+  v: Pick<ValidateIssueResult, 'lots' | 'laceLots'> & { fabricLotRow?: ValidateIssueResult['fabricLotRow'] }
+): PickedLot[] => [
+  // The fabric-roll source (EMBROIDERY): its lot is gated like greige and lace (2026-10-03) — it was not, so a job
+  // could empty a fabric lot another order's Use Stock held
+  ...(v.lots.length === 0 && v.fabricLotRow
+    ? [
+        {
+          table: 'fabric' as const,
+          lotId: v.fabricLotRow.id,
+          materialId: v.fabricLotRow.fabricId,
+          lotCode: v.fabricLotRow.id.slice(0, 8),
+          qty: v.fabricLotRow.issueQty,
+        },
+      ]
+    : []),
   ...v.laceLots.map((l) => ({
     table: 'lace' as const,
     lotId: l.row.id,
@@ -262,7 +277,9 @@ async function heldShortOnLots(
     const lot =
       p.table === 'greige'
         ? await client.greige_stock.findUnique({ where: { id: p.lotId }, select: LOT_QTY })
-        : await client.lace_stock.findUnique({ where: { id: p.lotId }, select: LOT_QTY });
+        : p.table === 'fabric'
+          ? await client.fabric_stock.findUnique({ where: { id: p.lotId }, select: LOT_QTY })
+          : await client.lace_stock.findUnique({ where: { id: p.lotId }, select: LOT_QTY });
     // A lot's reserved figure is the sum of the holds on it: nothing reserved, nobody holds it
     if (!lot || !qtyExceeds(lot.quantityReserved, 0)) continue;
     const held = (
@@ -345,6 +362,8 @@ export interface ValidateIssueResult {
   }>;
   fabricLotRow: {
     id: string;
+    /** The lot's fabric master — materials.id === master.id */
+    fabricId: string;
     quantityAvailable: Prisma.Decimal;
     warehouseId: string | null;
     receivedDate?: Date | null;
@@ -726,19 +745,13 @@ export async function validateIssue(
     lots.sort((a, b) => b.qty - a.qty);
   }
 
-  // Goods held for other orders (po-allocation design §6.7): a warning, not a wall (owner decision D10). The
-  // user may take them anyway (takeHeld) — the issue then reopens those orders' need (issueOneWithinTx).
-  const heldShort = await heldShortOnLots(prisma, jwo, pickedLotsOf({ lots, laceLots }));
-  if (heldShort.length > 0 && !opts.takeHeld) {
-    blockers.push({ code: ISSUE_ERROR_CODES.STOCK_HELD_FOR_ORDER, message: heldShortMessage(jwo, heldShort) });
-  }
-
   let fabricLotRow: ValidateIssueResult['fabricLotRow'] = null;
   if (fabricLotId) {
     const row = await prisma.fabric_stock.findUnique({
       where: { id: fabricLotId },
       select: {
         id: true,
+        fabricId: true,
         quantityAvailable: true,
         warehouseId: true,
         receivedDate: true,
@@ -816,6 +829,7 @@ export async function validateIssue(
     } else {
       fabricLotRow = {
         id: row.id,
+        fabricId: row.fabricId,
         quantityAvailable: row.quantityAvailable,
         warehouseId: row.warehouseId,
         receivedDate: row.receivedDate,
@@ -826,6 +840,13 @@ export async function validateIssue(
         foldLengthCm: row.foldLengthCm,
       };
     }
+  }
+
+  // Goods held for other orders (po-allocation design §6.7): a warning, not a wall (owner decision D10). The
+  // user may take them anyway (takeHeld) — the issue then reopens those orders' need (issueOneWithinTx).
+  const heldShort = await heldShortOnLots(prisma, jwo, pickedLotsOf({ lots, laceLots, fabricLotRow }));
+  if (heldShort.length > 0 && !opts.takeHeld) {
+    blockers.push({ code: ISSUE_ERROR_CODES.STOCK_HELD_FOR_ORDER, message: heldShortMessage(jwo, heldShort) });
   }
 
   return { jwo, lots, laceLots, fabricLotRow, expectedGreigeId, expectedGreige, heldShort, blockers };

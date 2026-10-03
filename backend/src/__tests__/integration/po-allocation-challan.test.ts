@@ -384,8 +384,22 @@ describe('trims held for orders, at the work order issue', () => {
     expect(res.status).toBe(409);
     expect(res.body.details.code).toBe('STOCK_HELD_FOR_ORDER');
     expect(res.body.details.heldFor).toEqual([
-      { requirementNumber: `${RUN}-r2`, orderNumber: `${RUN}-O2`, styleCode: null, qty: 300, unit: 'PIECE' },
-      { requirementNumber: `${RUN}-r1`, orderNumber: `${RUN}-O1`, styleCode: null, qty: 100, unit: 'PIECE' },
+      {
+        requirementNumber: `${RUN}-r2`,
+        orderNumber: `${RUN}-O2`,
+        styleCode: null,
+        buyerStyleRef: null,
+        qty: 300,
+        unit: 'PIECE',
+      },
+      {
+        requirementNumber: `${RUN}-r1`,
+        orderNumber: `${RUN}-O1`,
+        styleCode: null,
+        buyerStyleRef: null,
+        qty: 100,
+        unit: 'PIECE',
+      },
     ]);
     expect(await onHand(mT)).toBe(400);
     expect([await receiptHeld('r1'), await receiptHeld('r2')]).toEqual([100, 300]);
@@ -548,7 +562,16 @@ describe('lace held for an order, at the challan issue', () => {
     expect(refused.status).toBe(409);
     expect(refused.body.details).toEqual({
       code: 'STOCK_HELD_FOR_ORDER',
-      heldFor: [{ requirementNumber: `${RUN}-rL`, orderNumber: `${RUN}-O2`, styleCode: null, qty: 20, unit: 'METER' }],
+      heldFor: [
+        {
+          requirementNumber: `${RUN}-rL`,
+          orderNumber: `${RUN}-O2`,
+          styleCode: null,
+          buyerStyleRef: null,
+          qty: 20,
+          unit: 'METER',
+        },
+      ],
     });
     expect(await lotFigures(laceLot)).toEqual([70, 20]);
 

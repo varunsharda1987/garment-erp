@@ -30,7 +30,7 @@ export async function createIssueNote(req: Request, res: Response) {
     throw new UnauthorizedError('User not authenticated');
   }
 
-  const { orderId, styleId, cuttingBatchId, stockId, laceId, issuedQuantity, notes } = req.body;
+  const { orderId, styleId, cuttingBatchId, stockId, laceId, issuedQuantity, notes, takeHeld } = req.body;
 
   if (!orderId || !styleId || !stockId || !laceId || issuedQuantity === undefined) {
     throw new ValidationError('Missing required fields: orderId, styleId, stockId, laceId, issuedQuantity');
@@ -45,6 +45,7 @@ export async function createIssueNote(req: Request, res: Response) {
     issuedQuantity: parseFloat(issuedQuantity),
     notes,
     issuedById: userId,
+    takeHeld: !!takeHeld,
   });
 
   res.status(201).json(

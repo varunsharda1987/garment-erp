@@ -5,7 +5,7 @@ import { Request, Response } from 'express';
 import FabricStockService, { CreateStyleStockDTO, StockStatusFilter } from '../services/fabric-stock.service';
 import GreigeStockService, { pieceWord } from '../services/greige-stock.service';
 import prisma from '../config/database';
-import { BusinessError, UnauthorizedError, ValidationError } from '../errors';
+import { AppError, BusinessError, UnauthorizedError, ValidationError } from '../errors';
 import logger from '../utils/logger';
 import { addCurrency, toNumber } from '../utils/currency';
 
@@ -419,7 +419,7 @@ class StyleStockController {
     try {
       const { stockId } = req.params;
       const userId = req.user?.userId || 'system';
-      const { adjustmentType, quantity, reason, remarks } = req.body;
+      const { adjustmentType, quantity, reason, remarks, takeHeld } = req.body;
 
       if (!adjustmentType || !quantity || !reason) {
         throw new ValidationError('adjustmentType, quantity, and reason are required');
@@ -427,11 +427,13 @@ class StyleStockController {
 
       const result = await GreigeStockService.adjustGreigeStock(
         stockId,
-        { adjustmentType, quantity, reason, remarks },
+        { adjustmentType, quantity, reason, remarks, takeHeld },
         userId
       );
       return res.status(200).json({ success: true, data: result, message: 'Stock adjusted successfully' });
     } catch (error: unknown) {
+      // A typed refusal (409 STOCK_HELD_FOR_ORDER, validation) keeps its status and details — the page asks
+      if (error instanceof AppError) throw error;
       logger.error('Adjust greige stock error:', error);
       const message = error instanceof Error ? error.message : 'Failed to adjust greige stock';
       const status = message.includes('not found') ? 404 : message.includes('Cannot decrease') ? 400 : 500;

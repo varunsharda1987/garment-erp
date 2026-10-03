@@ -11,6 +11,7 @@ import { toCurrency, toNumber, roundToCent, addCurrency } from '../utils/currenc
 import { foldActual, hasFold } from '../utils/fold-length';
 import { isQtyZero, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit } from '../utils/quantity';
 import { BusinessError, NotFoundError } from '../errors';
+import { heldForOtherOrders, heldStockConflict, takeHeldGoods } from './helpers/po-allocation.helper';
 import { createAuditLog } from './audit.service';
 import { fmtQty } from './document-data/format';
 import { GREIGE_LOT_INVOICE_INCLUDE, greigeLotInvoice } from './helpers/receipt-invoice.helper';
@@ -1497,10 +1498,33 @@ class GreigeStockService {
    */
   async adjustGreigeStock(
     stockId: string,
-    data: { adjustmentType: 'INCREASE' | 'DECREASE'; quantity: number; reason: string; remarks?: string },
+    data: {
+      adjustmentType: 'INCREASE' | 'DECREASE';
+      quantity: number;
+      reason: string;
+      remarks?: string;
+      takeHeld?: boolean;
+    },
     userId: string
   ) {
-    const existing = await prisma.greige_stock.findUnique({
+    // One transaction: the lot, its ledger row, stock_levels and any hold it takes commit together (they were four
+    // separate writes on the global client)
+    return prisma.$transaction((tx) => this.adjustGreigeStockInTx(tx, stockId, data, userId), { timeout: 30000 });
+  }
+
+  private async adjustGreigeStockInTx(
+    tx: Prisma.TransactionClient,
+    stockId: string,
+    data: {
+      adjustmentType: 'INCREASE' | 'DECREASE';
+      quantity: number;
+      reason: string;
+      remarks?: string;
+      takeHeld?: boolean;
+    },
+    userId: string
+  ) {
+    const existing = await tx.greige_stock.findUnique({
       where: { id: stockId },
       include: { greige: { select: { greigeCode: true, greigeName: true } } },
     });
@@ -1517,11 +1541,31 @@ class GreigeStockService {
       }
       // Quantity rule (utils/quantity): writing off the whole lot within dust writes off exactly the lot.
       data.quantity = snapToLimit(data.quantity, currentQty);
+
+      // Metres held for an order on this lot are refused unless the user confirmed (held-stock-gate.helper); taken,
+      // the holding order's need reopens. Before, a write-off emptied the lot under its hold.
+      const held = await heldForOtherOrders(tx, { materialId: existing.greigeId, lotIds: [stockId] });
+      const short = Math.round((data.quantity - (currentQty - held.reduce((sum, h) => sum + h.qty, 0))) * 1000) / 1000;
+      if (qtyExceeds(short, 0)) {
+        if (!data.takeHeld) {
+          throw heldStockConflict(
+            `${short} m of lot ${existing.greige.greigeCode} is held for orders. Take it anyway, or adjust less.`,
+            held
+          );
+        }
+        await takeHeldGoods(tx, {
+          materialId: existing.greigeId,
+          lotIds: [stockId],
+          quantity: short,
+          userId,
+          reference: `Adjustment (${data.reason})`,
+        });
+      }
     }
 
     const newQty = data.adjustmentType === 'INCREASE' ? currentQty + data.quantity : currentQty - data.quantity;
 
-    await prisma.greige_stock.update({
+    await tx.greige_stock.update({
       where: { id: stockId },
       data: {
         quantityAvailable: new Prisma.Decimal(newQty),
@@ -1535,7 +1579,7 @@ class GreigeStockService {
       : existing.weightedAvgCost
         ? Number(existing.weightedAvgCost)
         : null;
-    await prisma.greige_stock_transaction.create({
+    await tx.greige_stock_transaction.create({
       data: {
         stockId,
         transactionType: data.adjustmentType === 'INCREASE' ? 'ADJUSTMENT_IN' : 'ADJUSTMENT_OUT',
@@ -1555,12 +1599,12 @@ class GreigeStockService {
 
     // Sync stock_levels - find materialId by greigeId FK
     const adjustChange = data.adjustmentType === 'INCREASE' ? data.quantity : -data.quantity;
-    const material = await prisma.materials.findFirst({
+    const material = await tx.materials.findFirst({
       where: { greigeId: existing.greigeId },
       select: { id: true },
     });
     if (material) {
-      await syncStockLevelQuantity(material.id, adjustChange, existing.warehouseId || undefined);
+      await syncStockLevelQuantity(material.id, adjustChange, existing.warehouseId || undefined, undefined, tx);
     }
 
     logInfo(

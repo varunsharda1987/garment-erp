@@ -34,6 +34,8 @@ import {
   type FabricPiecePick,
 } from './fabric-lot-pieces.service';
 import { BusinessError } from '../errors';
+import { heldForOtherOrders, heldStockConflict, takeHeldGoods } from './helpers/po-allocation.helper';
+import { consumeReservations } from './helpers/stock-reservation.helper';
 
 // Phase 5b: send-out processType → JWO processType (service JWOs are keyed on ServiceType codes)
 const SENDOUT_TO_JWO_PROCESS: Record<ExternalProcessType, string> = {
@@ -76,6 +78,8 @@ export interface SendOutDTO {
   skus?: SendOutSkuDTO[];
   /** FABRIC_STOCK: the rolls / thans that go — the quantity sent is what they come to (pickActualQty) */
   fabricDetails?: FabricPiecePick[];
+  /** FABRIC_STOCK: the user confirmed taking metres held for other orders */
+  takeHeld?: boolean;
 }
 
 export interface ReceiveDTO {
@@ -248,6 +252,37 @@ class ExternalProcessService {
         }
         // Sending the whole lot within dust empties it exactly (the guarded deduct below needs gte).
         data.quantitySent = snapToLimit(data.quantitySent, available);
+        // Metres this lot holds for OTHER orders are refused unless the user confirmed; taken, those orders get their
+        // need back (po-allocation D10). Before, a send-out could empty another order's held lot (2026-10-03).
+        const lotFabric = await tx.fabric_stock.findUnique({
+          where: { id: data.fabricStockId },
+          select: { fabricId: true },
+        });
+        if (lotFabric) {
+          const held = await heldForOtherOrders(tx, {
+            materialId: lotFabric.fabricId,
+            lotIds: [data.fabricStockId],
+            excludeOrderId: workOrder.orderId,
+          });
+          const short =
+            Math.round((data.quantitySent - (available - held.reduce((sum, h) => sum + h.qty, 0))) * 1000) / 1000;
+          if (qtyExceeds(short, 0)) {
+            if (!data.takeHeld) {
+              throw heldStockConflict(
+                `${short} m of this fabric lot is held for other orders. Take it anyway, or send less.`,
+                held
+              );
+            }
+            await takeHeldGoods(tx, {
+              materialId: lotFabric.fabricId,
+              lotIds: [data.fabricStockId],
+              quantity: short,
+              takerOrderId: workOrder.orderId,
+              userId: data.createdById,
+              reference: `Send-out ${jwo.jobWorkNumber}`,
+            });
+          }
+        }
         // Phase 5b ledger fix: guarded deduct + transaction row + stock_levels sync
         // (the bare decrement left no fabric_stock_transaction and stale stock_levels)
         const deducted = await tx.fabric_stock.updateMany({
@@ -282,6 +317,22 @@ class ExternalProcessService {
         if (stockRow?.fabricId) {
           const materialId = await ensureMaterialRecord(stockRow.fabricId, 'FABRIC');
           await syncStockLevelQuantity(materialId, -data.quantitySent, stockRow.warehouseId ?? undefined, 'METER', tx);
+          // The send-out uses the run's own order's holds on this lot — they stayed on it after the metres left
+          if (workOrder.orderId) {
+            const own = await tx.material_requirements.findMany({
+              where: { orderId: workOrder.orderId, materialId },
+              select: { id: true },
+            });
+            if (own.length > 0) {
+              await consumeReservations(
+                tx,
+                own.map((r) => r.id),
+                data.quantitySent,
+                new Date(),
+                [data.fabricStockId]
+              );
+            }
+          }
         }
       } else if (data.sourceType === 'STITCHING_ISSUE') {
         if (!data.stitchingIssueId) throw new Error('Stitching issue ID is required for this source type');

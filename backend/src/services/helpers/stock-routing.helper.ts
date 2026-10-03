@@ -329,6 +329,62 @@ function refuseUncoveredStockOut(remainingQty: number, data: StockOutRoutingData
   );
 }
 
+/** What ACTIVE holds (any order's) take of each lot, net of consumption. */
+export async function heldOnLots(
+  client: Prisma.TransactionClient | typeof prisma,
+  table: 'greige' | 'fabric' | 'lace',
+  lotIds: string[]
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (lotIds.length === 0) return out;
+  const column = table === 'greige' ? 'greigeStockId' : table === 'fabric' ? 'fabricStockId' : 'laceStockId';
+  const rows = await client.stock_reservations.findMany({
+    where: { status: 'ACTIVE', [column]: { in: lotIds } },
+    select: {
+      greigeStockId: true,
+      fabricStockId: true,
+      laceStockId: true,
+      reservedQuantity: true,
+      consumedQuantity: true,
+    },
+  });
+  for (const r of rows) {
+    const lotId = r.greigeStockId ?? r.fabricStockId ?? r.laceStockId;
+    if (!lotId) continue;
+    const held = Number(r.reservedQuantity) - Number(r.consumedQuantity);
+    if (held > 0) out.set(lotId, (out.get(lotId) ?? 0) + held);
+  }
+  return out;
+}
+
+/**
+ * How much to draw from each lot, oldest first: the FREE part of every lot before the held part of any (a lot's
+ * held part is what its holds take of it). Quantity rule (utils/quantity): a remainder within dust of what a lot
+ * has left takes exactly that.
+ */
+export function drawPlan(
+  lots: ReadonlyArray<{ id: string; quantityAvailable: Prisma.Decimal | number }>,
+  held: Map<string, number>,
+  qty: number
+): Map<string, number> {
+  const plan = new Map<string, number>();
+  let remaining = qty;
+  for (const pass of ['free', 'held'] as const) {
+    for (const lot of lots) {
+      if (!qtyExceeds(remaining, 0)) break;
+      const available = Number(lot.quantityAvailable);
+      const already = plan.get(lot.id) ?? 0;
+      const limit = pass === 'free' ? Math.max(0, available - (held.get(lot.id) ?? 0)) : available;
+      const room = Math.round((limit - already) * 1000) / 1000;
+      if (room <= 0 || isQtyZero(room)) continue;
+      const take = Math.min(room, snapToLimit(remaining, room));
+      plan.set(lot.id, Math.round((already + take) * 1000) / 1000);
+      remaining = Math.round((remaining - take) * 1000) / 1000;
+    }
+  }
+  return plan;
+}
+
 export interface StockOutRoutingData {
   materialId: string;
   quantity: number;
@@ -403,10 +459,22 @@ export async function routeFromSpecializedStock(
         orderBy: { receivedDate: 'asc' },
       });
 
+      // What is held for orders is drawn LAST: free stock first, then the held part (the caller asked or took it
+      // — held-stock-gate.helper). Oldest-first alone emptied a held lot and left its hold on nothing.
+      const plan = drawPlan(
+        stocks,
+        await heldOnLots(
+          client,
+          'greige',
+          stocks.map((st: { id: string }) => st.id)
+        ),
+        remainingQty
+      );
       for (const stock of stocks) {
         if (isQtyZero(remainingQty) || remainingQty < 0) break;
         const available = Number(stock.quantityAvailable);
-        const deductQty = Math.min(available, snapToLimit(remainingQty, available));
+        const deductQty = plan.get(stock.id) ?? 0;
+        if (!(deductQty > 0)) continue;
 
         await client.greige_stock.update({
           where: { id: stock.id },
@@ -455,10 +523,22 @@ export async function routeFromSpecializedStock(
         orderBy: { receivedDate: 'asc' },
       });
 
+      // What is held for orders is drawn LAST: free stock first, then the held part (the caller asked or took it
+      // — held-stock-gate.helper). Oldest-first alone emptied a held lot and left its hold on nothing.
+      const plan = drawPlan(
+        stocks,
+        await heldOnLots(
+          client,
+          'fabric',
+          stocks.map((st: { id: string }) => st.id)
+        ),
+        remainingQty
+      );
       for (const stock of stocks) {
         if (isQtyZero(remainingQty) || remainingQty < 0) break;
         const available = Number(stock.quantityAvailable);
-        const deductQty = Math.min(available, snapToLimit(remainingQty, available));
+        const deductQty = plan.get(stock.id) ?? 0;
+        if (!(deductQty > 0)) continue;
 
         await client.fabric_stock.update({
           where: { id: stock.id },
@@ -497,10 +577,22 @@ export async function routeFromSpecializedStock(
         orderBy: { receivedDate: 'asc' },
       });
 
+      // What is held for orders is drawn LAST: free stock first, then the held part (the caller asked or took it
+      // — held-stock-gate.helper). Oldest-first alone emptied a held lot and left its hold on nothing.
+      const plan = drawPlan(
+        stocks,
+        await heldOnLots(
+          client,
+          'lace',
+          stocks.map((st: { id: string }) => st.id)
+        ),
+        remainingQty
+      );
       for (const stock of stocks) {
         if (isQtyZero(remainingQty) || remainingQty < 0) break;
         const available = Number(stock.quantityAvailable);
-        const deductQty = Math.min(available, snapToLimit(remainingQty, available));
+        const deductQty = plan.get(stock.id) ?? 0;
+        if (!(deductQty > 0)) continue;
 
         await client.lace_stock.update({
           where: { id: stock.id },

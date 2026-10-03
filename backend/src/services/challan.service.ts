@@ -401,6 +401,48 @@ async function consumeOrderLotHolds(
 }
 
 /**
+ * What a lot holds for OTHER orders is not free for this challan (po-allocation D2): refused with
+ * STOCK_HELD_FOR_ORDER unless the user confirmed, then taken — those orders get their need back (D10). The lace line
+ * has done this since the allocation went live; greige and fabric lines did not ask at all (2026-10-03).
+ */
+async function takeLotForChallan(
+  tx: Prisma.TransactionClient,
+  args: {
+    materialId: string;
+    lotId: string;
+    lotLabel: string;
+    available: Prisma.Decimal | number;
+    qty: number;
+    orderId: string | null;
+    takeHeld?: boolean;
+    userId: string;
+    challanNumber: string;
+  }
+): Promise<void> {
+  const held = await heldForOtherOrders(tx, {
+    materialId: args.materialId,
+    lotIds: [args.lotId],
+    excludeOrderId: args.orderId,
+  });
+  const short = round3(args.qty - (Number(args.available) - held.reduce((sum, h) => sum + h.qty, 0)));
+  if (!qtyExceeds(short, 0)) return;
+  if (!args.takeHeld) {
+    throw heldStockConflict(
+      `${short} m of ${args.lotLabel} is held for other orders. Take it anyway, or issue less.`,
+      held
+    );
+  }
+  await takeHeldGoods(tx, {
+    materialId: args.materialId,
+    lotIds: [args.lotId],
+    quantity: short,
+    takerOrderId: args.orderId,
+    userId: args.userId,
+    reference: `Challan ${args.challanNumber}`,
+  });
+}
+
+/**
  * A batch's fabric back with nothing laid: the order still needs it, so the MRP hold the issue consumed on this lot
  * comes back — never more than the order's holds consumed on THIS lot, so another lot's hold is left alone.
  */
@@ -541,6 +583,19 @@ export async function issueChallan(id: string, userId?: string, opts?: IssueChal
           // Quantity rule (utils/quantity): a 3-decimal challan line within dust of the 2-decimal lot
           // takes exactly the lot — otherwise the guarded consume refuses 500.002 against 500.00.
           const greigeQty = originalStock ? snapToLimit(qty, originalStock.quantityAvailable) : qty;
+          if (originalStock) {
+            await takeLotForChallan(tx, {
+              materialId: originalStock.greigeId,
+              lotId: originalStock.id,
+              lotLabel: `greige lot ${originalStock.greige?.greigeCode ?? originalStock.id.slice(0, 8)}`,
+              available: originalStock.quantityAvailable,
+              qty: greigeQty,
+              orderId: existing.orderId,
+              takeHeld: opts?.takeHeld,
+              userId: effectiveUserId,
+              challanNumber: existing.challanNumber,
+            });
+          }
 
           // Consume from source warehouse — pass the outer tx so the consumption rolls back with the
           // challan if issuance later fails (was on the global client → stock deducted with no challan; F4).
@@ -554,6 +609,20 @@ export async function issueChallan(id: string, userId?: string, opts?: IssueChal
               ? `Transferred to processor ${existing.toName} via challan ${existing.challanNumber}`
               : `Consumed via challan ${existing.challanNumber}`,
           });
+
+          // The issue uses the order's own holds on this lot (as the lace line does) — before, they stayed on a lot
+          // whose metres had left
+          if (existing.orderId && originalStock) {
+            const greigeRows = await orderRowsFor(
+              tx,
+              existing.orderId,
+              await ensureMaterialRecord(originalStock.greigeId, 'GREIGE', tx),
+              item.materialRequirementId
+            );
+            if (greigeRows.length > 0) {
+              await consumeReservations(tx, greigeRows, greigeQty, new Date(), [originalStock.id]);
+            }
+          }
 
           // If OUTWARD to a processor, the goods are held at its processing unit
           if (processorUnit && existing.toId && originalStock) {
@@ -628,6 +697,17 @@ export async function issueChallan(id: string, userId?: string, opts?: IssueChal
               `Insufficient fabric stock. Available: ${fabricStock.quantityAvailable}, Requested: ${qty}`
             );
           const lotQty = snapToLimit(qty, fabricStock.quantityAvailable);
+          await takeLotForChallan(tx, {
+            materialId: fabricStock.fabricId,
+            lotId: fabricStock.id,
+            lotLabel: `fabric lot ${fabricStock.id.slice(0, 8)}`,
+            available: fabricStock.quantityAvailable,
+            qty: lotQty,
+            orderId: existing.orderId,
+            takeHeld: opts?.takeHeld,
+            userId: effectiveUserId,
+            challanNumber: existing.challanNumber,
+          });
           // BUG-CHN5 fix: Use decimal.js for safe subtraction
           const newAvailable = toNumber(subtractCurrency(fabricStock.quantityAvailable, lotQty));
 

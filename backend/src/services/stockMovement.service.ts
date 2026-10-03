@@ -10,6 +10,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
 import { routeToSpecializedStock, routeFromSpecializedStock } from './helpers/stock-routing.helper';
+import { gateHeldStockOut, type HeldGate } from './helpers/held-stock-gate.helper';
 import type { AdjustmentReason } from '../schemas/stockMovement.schema';
 // BUG-STK8 fix: Use decimal.js helpers for precision-safe arithmetic
 import { addCurrency, subtractCurrency, multiplyCurrency, toCurrency, toNumber } from '../utils/currency';
@@ -469,7 +470,7 @@ class StockMovementService {
   /**
    * Create stock out movement (Material Requisition, Sale, etc.)
    */
-  async createStockOut(data: CreateStockMovementDTO, outerTx?: any) {
+  async createStockOut(data: CreateStockMovementDTO, outerTx?: any, heldGate?: HeldGate) {
     // When a caller's transaction is supplied, run on it so the stock-out commits/rolls back with the
     // caller (e.g. challan issuance) instead of in its own independent transaction (bug-hunt T1/F4).
     const run = async (tx: any) => {
@@ -547,6 +548,18 @@ class StockMovementService {
             referenceId: data.referenceId,
             referenceNumber: data.referenceNumber,
           },
+        });
+      }
+
+      // Goods held for other orders are refused unless the caller confirmed (held-stock-gate.helper). A caller that
+      // gates by itself first (challan, job-work issue) passes no gate.
+      if (heldGate) {
+        await gateHeldStockOut(tx, {
+          materialId: data.materialId,
+          warehouseId: data.warehouseId,
+          quantity: Number(data.quantity),
+          unit: data.unit,
+          gate: heldGate,
         });
       }
 
@@ -686,6 +699,15 @@ class StockMovementService {
         });
       }
 
+      // Goods held for an order stay where they are held — only free stock moves (held-stock-gate.helper)
+      await gateHeldStockOut(tx, {
+        materialId: data.materialId,
+        warehouseId: data.fromWarehouseId,
+        quantity: Number(data.quantity),
+        unit: data.unit,
+        gate: { mode: 'refuse', userId: data.performedById, reference: 'Transfer' },
+      });
+
       // Decrease source warehouse stock inside transaction
       await this.decreaseStockInTx(tx, data.materialId, data.fromWarehouseId, data.quantity);
 
@@ -736,7 +758,7 @@ class StockMovementService {
    * @param outerTx optional parent transaction — pass it when calling from inside another $transaction
    * (e.g. approveStockCount) so this write joins that tx instead of opening a separate connection.
    */
-  async createStockAdjustment(data: StockAdjustmentDTO, outerTx?: Prisma.TransactionClient) {
+  async createStockAdjustment(data: StockAdjustmentDTO, outerTx?: Prisma.TransactionClient, heldGate?: HeldGate) {
     const run = async (tx: Prisma.TransactionClient) => {
       const adjustmentQty = new Decimal(data.adjustmentQuantity.toString());
       const isIncrease = adjustmentQty.gt(0);
@@ -796,6 +818,15 @@ class StockMovementService {
             materials: true,
             warehouses: true,
           },
+        });
+
+        // Goods held for other orders: asked about, or taken when they are physically gone (a count)
+        await gateHeldStockOut(tx, {
+          materialId: data.materialId,
+          warehouseId: data.warehouseId,
+          quantity: Number(absoluteQty),
+          unit: data.unit,
+          gate: heldGate ?? { mode: 'ask', userId: data.performedById, reference: `Adjustment (${data.reason})` },
         });
 
         // Decrease stock inside transaction

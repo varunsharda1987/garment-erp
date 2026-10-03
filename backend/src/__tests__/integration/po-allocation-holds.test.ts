@@ -581,8 +581,9 @@ describe('lace allocation on a lot held for requirements', () => {
     return lot.id;
   }
 
-  it('is refused, naming who holds it — allocate and transfer alike — and writes nothing', async () => {
+  it('another order needing the held metres is refused, naming who holds them — allocate and transfer alike — and nothing is written', async () => {
     await makeOrder('OL', 20);
+    await makeOrder('OL2', 30);
     const heldLot = await laceLot(500, 100);
     await makeRequirement('rLace', laceMaterialId, 'OL', 100, {
       unit: 'METER',
@@ -592,8 +593,9 @@ describe('lace allocation on a lot held for requirements', () => {
     });
     await hold(R.rLace, laceMaterialId, 100, { laceStockId: heldLot });
 
+    // 400 m are free; 450 for ANOTHER order needs 50 m of OL's hold
     const allocErr = await errorOf(
-      allocateStock({ stockId: heldLot, orderId: O.OL, styleId, quantityToAllocate: 50, createdById: userId })
+      allocateStock({ stockId: heldLot, orderId: O.OL2, styleId, quantityToAllocate: 450, createdById: userId })
     );
     expect(allocErr?.details?.code).toBe('LACE_LOT_HELD');
     expect(allocErr.message).toContain(`${RUN}-OL (${RUN}-rLace) 100 m`);
@@ -604,9 +606,9 @@ describe('lace allocation on a lot held for requirements', () => {
     const transferErr = await errorOf(
       transferStock({
         stockId: heldLot,
-        toOrderId: O.OL,
+        toOrderId: O.OL2,
         toStyleId: styleId,
-        quantityToTransfer: 50,
+        quantityToTransfer: 450,
         performedById: userId,
       })
     );
@@ -615,6 +617,24 @@ describe('lace allocation on a lot held for requirements', () => {
     expect(await prisma.lace_stock_allocation.count({ where: { stockId: heldLot } })).toBe(0);
     const lot = await prisma.lace_stock.findUniqueOrThrow({ where: { id: heldLot } });
     expect([Number(lot.quantityAvailable), Number(lot.quantityReserved)]).toEqual([500, 100]);
+
+    // The order the lace is held FOR may use it: free metres first, then its own hold (2026-10-03 — any hold
+    // used to refuse every allocation, even this one)
+    const own = await allocateStock({
+      stockId: heldLot,
+      orderId: O.OL,
+      styleId,
+      quantityToAllocate: 450,
+      createdById: userId,
+    });
+    expect(Number(own.quantityAllocated)).toBe(450);
+    const left = await prisma.stock_reservations.findMany({
+      where: { referenceId: R.rLace, laceStockId: heldLot, status: 'ACTIVE' },
+    });
+    expect(left.reduce((sum, h) => sum + Number(h.reservedQuantity) - Number(h.consumedQuantity), 0)).toBeCloseTo(
+      50,
+      2
+    );
   });
 
   it('a lot nobody holds — or whose hold is used up — still allocates', async () => {

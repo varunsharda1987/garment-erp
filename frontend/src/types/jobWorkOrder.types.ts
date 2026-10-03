@@ -262,6 +262,8 @@ export interface JobWorkOrder {
       /** The job line (colour) this receipt brought */
       jobWorkOrderLineId?: string | null;
     }>;
+    /** This receipt's own challans: the INWARD one, and an OUTWARD one when it went straight on to the next processor */
+    inwardChallans?: Array<{ id: string; challanNumber: string; challanType: string }>;
   }>;
 }
 

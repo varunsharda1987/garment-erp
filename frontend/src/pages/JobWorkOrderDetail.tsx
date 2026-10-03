@@ -800,6 +800,14 @@ export default function JobWorkOrderDetail() {
   // order's colour stood for all of them until 30-Sep) and the lines card below names each one.
   const jobLines = jwo.lines ?? [];
   const severalLines = jobLines.length > 1;
+  const askedLineWidths = [
+    ...new Set(
+      jobLines
+        .map((l) => l.sentWidthInches)
+        .filter((w) => w != null)
+        .map((w) => Number(w))
+    ),
+  ];
   const colourName = severalLines
     ? (jwo.colorName ?? 'Several — see lines below')
     : (jwo.requirementLinks?.[0]?.materialRequirements?.colorName ??
@@ -1208,8 +1216,8 @@ export default function JobWorkOrderDetail() {
                   </span>{' '}
                   of {jwo.qtyBillable.toFixed(2)} expected —{' '}
                   {qtyRemaining(jwo.qtyBillable, jwo.qtyReceivedMeters ?? 0).toFixed(2)} {unitShort(jwo.uom)} still to
-                  come. Tick "This is the final delivery" on the last receipt, or use Close short if nothing more is
-                  coming.
+                  come. Tick "Final for this colour" on the last delivery of each colour, or use Close short if nothing
+                  more is coming.
                 </p>
               )}
 
@@ -1222,11 +1230,13 @@ export default function JobWorkOrderDetail() {
                   </div>
                   <div>
                     <Label className="text-muted-foreground">Fold Length</Label>
-                    <p className="font-medium">{jwo.foldLengthCm != null ? `${jwo.foldLengthCm} cm` : '-'}</p>
+                    <p className="font-medium">
+                      {severalLines ? 'Per receipt' : jwo.foldLengthCm != null ? `${jwo.foldLengthCm} cm` : '-'}
+                    </p>
                   </div>
                   <div>
                     <Label className="text-muted-foreground">Quality Grade</Label>
-                    <p className="font-medium">{jwo.qualityGrade ?? '-'}</p>
+                    <p className="font-medium">{severalLines ? 'Per receipt' : (jwo.qualityGrade ?? '-')}</p>
                   </div>
                   <div>
                     <Label className="text-muted-foreground">Defect Metres</Label>
@@ -1250,7 +1260,13 @@ export default function JobWorkOrderDetail() {
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Finished Width (Asked)</Label>
-                  <p className="font-medium">{jwo.sentWidthInches != null ? `${Number(jwo.sentWidthInches)}"` : '-'}</p>
+                  <p className="font-medium">
+                    {jwo.sentWidthInches != null
+                      ? `${Number(jwo.sentWidthInches)}"`
+                      : askedLineWidths.length > 0
+                        ? askedLineWidths.map((w) => `${w}"`).join(' / ')
+                        : '-'}
+                  </p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Cutable Width (CAD)</Label>
@@ -1267,6 +1283,7 @@ export default function JobWorkOrderDetail() {
                   <Label className="text-muted-foreground">Finished Width (Received)</Label>
                   <p
                     className={`font-medium ${
+                      !severalLines &&
                       jwo.receivedWidthInches != null &&
                       jwo.sentWidthInches != null &&
                       Number(jwo.receivedWidthInches) < Number(jwo.sentWidthInches)
@@ -1274,8 +1291,15 @@ export default function JobWorkOrderDetail() {
                         : ''
                     }`}
                   >
-                    {jwo.receivedWidthInches != null ? `${Number(jwo.receivedWidthInches)}"` : '-'}
+                    {severalLines
+                      ? 'Per receipt'
+                      : jwo.receivedWidthInches != null
+                        ? `${Number(jwo.receivedWidthInches)}"`
+                        : '-'}
                   </p>
+                  {severalLines && (jwo.receivingGRNs?.length ?? 0) > 0 && (
+                    <p className="text-xs text-muted-foreground">each colour's width is on its return receipt</p>
+                  )}
                 </div>
               </div>
 
@@ -1404,55 +1428,135 @@ export default function JobWorkOrderDetail() {
             </Card>
           )}
 
-          {/* Reconciliation (Phase 3b — computed from challan lines, D5) */}
-          {reconciliation && reconciliation.components.length > 0 && (
+          {/* Reconciliation — what is still with the processor. A metre job sends greige and gets fabric back, so the
+              balance is read per colour: its greige share, less what came back of it, nothing once it is closed (the
+              challan-line totals never matched — fabric in is not greige out). */}
+          {reconciliation && (reconciliation.lines?.length ?? 0) > 0 && jwo.uom === 'MTR' ? (
             <Card>
               <CardHeader>
                 <CardTitle>Reconciliation</CardTitle>
                 <CardDescription>
-                  Balance with processor, computed from challan lines
-                  {reconciliation.source === 'ORDER_SNAPSHOT' && ' (order snapshot — no challan attribution yet)'}
+                  What is still with {jwo.processor?.name ?? 'the processor'}, colour by colour. A finished colour has
+                  nothing more out — what did not come back of it is its loss.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Material</TableHead>
-                      <TableHead className="text-right">Sent Out</TableHead>
-                      <TableHead className="text-right">Received Back</TableHead>
-                      <TableHead className="text-right">With Processor</TableHead>
-                      <TableHead className="text-right">Abnormal Loss</TableHead>
+                      <TableHead>{(reconciliation.lines?.length ?? 0) > 1 ? 'Colour / fabric' : 'Fabric'}</TableHead>
+                      <TableHead className="text-right">Greige sent</TableHead>
+                      <TableHead className="text-right">Fabric back</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Greige still with processor</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {reconciliation.components.map((c, idx) => (
-                      <TableRow key={c.id || idx}>
-                        <TableCell>{c.name}</TableCell>
+                    {reconciliation.lines!.map((l) => (
+                      <TableRow key={l.id}>
+                        <TableCell>{l.label}</TableCell>
+                        <TableCell className="text-right">{formatQuantity(l.greigeSent, jwo.uom)}</TableCell>
                         <TableCell className="text-right">
-                          {c.outward.toFixed(2)} {unitShort(c.unit)}
+                          {formatQuantity(l.received, jwo.uom)}
+                          {l.expected != null && (
+                            <div className="text-xs text-muted-foreground">
+                              of {formatQuantity(l.expected, jwo.uom)} expected
+                            </div>
+                          )}
                         </TableCell>
-                        <TableCell className="text-right">
-                          {c.inward.toFixed(2)} {unitShort(c.unit)}
+                        <TableCell>
+                          {l.closedHow === 'FINAL'
+                            ? 'Complete'
+                            : l.closedHow === 'SHORT'
+                              ? 'Closed short'
+                              : l.closedHow
+                                ? l.closedHow.charAt(0) + l.closedHow.slice(1).toLowerCase()
+                                : l.received > 0
+                                  ? 'Part received'
+                                  : 'At processor'}
                         </TableCell>
                         <TableCell className="text-right font-medium">
-                          {c.balanceWithVendor.toFixed(2)} {unitShort(c.unit)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {c.qtyAbnormalLoss != null && c.qtyAbnormalLoss > 0 ? (
-                            <span className="text-red-600 font-medium">
-                              {c.qtyAbnormalLoss.toFixed(2)} {unitShort(c.unit)}
-                            </span>
-                          ) : (
-                            '-'
-                          )}
+                          {formatQuantity(l.stillWithProcessor, jwo.uom)}
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
+                {reconciliation.components.length > 0 && reconciliation.source === 'COMPONENTS' && (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Lot sent</TableHead>
+                        <TableHead className="text-right">Sent out</TableHead>
+                        <TableHead className="text-right">Returned undyed</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {reconciliation.components.map((c, idx) => (
+                        <TableRow key={c.id || idx}>
+                          <TableCell>{c.name}</TableCell>
+                          <TableCell className="text-right">{formatQuantity(c.outward, c.unit)}</TableCell>
+                          <TableCell className="text-right">
+                            {c.inward > 0 ? formatQuantity(c.inward, c.unit) : '-'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
               </CardContent>
             </Card>
+          ) : (
+            reconciliation &&
+            reconciliation.components.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Reconciliation</CardTitle>
+                  <CardDescription>
+                    Balance with processor, computed from challan lines
+                    {reconciliation.source === 'ORDER_SNAPSHOT' && ' (order snapshot — no challan attribution yet)'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Material</TableHead>
+                        <TableHead className="text-right">Sent Out</TableHead>
+                        <TableHead className="text-right">Received Back</TableHead>
+                        <TableHead className="text-right">With Processor</TableHead>
+                        <TableHead className="text-right">Abnormal Loss</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {reconciliation.components.map((c, idx) => (
+                        <TableRow key={c.id || idx}>
+                          <TableCell>{c.name}</TableCell>
+                          <TableCell className="text-right">
+                            {c.outward.toFixed(2)} {unitShort(c.unit)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {c.inward.toFixed(2)} {unitShort(c.unit)}
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            {c.balanceWithVendor.toFixed(2)} {unitShort(c.unit)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {c.qtyAbnormalLoss != null && c.qtyAbnormalLoss > 0 ? (
+                              <span className="text-red-600 font-medium">
+                                {c.qtyAbnormalLoss.toFixed(2)} {unitShort(c.unit)}
+                              </span>
+                            ) : (
+                              '-'
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )
           )}
         </div>
 
@@ -1605,7 +1709,7 @@ export default function JobWorkOrderDetail() {
               </Button>
 
               {/* The inward challan is raised by the receive action; it was stored but never printable here. */}
-              {jwo.inwardChallanId && (
+              {jwo.inwardChallanId && (jwo.receivingGRNs?.length ?? 0) <= 1 && (
                 <Button
                   variant="outline"
                   className="w-full"
@@ -1646,29 +1750,46 @@ export default function JobWorkOrderDetail() {
                       const lineFolded = hasFold(line?.foldLengthCm);
                       // undefined = an old payload without it; null = the processor's bill is to follow
                       const invoice = 'invoiceNumber' in r ? r.invoiceNumber : undefined;
+                      const width = line?.receivedWidthInches != null ? Number(line.receivedWidthInches) : null;
+                      const inward = ('inwardChallans' in r ? r.inwardChallans : undefined)?.find(
+                        (c) => c.challanType === 'INWARD'
+                      );
                       return (
-                        <Button
-                          key={r.id}
-                          variant="outline"
-                          className="w-full justify-between"
-                          onClick={() => navigate(`/procurement/grn/${r.id}`)}
-                        >
-                          <span className="flex items-center">
-                            <PackageCheck className="mr-2 h-4 w-4" />
-                            {r.grnNumber}
-                            {colour && <span className="ml-1 text-xs text-muted-foreground">{lineName(colour)}</span>}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {qty == null
-                              ? ''
-                              : lineFolded
-                                ? `${Number(qty).toFixed(2)} counted → ${foldActual(qty, line?.foldLengthCm).toFixed(2)} ${unitShort(jwo.uom)}`
-                                : `${Number(qty).toFixed(2)} ${unitShort(jwo.uom)}`}
-                            {r.receivingDate ? ` · ${formatDate(new Date(r.receivingDate))}` : ''}
-                            {invoice ? ` · Inv ${invoice}` : ''}
-                            {invoice === null && <span className="text-amber-700"> · invoice to follow</span>}
-                          </span>
-                        </Button>
+                        <div key={r.id} className="flex gap-1">
+                          <Button
+                            variant="outline"
+                            className="w-full justify-between"
+                            onClick={() => navigate(`/procurement/grn/${r.id}`)}
+                          >
+                            <span className="flex items-center">
+                              <PackageCheck className="mr-2 h-4 w-4" />
+                              {r.grnNumber}
+                              {colour && <span className="ml-1 text-xs text-muted-foreground">{lineName(colour)}</span>}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {qty == null
+                                ? ''
+                                : lineFolded
+                                  ? `${Number(qty).toFixed(2)} counted → ${foldActual(qty, line?.foldLengthCm).toFixed(2)} ${unitShort(jwo.uom)}`
+                                  : `${Number(qty).toFixed(2)} ${unitShort(jwo.uom)}`}
+                              {width != null ? ` · ${width}"` : ''}
+                              {r.receivingDate ? ` · ${formatDate(new Date(r.receivingDate))}` : ''}
+                              {invoice ? ` · Inv ${invoice}` : ''}
+                              {invoice === null && <span className="text-amber-700"> · invoice to follow</span>}
+                            </span>
+                          </Button>
+                          {inward && receipts.length > 1 && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              title={`Print inward challan ${inward.challanNumber}`}
+                              aria-label={`Print inward challan ${inward.challanNumber}`}
+                              onClick={() => openPDF(`/documents/challans/${inward.id}/pdf`)}
+                            >
+                              <FileText className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       );
                     })}
                   </div>

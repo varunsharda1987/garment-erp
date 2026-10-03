@@ -72,6 +72,7 @@ import {
 import { grnLineActualQty, grnLineRate, isKaajButtonJob, jobWorkCharges } from './helpers/grn-line-value.helper';
 import { resolveReceiptDeliveryPoint } from './helpers/po-delivery-plan.helper';
 import { foldActual, hasFold } from '../utils/fold-length';
+import { formatDate, toDateInputValue } from '../utils/date';
 import { isQtyZero, qtyExceeds, qtyRemaining } from '../utils/quantity';
 import { COUNT_UNIT_FACTORS, normalizeUnit, unitShort } from '../utils/units';
 import { stockRate, toStockQty } from './helpers/purchase-unit.helper';
@@ -268,6 +269,16 @@ export type JwoDeliveryInput = Pick<JwoReceiptInput, (typeof JWO_DELIVERY_FIELDS
     Omit<JwoReceiptInput, (typeof JWO_DELIVERY_FIELDS)[number] | 'submissionKey' | 'lineId'> & { lineId: string }
   >;
 };
+
+/** The one order a job line's fabric was made for, else null (no order, or several sharing the line) */
+async function lineOrderId(tx: Prisma.TransactionClient, lineId: string): Promise<string | null> {
+  const links = await tx.requirement_jwo_links.findMany({
+    where: { lineId },
+    select: { material_requirements: { select: { orderId: true } } },
+  });
+  const orders = [...new Set(links.map((l) => l.material_requirements.orderId).filter((id): id is string => !!id))];
+  return orders.length === 1 ? orders[0] : null;
+}
 
 class GRNService {
   /**
@@ -2717,6 +2728,38 @@ class GRNService {
       // A receipt against a goods-in-transit challan hands it back: the goods are still on the way
       await releaseTransitChallanInTx(tx, id);
 
+      // A PO-backed PROCESSING receipt marks its job received, closes its line and files the inward challan at
+      // CREATION, while the receipt still awaits QC. Rejecting it left the job "received" with no stock, and a
+      // fresh receipt was then refused as "already received" (audit 2026-10-03). Put the job back at the processor.
+      if (grn.poId) {
+        const job = await tx.job_work_orders.findFirst({
+          where: { purchaseOrderId: grn.poId, grnId: id },
+          select: { id: true, jobWorkNumber: true },
+        });
+        if (job) {
+          await tx.challans.updateMany({
+            where: { grnId: id, challanType: 'INWARD', status: { not: 'CANCELLED' } },
+            data: { status: 'CANCELLED', remarks: `Cancelled — receipt ${grn.grnNumber} rejected` },
+          });
+          await reopenAllLines(tx, job.id);
+          await setJwoStatus(tx, job.id, 'ISSUED', {
+            qtyReceivedMeters: null,
+            receivedWidthInches: null,
+            receivedDate: null,
+            receivedChallan: null,
+            actualShrinkage: null,
+            widthVariance: null,
+            thanCount: null,
+            foldLengthCm: null,
+            calculatedActualMeters: null,
+            inwardChallanId: null,
+            grnId: null,
+          });
+          await resyncOutwardChallanAfterReversal(tx, job.id, { remainingReceipts: 0, stillFinal: false });
+          logInfo(`[GRN] ${grn.grnNumber} rejected — ${job.jobWorkNumber} is back at the processor`, { grnId: id });
+        }
+      }
+
       // Revert PO item received quantities (Phase 4b: PO-less GRN items have no poItemId). Same ACTUAL
       // figure createGRN added.
       for (const item of grnItems) {
@@ -3021,6 +3064,24 @@ class GRNService {
       }
     }
 
+    // A job-work return on a job that is Closed (billed, debit note settled) or Cancelled is history: taking the
+    // receipt back would reopen the job, move its loss after the debit note and invoice, or bring a cancelled job
+    // back to life (audit 2026-10-03). Reopening such a job is a deliberate decision, never a side effect.
+    if (grn.jobWorkOrderId) {
+      const job = await prisma.job_work_orders.findUnique({
+        where: { id: grn.jobWorkOrderId },
+        select: { jobWorkNumber: true, jwoStatus: true },
+      });
+      if (job && (job.jwoStatus === 'CLOSED' || job.jwoStatus === 'CANCELLED')) {
+        throw new BusinessError(
+          `Cannot reverse GRN ${grn.grnNumber}: job work order ${job.jobWorkNumber} is ` +
+            `${job.jwoStatus === 'CLOSED' ? 'closed — its bill and any debit note are settled on what was received' : 'cancelled'}. ` +
+            `Undoing this receipt is an administrator correction, not a screen action.`,
+          { code: 'GRN_JOB_SETTLED', jobStatus: job.jwoStatus }
+        );
+      }
+    }
+
     // Execute reversal in a transaction
     const runReversal = async (tx: Prisma.TransactionClient) => {
       // 1. GUARDED status flip - prevent concurrent reversal
@@ -3293,6 +3354,19 @@ class GRNService {
         throw new BusinessError(
           `Date received ${fmtDay(received)} is before the day the greige was sent (${fmtDay(new Date(jwo.sentDate))})`
         );
+      }
+    }
+    // ...nor after today: a slip of the year (2027 for 2026) dated the receipt, its lot and inward challan in the
+    // future, and the date picker's maximum does not stop a typed date (audit 2026-10-03). Same for the bill.
+    const todayIso = toDateInputValue(new Date());
+    for (const [label, value] of [
+      ['Date received', data.receivedDate],
+      ['Invoice date', data.invoiceToFollow ? null : data.invoiceDate],
+    ] as const) {
+      if (value && toDateInputValue(value) > todayIso) {
+        throw new BusinessError(`${label} ${formatDate(value)} is after today — check the year.`, {
+          reason: 'DATE_IN_FUTURE',
+        });
       }
     }
 
@@ -3990,6 +4064,9 @@ class GRNService {
         unit: 'meters',
         // The line's style — a job with several lines brings back one fabric per style
         originStyleId: lineJob.style?.id || null,
+        // ...and the order it was made for, when the line serves exactly one (the run's fabric check and Fabric
+        // Stock read it; two orders of one style share a line, and then the lot belongs to the style)
+        originOrderId: await lineOrderId(tx, line.id),
         // Fabric-naming: pattern part from the BOM→CAD chain (feeds part display + needsEmbroidery)
         patternPartId: identity?.patternPartId ?? null,
         status: 'AVAILABLE',
@@ -4115,7 +4192,11 @@ class GRNService {
         ? {
             qualityGrade: processingQC.qualityGrade,
             colorMatchStatus: processingQC.colorMatchStatus || null,
-            defectMeters: processingQC.defectMeters ?? null,
+            // Each delivery's defects add to the job's (one colour's receipt no longer replaces another's)
+            defectMeters:
+              processingQC.defectMeters != null
+                ? toNumber(roundToCent(addCurrency(jobWorkOrder.defectMeters ?? 0, processingQC.defectMeters)))
+                : (jobWorkOrder.defectMeters ?? null),
             defectType: processingQC.defectType || null,
             actualRate: processingQC.actualRate ?? null,
           }
@@ -4311,7 +4392,11 @@ class GRNService {
         ? {
             qualityGrade: processingQC.qualityGrade,
             colorMatchStatus: processingQC.colorMatchStatus || null,
-            defectMeters: processingQC.defectMeters ?? null,
+            // Each delivery's defects add to the job's (one colour's receipt no longer replaces another's)
+            defectMeters:
+              processingQC.defectMeters != null
+                ? toNumber(roundToCent(addCurrency(jobWorkOrder.defectMeters ?? 0, processingQC.defectMeters)))
+                : (jobWorkOrder.defectMeters ?? null),
             defectType: processingQC.defectType || null,
             actualRate: processingQC.actualRate ?? null,
           }
@@ -4903,6 +4988,24 @@ class GRNService {
             { reason: 'GRN_LOT_ALREADY_USED', lotId: stock.id }
           );
         }
+        // Nor fabric that has LEFT the lot another way: Bring to store / Move to another processor / an issue to a
+        // job take metres off quantityAvailable without consuming them, and their new lot carries no receipt — so
+        // deleting this one would leave that fabric in stock with nothing behind it (audit 2026-10-03). A held or
+        // reserved lot is promised to an order.
+        const booked = (grn.grn_items ?? []).find((i: { id: string }) => i.id === stock.grnItemId);
+        const bookedQty = booked ? grnLineActualQty(booked).toNumber() : qty;
+        if (qtyExceeds(bookedQty, qty) || !isQtyZero(Number(stock.quantityReserved))) {
+          const gone = toNumber(roundToCent(subtractCurrency(bookedQty, qty)));
+          throw new BusinessError(
+            `Cannot reverse GRN ${grn.grnNumber}: its fabric lot no longer holds what the receipt booked ` +
+              (qtyExceeds(bookedQty, qty) ? `(${gone} m of ${bookedQty} m has gone on — to the store, another processor or a job)` : '') +
+              (!isQtyZero(Number(stock.quantityReserved))
+                ? `${qtyExceeds(bookedQty, qty) ? ' and ' : '('}${Number(stock.quantityReserved)} m is reserved for an order)`
+                : '') +
+              `. Bring that fabric back to this lot or release the reservation first, then reverse.`,
+            { reason: 'GRN_LOT_ALREADY_USED', lotId: stock.id }
+          );
+        }
         await tx.fabric_stock.delete({ where: { id: stock.id } });
         await syncStockLevelQuantity(stock.fabricId, -qty, stock.warehouseId ?? undefined, 'METER', tx);
 
@@ -5016,7 +5119,18 @@ class GRNService {
     const remaining = grn.jobWorkOrderId
       ? await tx.goods_receiving_notes.findMany({
           where: { jobWorkOrderId: jobWorkOrder.id, status: 'ACCEPTED', id: { not: grn.id } },
-          select: { id: true, grn_items: { select: { acceptedQuantity: true, thanCount: true, foldLengthCm: true } } },
+          select: {
+            id: true,
+            grn_items: {
+              select: {
+                id: true,
+                acceptedQuantity: true,
+                thanCount: true,
+                foldLengthCm: true,
+                receivedWidthInches: true,
+              },
+            },
+          },
           orderBy: { receivingDate: 'asc' },
         })
       : [];
@@ -5059,6 +5173,13 @@ class GRNService {
         where: { grnId: latest.id, challanType: 'INWARD' },
         select: { id: true },
       });
+      // What the remaining receipts recorded — the reversed receipt's width, fold and defects must not stay behind
+      const latestItem = latest.grn_items[0];
+      const latestWidth = latestItem?.receivedWidthInches != null ? Number(latestItem.receivedWidthInches) : null;
+      const remainingDefects = await tx.fabric_stock.aggregate({
+        where: { grnItemId: { in: remaining.flatMap((r) => r.grn_items.map((i) => i.id)) } },
+        _sum: { defectMeters: true },
+      });
 
       await setJwoStatus(
         tx,
@@ -5069,6 +5190,16 @@ class GRNService {
           thanCount,
           calculatedActualMeters: anyFolded ? total : null,
           remarks,
+          // The latest REMAINING receipt and its challan (the reversed one's challan is cancelled)
+          grnId: latest.id,
+          inwardChallanId: latestChallan?.id ?? null,
+          receivedWidthInches: latestWidth,
+          widthVariance:
+            latestWidth != null && jobWorkOrder.sentWidthInches != null
+              ? latestWidth - Number(jobWorkOrder.sentWidthInches)
+              : null,
+          foldLengthCm: latestItem?.foldLengthCm ?? null,
+          defectMeters: remainingDefects._sum.defectMeters ?? null,
           ...(stillFinal
             ? { actualShrinkage: sentMeters > 0 ? ((sentMeters - total) / sentMeters) * 100 : 0 }
             : {
@@ -5076,8 +5207,6 @@ class GRNService {
                 actualShrinkage: null,
                 qtyNormalLoss: null,
                 qtyAbnormalLoss: null,
-                grnId: latest.id,
-                inwardChallanId: latestChallan?.id ?? null,
               }),
         }
       );

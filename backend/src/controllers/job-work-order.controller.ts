@@ -63,6 +63,7 @@ import {
   theOnlyLine,
 } from '../services/helpers/jwo-lines.helper';
 import { ConflictError, UnauthorizedError } from '../errors';
+import { buyerStyleCode } from '../utils/style-code';
 import { resolveJwoRate, jwoRateProvenance, type JwoRateResolution } from '../services/helpers/jwo-rate.helper';
 import { resolveJwoExpectedShrinkage } from '../services/helpers/shrinkage-resolver.helper';
 import type { ProcessingTypeV2, PrintingTypeV2 } from '../types/processor-rate-v2.types';
@@ -153,6 +154,12 @@ const jwoInclude = {
           foldLengthCm: true,
           jobWorkOrderLineId: true,
         },
+      },
+      // Its own inward challan (and the onward one when it went straight to the next processor) — the job's
+      // inwardChallanId names only the LATEST receipt's, so a two-colour truck could print one of two
+      inwardChallans: {
+        where: { status: { not: 'CANCELLED' as const } },
+        select: { id: true, challanNumber: true, challanType: true },
       },
     },
     orderBy: { receivingDate: 'asc' as const },
@@ -711,11 +718,50 @@ class JobWorkOrderController {
             },
             orderBy: { sortOrder: 'asc' },
           },
+          // Each colour / fabric the job brings back — the greige went out pooled, so "what is still with the
+          // processor" is read per line: its greige share, less what came back of it, nothing once it is closed
+          lines: {
+            orderBy: { lineNo: 'asc' },
+            select: {
+              id: true,
+              lineNo: true,
+              colorName: true,
+              qtySent: true,
+              qtyExpected: true,
+              closedAt: true,
+              closedHow: true,
+              style: { select: { styleCode: true, buyerStyleRef: true } },
+              receiptItems: LINE_RECEIPTS_SELECT,
+            },
+          },
         },
       });
       if (!jwo) {
         return res.status(404).json({ success: false, message: 'Job work order not found' });
       }
+      const issued = !!jwo.sentDate && !['DRAFT', 'PENDING_APPROVAL', 'APPROVED'].includes(jwo.jwoStatus ?? '');
+      const lines = jwo.lines.map((l) => {
+        const sent = Number(l.qtySent);
+        const expected = l.qtyExpected != null ? Number(l.qtyExpected) : null;
+        const received = lineReceivedQty(l.receiptItems);
+        // Greige still out: the share not yet turned into fabric that came back (pro rata on expected); a closed
+        // line has nothing more out — what did not come back is its loss
+        const stillOut = !issued || l.closedAt
+          ? 0
+          : expected && expected > 0
+            ? Math.max(0, roundToCent(multiplyCurrency(sent, Math.max(0, 1 - received / expected))).toNumber())
+            : sent;
+        return {
+          id: l.id,
+          lineNo: l.lineNo,
+          label: [l.style ? buyerStyleCode(l.style) : null, l.colorName].filter(Boolean).join(' · ') || `Line ${l.lineNo}`,
+          greigeSent: issued ? sent : 0,
+          expected,
+          received,
+          closedHow: l.closedHow,
+          stillWithProcessor: stillOut,
+        };
+      });
 
       const sumLines = (
         items: Array<{ quantity: unknown; challan: { challanType: string; status: string } }>,
@@ -730,7 +776,10 @@ class JobWorkOrderController {
 
       if (jwo.components.length > 0) {
         components = jwo.components.map((c) => {
-          const outward = sumLines(c.challanItems, 'OUTWARD');
+          // Cloth taken where it already lay at the processor (delivered straight there) goes out on no challan of
+          // this job: once issued, it is out all the same (the card read "Sent 0.00" on an issued job)
+          const onChallans = sumLines(c.challanItems, 'OUTWARD');
+          const outward = onChallans > 0 || !issued ? onChallans : Number(c.qtySent);
           const inward = sumLines(c.challanItems, 'INWARD');
           return {
             id: c.id,
@@ -825,6 +874,7 @@ class JobWorkOrderController {
           source,
           components,
           totals,
+          lines,
         },
       });
     } catch (error) {
@@ -1983,6 +2033,14 @@ class JobWorkOrderController {
           throw new JobWorkOrderError(
             'ALREADY_RECEIVED',
             `${existing.jobWorkNumber} has already been received (status ${current.jwoStatus}) — nothing was recorded again.`
+          );
+        }
+        // Nothing comes back from a job that never went out (Draft / Approved): issue it to the processor first
+        // (audit 2026-10-03 — a DRAFT job could be "received")
+        if (!JWO_AT_PROCESSOR_STATUSES.includes(current.jwoStatus)) {
+          throw new JobWorkOrderError(
+            'NOT_AT_PROCESSOR',
+            `${existing.jobWorkNumber} has not been sent to the processor yet (status ${current.jwoStatus}) — issue it first.`
           );
         }
         const lossSplit = await jobWorkOrderService.applyLossSplit(id, qtyReceived, txClient);

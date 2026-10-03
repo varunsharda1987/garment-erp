@@ -792,6 +792,17 @@ export interface JwoReconciliation {
   source: 'COMPONENTS' | 'ORDER_CHALLANS' | 'ORDER_SNAPSHOT';
   components: JwoReconciliationComponent[];
   totals: { outward: number; inward: number; balanceWithVendor: number };
+  /** Per colour / fabric the job brings back: greige share, fabric back, and the greige still with the processor */
+  lines?: Array<{
+    id: string;
+    lineNo: number;
+    label: string;
+    greigeSent: number;
+    expected: number | null;
+    received: number;
+    closedHow: string | null;
+    stillWithProcessor: number;
+  }>;
 }
 
 export default jobWorkOrderService;

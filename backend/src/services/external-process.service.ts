@@ -23,6 +23,8 @@ import { jobWorkOrderService } from './job-work-order.service';
 import { updateWosrReceivedQuantity } from './work-order-service-requirement.service';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
 import { setJwoStatus } from './helpers/jwo-status.helper';
+import { closeLine, theOnlyLine } from './helpers/jwo-lines.helper';
+import { resettleJobRequirements } from './helpers/jwo-requirement-settle.helper';
 import { applySearch } from '../utils/search-filter';
 import { isQtyZero, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit } from '../utils/quantity';
 import { multiplyCurrency, roundToCent, toNumber } from '../utils/currency';
@@ -720,6 +722,15 @@ class ExternalProcessService {
           qtyReceivedMeters: totalReceived,
           ...(fullyReceived ? { receivedDate: jwoRow?.receivedDate ?? data.actualReturnDate } : {}),
         });
+        // Everything is back: the job's one line (piece work has exactly one) is finished too, so the job's line, its
+        // requirements and the integrity sweep all agree it is received (audit 2026-10-03)
+        if (fullyReceived) {
+          const line = await theOnlyLine(tx, sendOut.jobWorkOrderId, 'Receiving a send-out');
+          if (!line.closedAt) {
+            await closeLine(tx, line, 'FINAL', new Date(jwoRow?.receivedDate ?? data.actualReturnDate ?? new Date()), null);
+            await resettleJobRequirements(tx, sendOut.jobWorkOrderId);
+          }
+        }
         // Advance service requirements by this receipt's delta
         const previouslyReceived = Number(sendOut.quantityReceived ?? 0);
         const delta = data.quantityReceived - previouslyReceived;

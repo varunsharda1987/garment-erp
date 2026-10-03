@@ -182,7 +182,16 @@ export default function ChallanDetail() {
   // A goods-in-transit challan is never received by hand: its goods arrive on a purchase receipt that adopts it,
   // and come back later through the job work order (the server refuses it too).
   // Nor is a challan for goods a supplier delivered straight to the processor (directSupplyGrnId).
+  // Goods sent to a processor on a job work order come back through the job — Receive from processor files the
+  // receipt, books the stock and closes this challan (the server refuses a hand receive too).
+  const jobsOnChallan =
+    challan.challanType === 'OUTWARD'
+      ? [...(challan.jobWorkOrder ? [challan.jobWorkOrder] : []), ...(challan.jobWorkOutward ?? [])].filter(
+          (j, i, all) => all.findIndex((x) => x.id === j.id) === i
+        )
+      : [];
   const canReceive =
+    jobsOnChallan.length === 0 &&
     !challan.transitState &&
     !challan.directSupplyGrnId &&
     (challan.status === 'ISSUED' || challan.status === 'IN_TRANSIT' || challan.status === 'PARTIALLY_RECEIVED');
@@ -246,6 +255,14 @@ export default function ChallanDetail() {
               Issue Challan
             </Button>
           )}
+          {jobsOnChallan.length > 0 &&
+            ['ISSUED', 'IN_TRANSIT', 'PARTIALLY_RECEIVED'].includes(challan.status) &&
+            jobsOnChallan.map((job) => (
+              <Button key={job.id} variant="outline" onClick={() => navigate(`/job-work-orders/${job.id}`)}>
+                <PackageCheck className="h-4 w-4 mr-2" />
+                Receive on {job.jobWorkNumber}
+              </Button>
+            ))}
           {canReceive && (
             <Button onClick={openReceiveDialog} disabled={isProcessing}>
               <PackageCheck className="h-4 w-4 mr-2" />

@@ -28,6 +28,7 @@ import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtMoney, fmtPct, fmtQty } from './format';
 import { loadMaterialDetails, materialDetailLine, type MaterialDetails } from '../helpers/material-detail.helper';
 import { isInvoiceOpenStatus } from '../helpers/receipt-invoice.helper';
+import { buyerStyleCode } from '../../utils/style-code';
 
 const grnDocInclude = {
   suppliers: {
@@ -57,6 +58,25 @@ const grnDocInclude = {
       buttonRatePerUnit: true,
       processTypeMaster: { select: { name: true, code: true, sacCode: true, tolerancePercent: true } },
       components: { select: { qtySent: true, rateAtIssue: true, rate: true, isChargeable: true } },
+      // A job with several colours files one receipt per colour: this receipt is reconciled against ITS colour's
+      // greige share and the earlier deliveries of that colour, never the whole job (audit 2026-10-03)
+      lines: {
+        select: {
+          id: true,
+          lineNo: true,
+          colorName: true,
+          qtySent: true,
+          style: { select: { styleCode: true, buyerStyleRef: true } },
+          receiptItems: {
+            where: { goods_receiving_notes: { status: 'ACCEPTED' } },
+            select: {
+              acceptedQuantity: true,
+              foldLengthCm: true,
+              goods_receiving_notes: { select: { id: true, receivingDate: true } },
+            },
+          },
+        },
+      },
     },
   },
   purchase_orders: { select: { poNumber: true } },
@@ -235,6 +255,14 @@ export function transformGrn(
   const anyFold = grn.grn_items.some((item) => hasFold(item.foldLengthCm));
 
   const firstUnit = grn.grn_items[0]?.unit ?? null;
+  // The job line (colour / fabric) this receipt brought back — one per receipt
+  const receiptLine = jwo?.lines.find((l) => l.id === grn.grn_items[0]?.jobWorkOrderLineId) ?? null;
+  const severalColours = (jwo?.lines.length ?? 0) > 1;
+  const colourLabel = receiptLine
+    ? [receiptLine.style ? buyerStyleCode(receiptLine.style) : null, receiptLine.colorName]
+        .filter(Boolean)
+        .join(' · ') || `Line ${receiptLine.lineNo}`
+    : '';
   const uom = jwo?.uom ?? firstUnit ?? 'PCS';
   const forms = uomForms(uom);
 
@@ -312,19 +340,40 @@ export function transformGrn(
     tolerancePctStr = tolerance != null ? fmtPct(tolerance.toString()) : null;
 
     // Issued = component issue lines, falling back to the header quantity
-    const issued =
+    const jobIssued =
       jwo.components.length > 0
         ? jwo.components.reduce((acc, c) => addCurrency(acc, c.qtySent.toString()), toCurrency(0))
         : toCurrency(jwo.qtySentMeters.toString());
-
-    const balance = subtractCurrency(issued, receivedSum);
-    const abnormalQty = jwo.qtyAbnormalLoss != null ? toCurrency(jwo.qtyAbnormalLoss.toString()) : null;
-    const normalQty = jwo.qtyNormalLoss != null ? toCurrency(jwo.qtyNormalLoss.toString()) : null;
+    // ...or, on a job with several colours, THIS colour's share, with what came of it up to and including this receipt
+    const issued = receiptLine && severalColours ? toCurrency(receiptLine.qtySent.toString()) : jobIssued;
+    const lineToDate =
+      receiptLine && severalColours
+        ? addCurrency(
+            0,
+            ...receiptLine.receiptItems
+              .filter(
+                (i) =>
+                  i.goods_receiving_notes.id === grn.id ||
+                  i.goods_receiving_notes.receivingDate.getTime() <= grn.receivingDate.getTime()
+              )
+              .map((i) => grnLineActualQty(i))
+          )
+        : receivedSum;
+    const balance = subtractCurrency(issued, lineToDate);
+    // The loss split is the whole job's, worked out when its last colour is in — never one colour's figure
+    const abnormalQty =
+      jwo.qtyAbnormalLoss != null && !severalColours ? toCurrency(jwo.qtyAbnormalLoss.toString()) : null;
+    const normalQty = jwo.qtyNormalLoss != null && !severalColours ? toCurrency(jwo.qtyNormalLoss.toString()) : null;
 
     recon = {
       issuedQty: fmtQty(issued.toNumber(), uom),
       issuedPct: isZero(issued) ? EM_DASH : '100.0',
-      issuedRemark: jwo.challanNumber ? `Challan ${jwo.challanNumber}` : `Against ${jwo.jobWorkNumber}`,
+      issuedRemark:
+        receiptLine && severalColours
+          ? `${colourLabel}'s share of the greige sent on ${jwo.jobWorkNumber}`
+          : jwo.challanNumber
+            ? `Challan ${jwo.challanNumber}`
+            : `Against ${jwo.jobWorkNumber}`,
       acceptedQty: fmtQty(acceptedSum.toNumber(), uom),
       acceptedPct: pctOfIssued(acceptedSum.toNumber(), issued),
       rejectedQty: fmtQty(rejectedSum.toNumber(), uom),
@@ -334,10 +383,20 @@ export function transformGrn(
       normalLossPct: normalQty != null ? pctOfIssued(normalQty.toNumber(), issued) : EM_DASH,
       abnormalLossQty: abnormalQty != null ? fmtQty(abnormalQty.toNumber(), uom) : EM_DASH,
       abnormalLossPct: abnormalQty != null ? pctOfIssued(abnormalQty.toNumber(), issued) : EM_DASH,
-      abnormalRemark: abnormalQty != null && abnormalQty.gt(0) ? 'Debit note raised' : 'None — no debit note raised',
+      abnormalRemark: severalColours
+        ? 'Worked out on the whole job when its last colour is in'
+        : abnormalQty != null && abnormalQty.gt(0)
+          ? 'Debit note raised'
+          : 'None — no debit note raised',
       balanceQty: fmtQty(balance.toNumber(), uom),
       balancePct: pctOfIssued(balance.toNumber(), issued),
-      balanceRemark: balance.lte(0) ? 'Order may be closed' : 'Remains with job worker',
+      balanceRemark: balance.lte(0)
+        ? severalColours
+          ? `${colourLabel} is all back`
+          : 'Order may be closed'
+        : severalColours
+          ? `Greige of ${colourLabel} still with the job worker (incl. its shrinkage until it closes)`
+          : 'Remains with job worker',
     };
 
     // Material issued at snapshotted rates — chargeable components only
@@ -362,6 +421,9 @@ export function transformGrn(
       jobChargesBasis = `${fmtQty(acceptedSum.toNumber(), uom)} accepted × ₹${fmtMoney(jwo.agreedRatePerMeter.toString())}`;
     }
 
+    if (materialValue != null && receiptLine && severalColours && !isZero(jobIssued)) {
+      materialValue = multiplyCurrency(materialValue, divideCurrency(issued, jobIssued));
+    }
     const fgValue = roundToCent(addCurrency(materialValue ?? 0, jobCharges));
     const fgRate = !isZero(acceptedSum) ? roundToCent(divideCurrency(fgValue, acceptedSum)) : null;
 
@@ -386,7 +448,7 @@ export function transformGrn(
 
   const contextBanner =
     isJobWork && jwo
-      ? `Against ${jwo.jobWorkNumber}`
+      ? `Against ${jwo.jobWorkNumber}${severalColours && colourLabel ? ` — ${colourLabel}` : ''}`
       : grn.purchase_orders?.poNumber
         ? `Against ${grn.purchase_orders.poNumber}`
         : 'Direct receipt';

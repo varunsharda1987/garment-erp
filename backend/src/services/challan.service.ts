@@ -1073,6 +1073,9 @@ export async function getChallanById(id: string) {
       receivedBy: { select: { id: true, firstName: true, lastName: true } },
       // A direct-supply challan's receipt — for a goods-in-transit challan, the one that recorded the arrival
       directSupplyGrn: { select: { id: true, grnNumber: true, receivingDate: true, status: true } },
+      // The job work order(s) this challan belongs to — an outward one is received on the job, never here
+      jobWorkOrder: { select: { id: true, jobWorkNumber: true } },
+      jobWorkOutward: { select: { id: true, jobWorkNumber: true } },
     },
   });
 }
@@ -1251,11 +1254,33 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
         status: true,
         directSupplyGrnId: true,
         supplierDispatchedAt: true,
+        jobWorkOrderId: true,
       },
     });
 
     if (!existingChallan) {
       throw new Error('Challan not found');
+    }
+    // Goods sent to a processor on a job work order come back through the job (Receive from processor), which files
+    // the receipt, books the lot and the inward challan, and closes this challan itself. Receiving it here marked it
+    // RECEIVED with nothing in stock and the job still at the processor (audit 2026-10-03). One challan may carry
+    // several jobs (Dispatch to Processor), so the jobs that went out on it count too.
+    if (existingChallan.challanType === 'OUTWARD') {
+      const job =
+        (existingChallan.jobWorkOrderId
+          ? await tx.job_work_orders.findUnique({
+              where: { id: existingChallan.jobWorkOrderId },
+              select: { jobWorkNumber: true },
+            })
+          : null) ??
+        (await tx.job_work_orders.findFirst({ where: { outwardChallanId: id }, select: { jobWorkNumber: true } }));
+      if (job) {
+        throw new BusinessError(
+          `This challan sent goods out on job work order ${job.jobWorkNumber}. Record what came back on the job — ` +
+            `Receive from processor files the receipt, books the stock and closes this challan.`,
+          { code: 'JOB_WORK_CHALLAN_NOT_RECEIVABLE' }
+        );
+      }
     }
     // Goods on the way to a processor (goods-in-transit challan): their arrival is the purchase receipt at the
     // processor's unit, which adopts this challan — never a hand receive here.

@@ -219,6 +219,9 @@ export interface Challan {
   ewayBillDate?: string | null;
   /** The receipt a direct-supply challan belongs to — for a transit challan, the one that recorded the arrival */
   directSupplyGrn?: { id: string; grnNumber: string; receivingDate: string; status: string } | null;
+  /** The job work order(s) this challan belongs to — an outward one is received on the job, never by hand here */
+  jobWorkOrder?: { id: string; jobWorkNumber: string } | null;
+  jobWorkOutward?: Array<{ id: string; jobWorkNumber: string }>;
 }
 
 /** Built by buildChallanPackingList (backend document-data/challan.doc-data.ts). Metres are the TAG (counted) figures. */

@@ -768,8 +768,70 @@ describe('the first cut: from greige to a cutting batch', () => {
 
     const batch = await prisma.cutting_batches.findUnique({ where: { id: res.body.data.id } });
     expect(Number(batch!.actualFabricWidth)).toBe(RECEIVED_WIDTH); // fabric_stock.finishedWidth from the GRN
-    expect(Number(batch!.cadWidthUsed)).toBe(RECEIVED_WIDTH);
+    // The CAD width is the lot's OWN Production CAD marker width (2026-10-03), not the lot's measured width
+    const lotCad = await prisma.fabric_width_cad.findFirst({
+      where: { fabricStockId, purposeEnum: 'PRODUCTION', approvalStatus: 'APPROVED' }, // allow-cad-approval
+    });
+    expect(Number(batch!.cadWidthUsed)).toBe(Number(lotCad!.cutableWidth));
+    expect(Number(batch!.cadAverageUsed)).toBeCloseTo(Number(lotCad!.cadAverage), 4);
     expect(batch!.layersPerLay).toBe(0);
+  });
+
+  it('phase 7e2: each lot is cut on its OWN Production CAD — a lot without one is refused, the page’s average ignored', async () => {
+    // A second lot of the same fabric, with no Production CAD of its own (owner, 2026-10-03: it does not
+    // borrow the other lot's marker)
+    const source = await prisma.fabric_stock.findUniqueOrThrow({ where: { id: fabricStockId } });
+    const {
+      id: _id,
+      createdAt: _c,
+      updatedAt: _u,
+      ...copy
+    } = source as typeof source & {
+      createdAt: Date;
+      updatedAt: Date;
+    };
+    const noCadLot = await prisma.fabric_stock.create({
+      data: {
+        ...(copy as any),
+        id: randomUUID(),
+        rollNumbers: `${RUN}-NO-CAD`,
+        finishedWidth: Number(source.finishedWidth) + 6,
+        cutableWidth: Number(source.cutableWidth) + 6,
+        quantityAvailable: 10,
+        status: 'AVAILABLE',
+      },
+    });
+    try {
+      const refused = await request(app)
+        .post('/api/cutting/batches')
+        .set(authHeader)
+        .send({
+          workOrderId,
+          cuttingDate: new Date().toISOString(),
+          fabricStockId,
+          actualFabricWidth: RECEIVED_WIDTH,
+          cadAverageUsed: 9.99, // what an old page might send — never stored
+          skuOutputs: [{ colorId: null, sizeId: sizeM, plannedQty: 1 }],
+          fabricStocks: [
+            { fabricStockId, actualWidth: RECEIVED_WIDTH },
+            { fabricStockId: noCadLot.id, actualWidth: RECEIVED_WIDTH + 6 },
+          ],
+        });
+      expect(refused.status).toBe(400);
+      expect(refused.body.details?.code).toBe('CUTTING_LOT_NO_PRODUCTION_CAD');
+      expect(refused.body.details?.fabricStockIds).toEqual([noCadLot.id]);
+
+      // The chart shows that lot with no CAD of its own
+      const chart = await request(app).get(`/api/cutting/chart-data/${workOrderId}`).set(authHeader);
+      expectStatus(chart, (s) => s === 200);
+      const lots = chart.body.data.fabrics.flatMap((f: any) => f.lots);
+      expect(lots.find((l: any) => l.lotId === noCadLot.id)).toMatchObject({ productionAverage: null });
+      expect(lots.find((l: any) => l.lotId === fabricStockId)?.productionAverage).toBeCloseTo(CAD_AVERAGE, 4);
+      const analysis = chart.body.data.fabricAnalysis.find((a: any) => a.fabricId === source.fabricId);
+      expect(analysis.lotsWithoutCad.map((l: any) => l.lotId)).toContain(noCadLot.id);
+    } finally {
+      await prisma.fabric_stock.delete({ where: { id: noCadLot.id } });
+    }
   });
 
   it('phase 7f: no size may be cut past its order + 5 % (owner rule 2026-09-24), counting earlier batches', async () => {
@@ -911,6 +973,26 @@ describe('the first cut: from greige to a cutting batch', () => {
     const lotLine = issuedFabric.body.data.find((l: { fabricStockId: string }) => l.fabricStockId === fabricStockId);
     expect(lotLine.piecesOut).toHaveLength(LAY_ISSUE_METERS / THAN_METRES);
     const wholeBack = lotLine.piecesOut[1].id as string;
+
+    // Less back than the lays leave is "short on return" and needs a reason (owner, 2026-10-03) — refused before
+    // anything is booked; Other needs a note
+    const short = await request(app)
+      .post(`/api/cutting/batches/${secondBatchId}/complete`)
+      .set(authHeader)
+      .send({ fabricReturns: [{ fabricStockId, returnedQuantity: leftover - 2 }] });
+    expect(short.status).toBe(400);
+    expect(short.body.details?.code).toBe('CUTTING_RETURN_SHORT_REASON_REQUIRED');
+    expect(short.body.details?.fabrics?.[0]?.shortQty).toBeCloseTo(2, 2);
+    const otherNoNote = await request(app)
+      .post(`/api/cutting/batches/${secondBatchId}/complete`)
+      .set(authHeader)
+      .send({ fabricReturns: [{ fabricStockId, returnedQuantity: leftover - 2, shortReason: 'OTHER' }] });
+    expect(otherNoNote.status).toBe(400);
+    expect(otherNoNote.body.details?.code).toBe('CUTTING_RETURN_SHORT_REASON_REQUIRED');
+    const untouched = await prisma.cutting_batches.findUniqueOrThrow({ where: { id: secondBatchId } });
+    expect(untouched.status).toBe('IN_PROGRESS');
+    expect(untouched.returnChallanId).toBeNull(); // nothing was booked back
+
     const done = await request(app)
       .post(`/api/cutting/batches/${secondBatchId}/complete`)
       .set(authHeader)
@@ -921,6 +1003,11 @@ describe('the first cut: from greige to a cutting batch', () => {
     expect(Number(done.body.data.fabricReturned)).toBeCloseTo(leftover, 2);
     expect(Number(done.body.data.actualConsumption)).toBeCloseTo(LAY_LENGTH * LAY_LAYERS, 2);
     expect(Number(done.body.data.actualAverage)).toBeCloseTo(LAY_LENGTH, 2); // 1 pc per layer
+    // Everything the lays left came back: nothing short, wastage 0 (it used to store the RETURN here)
+    expect(Number(done.body.data.wastageMeters ?? 0)).toBe(0);
+    expect(done.body.data.fabricVariance.fabrics).toHaveLength(1);
+    expect(done.body.data.fabricVariance.fabrics[0]).toMatchObject({ shortQty: 0, shortReason: null });
+    expect(done.body.data.fabricVariance.fabrics[0].cadAverage).toBeCloseTo(CAD_AVERAGE, 4);
 
     // The store has everything back except what was cut
     const lot = await prisma.fabric_stock.findUnique({ where: { id: fabricStockId } });

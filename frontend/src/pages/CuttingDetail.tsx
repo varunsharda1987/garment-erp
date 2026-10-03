@@ -55,6 +55,9 @@ import { foldActual } from '@/lib/fold-length';
 import { formatQuantity } from '@/lib/formatters';
 import { isQtyZero, qtyExceeds, qtyRemaining } from '@/lib/quantity';
 import { thanLabel } from '@/components/job-work/lot-rows';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RETURN_SHORT_REASON_LABELS, returnFabricRows } from '@/lib/cutting-variance';
+import { CuttingReturnShortReason } from '@/types/generated/prisma-enums';
 
 /** Mirrors THAN_ROUNDING_SLACK_M on the server: ticked whole rolls may exceed the metres back by this much */
 const WHOLE_BACK_SLACK_M = 0.1;
@@ -100,6 +103,10 @@ export default function CuttingDetail() {
   // Optional, rare (owner 2026-09-28): rolls / thans that came back WHOLE, per lot — the rest is one end piece
   const [wholeBack, setWholeBack] = useState<Record<string, string[]>>({});
   const [wholeOpen, setWholeOpen] = useState<Record<string, boolean>>({});
+  // Why a fabric's expected return did not come back — one reason per fabric (owner, 2026-10-03)
+  const [shortReasons, setShortReasons] = useState<
+    Record<string, { reason: CuttingReturnShortReason | ''; note: string }>
+  >({});
 
   useEffect(() => {
     if (id) {
@@ -174,6 +181,7 @@ export default function CuttingDetail() {
     setLoadingIssued(true);
     setWholeBack({});
     setWholeOpen({});
+    setShortReasons({});
     try {
       const data = await cuttingBatchService.getIssuedFabric(id!);
       setIssuedFabrics(data);
@@ -184,6 +192,7 @@ export default function CuttingDetail() {
       }
       setReturnQtys(defaults);
     } catch (err) {
+      handleApiError(err, 'Failed to load the fabric issued to this batch');
       setIssuedFabrics([]);
       setReturnQtys({});
     } finally {
@@ -211,13 +220,18 @@ export default function CuttingDetail() {
   const handleComplete = async () => {
     try {
       setIsActioning(true);
+      const shortFabricKeys = new Set(returnRows.filter((r) => !isQtyZero(r.shortQty)).map((r) => r.fabricKey));
       const fabricReturns = issuedFabrics
-        .filter((f) => (returnQtys[f.fabricStockId] || 0) > 0)
-        .map((f) => ({
-          fabricStockId: f.fabricStockId,
-          returnedQuantity: returnQtys[f.fabricStockId] || 0,
-          ...((wholeBack[f.fabricStockId]?.length ?? 0) > 0 ? { wholePieceIds: wholeBack[f.fabricStockId] } : {}),
-        }));
+        .filter((f) => (returnQtys[f.fabricStockId] || 0) > 0 || shortFabricKeys.has(f.fabricKey))
+        .map((f) => {
+          const why = shortFabricKeys.has(f.fabricKey) ? shortReasons[f.fabricKey] : undefined;
+          return {
+            fabricStockId: f.fabricStockId,
+            returnedQuantity: returnQtys[f.fabricStockId] || 0,
+            ...((wholeBack[f.fabricStockId]?.length ?? 0) > 0 ? { wholePieceIds: wholeBack[f.fabricStockId] } : {}),
+            ...(why?.reason ? { shortReason: why.reason, shortNote: why.note.trim() || null } : {}),
+          };
+        });
       await cuttingBatchService.complete(id!, { fabricReturns });
       handleApiSuccess('Batch Completed', 'Cutting batch completed. Fabric returns processed.');
       setShowCompleteDialog(false);
@@ -451,6 +465,13 @@ export default function CuttingDetail() {
   const skuOutputs = batch?.skuOutputs ?? [];
   const totalToCut = skuOutputs.reduce((sum, s) => sum + s.toCut, 0);
   const totalCut = skuOutputs.reduce((sum, s) => sum + (s.cutQty ?? 0), 0);
+  // The Complete dialog, fabric by fabric: actual vs its own CAD average, and what is not coming back
+  const returnRows = returnFabricRows(issuedFabrics, returnQtys, totalCut);
+  const reasonMissing = returnRows.filter((r) => {
+    if (isQtyZero(r.shortQty)) return false;
+    const why = shortReasons[r.fabricKey];
+    return !why?.reason || (why.reason === CuttingReturnShortReason.OTHER && !why.note.trim());
+  });
   const totalGood = skuOutputs.reduce((sum, s) => sum + (s.goodPcs ?? 0), 0);
   const totalRemaining = totalToCut - totalCut;
   const progressPercent = totalToCut > 0 ? Math.min(100, Math.round((totalCut / totalToCut) * 100)) : 0;
@@ -1211,46 +1232,114 @@ export default function CuttingDetail() {
         </Card>
       )}
 
-      {/* Variance Analysis (after completion) */}
+      {/* Variance Analysis (after completion) — fabric by fabric */}
       {batch.actualAverage && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Variance Analysis</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div>
-                <Label className="text-muted-foreground">CAD Average</Label>
-                {dedupedFabrics.length > 0 ? (
-                  <div className="space-y-0.5">
-                    {dedupedFabrics.map((af) => (
-                      <p key={af.id} className="font-semibold text-xs">
-                        {af.fabricStock?.fabricMaster?.fabricName || 'Fabric'}:{' '}
-                        {af.cadAvgUsed != null ? `${Number(af.cadAvgUsed).toFixed(3)} m/pc` : '-'}
-                      </p>
-                    ))}
-                  </div>
-                ) : (
+          <CardContent className="space-y-3">
+            {batch.fabricVariance && batch.fabricVariance.fabrics.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Fabric</TableHead>
+                    <TableHead className="text-right">CAD Avg (m/pc)</TableHead>
+                    <TableHead className="text-right">Actual Avg (m/pc)</TableHead>
+                    <TableHead className="text-right">Variance</TableHead>
+                    <TableHead className="text-right">Consumed (m)</TableHead>
+                    <TableHead>Short on return</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {batch.fabricVariance.fabrics.map((f) => (
+                    <TableRow key={f.fabricKey}>
+                      <TableCell className="font-medium">{f.fabricName}</TableCell>
+                      <TableCell className="text-right">
+                        {f.cadAverage != null ? f.cadAverage.toFixed(4) : '—'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {f.actualAverage != null ? f.actualAverage.toFixed(4) : '—'}
+                      </TableCell>
+                      <TableCell
+                        className={`text-right font-semibold ${
+                          f.variancePercent != null && f.variancePercent > 0 ? 'text-destructive' : 'text-success'
+                        }`}
+                      >
+                        {f.variancePercent != null
+                          ? `${f.variancePercent > 0 ? '+' : ''}${f.variancePercent.toFixed(2)}%`
+                          : '—'}
+                      </TableCell>
+                      <TableCell className="text-right">{f.consumption.toFixed(2)}</TableCell>
+                      <TableCell className="text-sm">
+                        {isQtyZero(f.shortQty) ? (
+                          <span className="text-muted-foreground">—</span>
+                        ) : (
+                          <>
+                            <span className="font-semibold text-destructive">
+                              {formatQuantity(f.shortQty, 'METER')}
+                            </span>
+                            <div className="text-xs text-muted-foreground">
+                              {f.shortReason ? RETURN_SHORT_REASON_LABELS[f.shortReason] : 'Reason not recorded'}
+                              {f.shortNote ? ` — ${f.shortNote}` : ''}
+                            </div>
+                          </>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {batch.fabricVariance.fabrics.length > 1 && (
+                    <TableRow className="font-semibold border-t-2">
+                      <TableCell>Per garment</TableCell>
+                      <TableCell className="text-right">
+                        {batch.fabricVariance.perGarment.cadAverage?.toFixed(4) ?? '—'}
+                      </TableCell>
+                      <TableCell className="text-right">{batch.actualAverage.toFixed(4)}</TableCell>
+                      <TableCell
+                        className={`text-right ${
+                          batch.variancePercent && batch.variancePercent > 0 ? 'text-destructive' : 'text-success'
+                        }`}
+                      >
+                        {batch.variancePercent != null
+                          ? `${batch.variancePercent > 0 ? '+' : ''}${batch.variancePercent.toFixed(2)}%`
+                          : '—'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {batch.fabricVariance.perGarment.consumption.toFixed(2)}
+                      </TableCell>
+                      <TableCell>
+                        {isQtyZero(batch.fabricVariance.perGarment.shortQty)
+                          ? '—'
+                          : formatQuantity(batch.fabricVariance.perGarment.shortQty, 'METER')}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <Label className="text-muted-foreground">CAD Average</Label>
                   <p className="font-semibold">{batch.cadAverageUsed} m/pc</p>
-                )}
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Actual Average</Label>
+                  <p className="font-semibold">{batch.actualAverage.toFixed(3)} m/pc</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Variance</Label>
+                  <p
+                    className={`font-semibold ${batch.variancePercent && batch.variancePercent > 0 ? 'text-destructive' : 'text-success'}`}
+                  >
+                    {batch.variancePercent?.toFixed(2)}%
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Fabric Consumed</Label>
+                  <p className="font-semibold">{(batch.fabricConsumed || 0).toFixed(2)} m</p>
+                </div>
               </div>
-              <div>
-                <Label className="text-muted-foreground">Actual Average</Label>
-                <p className="font-semibold">{batch.actualAverage.toFixed(3)} m/pc</p>
-              </div>
-              <div>
-                <Label className="text-muted-foreground">Variance</Label>
-                <p
-                  className={`font-semibold ${batch.variancePercent && batch.variancePercent > 0 ? 'text-destructive' : 'text-success'}`}
-                >
-                  {batch.variancePercent?.toFixed(2)}%
-                </p>
-              </div>
-              <div>
-                <Label className="text-muted-foreground">Fabric Consumed</Label>
-                <p className="font-semibold">{(batch.fabricConsumed || 0).toFixed(2)} m</p>
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -1416,51 +1505,141 @@ export default function CuttingDetail() {
               </div>
             )}
 
-            {/* Calculated actual average */}
-            {totalCut > 0 && (
-              <div className="bg-muted/50 rounded-md p-3 space-y-1 text-sm">
-                {(() => {
-                  const totalIssued = issuedFabrics.reduce((s, f) => s + f.issuedQty, 0);
-                  const totalReturn = Object.values(returnQtys).reduce((s, v) => s + v, 0);
-                  const actualCons =
-                    totalIssued > 0 ? Math.max(0, totalIssued - totalReturn) : batch.fabricConsumed || 0;
-                  const actualAvg = actualCons / totalCut;
-                  const cadAvg = batch.cadAverageUsed || 0;
-                  const variance = cadAvg > 0 ? ((actualAvg - cadAvg) / cadAvg) * 100 : 0;
-                  return (
-                    <>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Actual Average:</span>
-                        <span className="font-semibold">{actualAvg.toFixed(4)} m/pc</span>
-                      </div>
-                      {cadAvg > 0 && (
-                        <>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">CAD Average:</span>
-                            <span>{cadAvg.toFixed(4)} m/pc</span>
+            {/* Fabric by fabric: actual vs its own CAD average, and what the lays say should come back */}
+            {totalCut > 0 && returnRows.length > 0 && (
+              <div className="bg-muted/50 rounded-md p-3 space-y-3 text-sm">
+                {returnRows.map((r) => (
+                  <div key={r.fabricKey} className="space-y-1">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <span className="font-medium">{r.fabricName}</span>
+                      <span>
+                        Actual {r.actualAverage != null ? r.actualAverage.toFixed(4) : '—'} m/pc
+                        {r.cadAverage != null && (
+                          <>
+                            {' · '}CAD {r.cadAverage.toFixed(4)} m/pc
+                            {r.variancePercent != null && (
+                              <span
+                                className={
+                                  r.variancePercent > 0
+                                    ? 'text-destructive font-semibold ml-2'
+                                    : 'text-success font-semibold ml-2'
+                                }
+                              >
+                                {r.variancePercent > 0 ? '+' : ''}
+                                {r.variancePercent.toFixed(2)}%
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </span>
+                    </div>
+                    {!isQtyZero(r.shortQty) && (
+                      <div className="rounded border border-destructive/40 bg-destructive/5 p-2 space-y-2">
+                        <p className="text-destructive font-medium">
+                          Short on return: {formatQuantity(r.shortQty, 'METER')}
+                          {r.issued > 0 ? ` (${((r.shortQty / r.issued) * 100).toFixed(1)}% of issued)` : ''} — the lays
+                          leave {formatQuantity(r.expectedBack, 'METER')} to come back.
+                        </p>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Why did it not come back?</Label>
+                            <Select
+                              value={shortReasons[r.fabricKey]?.reason || ''}
+                              onValueChange={(v) =>
+                                setShortReasons((prev) => ({
+                                  ...prev,
+                                  [r.fabricKey]: {
+                                    reason: v as CuttingReturnShortReason,
+                                    note: prev[r.fabricKey]?.note ?? '',
+                                  },
+                                }))
+                              }
+                            >
+                              <SelectTrigger aria-label={`Why ${r.fabricName} is short`}>
+                                <SelectValue placeholder="Choose a reason" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Object.entries(RETURN_SHORT_REASON_LABELS).map(([value, label]) => (
+                                  <SelectItem key={value} value={value}>
+                                    {label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Variance:</span>
+                          <div className="space-y-1">
+                            <Label className="text-xs">
+                              Note
+                              {shortReasons[r.fabricKey]?.reason === CuttingReturnShortReason.OTHER
+                                ? ' (required)'
+                                : ' (optional)'}
+                            </Label>
+                            <Input
+                              value={shortReasons[r.fabricKey]?.note ?? ''}
+                              maxLength={500}
+                              placeholder="e.g. 3 m stained at the roll end"
+                              onChange={(e) =>
+                                setShortReasons((prev) => ({
+                                  ...prev,
+                                  [r.fabricKey]: { reason: prev[r.fabricKey]?.reason ?? '', note: e.target.value },
+                                }))
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {!isQtyZero(r.overReturnQty) && (
+                      <p className="text-xs text-muted-foreground">
+                        {formatQuantity(r.overReturnQty, 'METER')} more back than the lays account for.
+                      </p>
+                    )}
+                  </div>
+                ))}
+                {returnRows.length > 1 &&
+                  (() => {
+                    const cad = returnRows.reduce((s, r) => s + (r.cadAverage ?? 0), 0);
+                    const actual = returnRows.reduce((s, r) => s + r.consumption, 0) / totalCut;
+                    const variance = cad > 0 ? ((actual - cad) / cad) * 100 : null;
+                    return (
+                      <div className="flex justify-between border-t pt-2">
+                        <span className="text-muted-foreground">Per garment (all fabrics):</span>
+                        <span>
+                          Actual {actual.toFixed(4)} m/pc{cad > 0 ? ` · CAD ${cad.toFixed(4)} m/pc` : ''}
+                          {variance != null && (
                             <span
-                              className={variance > 0 ? 'text-destructive font-semibold' : 'text-success font-semibold'}
+                              className={
+                                variance > 0 ? 'text-destructive font-semibold ml-2' : 'text-success font-semibold ml-2'
+                              }
                             >
                               {variance > 0 ? '+' : ''}
                               {variance.toFixed(2)}%
                             </span>
-                          </div>
-                        </>
-                      )}
-                    </>
-                  );
-                })()}
+                          )}
+                        </span>
+                      </div>
+                    );
+                  })()}
               </div>
+            )}
+            {reasonMissing.length > 0 && (
+              <p className="text-xs text-destructive">
+                Choose why the fabric did not come back for {reasonMissing.map((r) => r.fabricName).join(', ')}
+                {reasonMissing.some((r) => shortReasons[r.fabricKey]?.reason === CuttingReturnShortReason.OTHER)
+                  ? ' (Other needs a note)'
+                  : ''}
+                .
+              </p>
             )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCompleteDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleComplete} disabled={isActioning || issuedFabrics.some((f) => wholeBackOf(f).over)}>
+            <Button
+              onClick={handleComplete}
+              disabled={isActioning || issuedFabrics.some((f) => wholeBackOf(f).over) || reasonMissing.length > 0}
+            >
               {isActioning ? 'Completing...' : 'Complete Batch'}
             </Button>
           </DialogFooter>

@@ -1,7 +1,8 @@
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import { nextSeededSequence } from '../utils/seeded-sequence';
-import { isQtyZero } from '../utils/quantity';
+import { isQtyZero, qtyRemaining } from '../utils/quantity';
+import { calculateCadAverage } from './cad-planning.utils';
 import { batchIssuedFabric } from '../services/helpers/run-fabric.helper';
 import { USER_NAME_SELECT } from '../types/prisma.types';
 
@@ -106,7 +107,43 @@ export const transformCuttingBatch = (batch: any) => ({
       : null,
   })),
   defects: batch.defects || [],
+  // A completed batch's fabric, fabric by fabric — from what completion stored on each lot row
+  fabricVariance:
+    batch.status === 'COMPLETED' && Array.isArray(batch.additionalFabrics) && batch.additionalFabrics.length > 0
+      ? completedBatchVariance(batch)
+      : null,
 });
+
+/** The variance of a COMPLETED batch, read from what completion stored on its lot rows (never re-derived from challans). */
+export function completedBatchVariance(batch: {
+  skuOutputs?: Array<{ cutQty: number | null }> | null;
+  additionalFabrics: Array<{
+    fabricStockId: string;
+    cadAvgUsed: DecimalLike;
+    fabricIssued: DecimalLike;
+    fabricReturned: DecimalLike;
+    fabricConsumed: DecimalLike;
+    returnShortReason?: string | null;
+    returnShortNote?: string | null;
+    fabricStock?: { fabricId?: string | null; fabricMaster?: { fabricName?: string | null } | null } | null;
+  }>;
+}): BatchVariance {
+  const totalCut = (batch.skuOutputs ?? []).reduce((s, sku) => s + (sku.cutQty || 0), 0);
+  return fabricVarianceRows(
+    batch.additionalFabrics.map((bf) => ({
+      fabricStockId: bf.fabricStockId,
+      fabricId: bf.fabricStock?.fabricId ?? null,
+      fabricName: bf.fabricStock?.fabricMaster?.fabricName || 'Fabric',
+      cadAvgUsed: bf.cadAvgUsed != null ? Number(bf.cadAvgUsed) : null,
+      issued: Number(bf.fabricIssued) || 0,
+      returned: Number(bf.fabricReturned) || 0,
+      layMetres: Number(bf.fabricConsumed) || 0,
+      shortReason: bf.returnShortReason ?? null,
+      shortNote: bf.returnShortNote ?? null,
+    })),
+    totalCut
+  );
+}
 
 export const generateBatchNumber = async (workOrderNumber: string, componentName?: string): Promise<string> => {
   const prefix = `CB-${workOrderNumber}`;
@@ -647,4 +684,289 @@ export function dedupeChartEntries(allEntries: ChartFabricEntry[]): {
   }
 
   return { fabrics, warnings };
+}
+
+// ============================================
+// A lot's Production CAD — the ONE lookup the Cutting Chart and batch creation share (2026-10-03)
+// ============================================
+
+/** Two CAD averages within this of each other are the same marker (m per piece). */
+export const CAD_AVERAGE_TOLERANCE = 0.0005;
+
+export interface LotProductionCad {
+  cadId: string;
+  /** m per piece */
+  average: number;
+  /** the marker's cutable width (inches) */
+  width: number | null;
+}
+
+/**
+ * The approved Production CAD of each lot (fabric_width_cad.fabricStockId), for one style.
+ *
+ * A Production CAD is the marker of ONE received lot (production-cad-lot.helper — one live Production CAD per
+ * lot), so cutting a lot takes ITS average, never the best-looking average of another lot of the same fabric:
+ * the chart used to give every lot of a fabric one average picked across all of them. A lot missing from the map
+ * has no approved Production CAD with an average — cutting refuses it (owner, 2026-10-03).
+ */
+export async function lotProductionCads(
+  styleId: string,
+  lotIds: string[],
+  client: Prisma.TransactionClient | typeof prisma = prisma
+): Promise<Map<string, LotProductionCad>> {
+  const out = new Map<string, LotProductionCad>();
+  const ids = [...new Set(lotIds.filter(Boolean))];
+  if (ids.length === 0) return out;
+  const rows = await client.fabric_width_cad.findMany({
+    where: {
+      purposeEnum: 'PRODUCTION',
+      approvalStatus: 'APPROVED', // allow-cad-approval — cutting consumes the CAD GEOMETRY, whose approval this is
+      fabricStockId: { in: ids },
+      OR: [
+        { costingStyleId: styleId },
+        { styleFabric: { style_components: { styleId } } },
+        { styleCosting: { styleId } },
+      ],
+    },
+    orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
+    select: {
+      id: true,
+      fabricStockId: true,
+      cadAverage: true,
+      cadMeters: true,
+      layerMarginMeters: true,
+      piecesPerMarker: true,
+      cutableWidth: true,
+    },
+  });
+  for (const r of rows) {
+    if (!r.fabricStockId || out.has(r.fabricStockId)) continue;
+    const average =
+      r.cadAverage != null && Number(r.cadAverage) > 0
+        ? Number(r.cadAverage)
+        : calculateCadAverage(
+            r.cadMeters != null ? Number(r.cadMeters) : null,
+            r.layerMarginMeters != null ? Number(r.layerMarginMeters) : null,
+            r.piecesPerMarker
+          );
+    if (!average || average <= 0) continue;
+    out.set(r.fabricStockId, {
+      cadId: r.id,
+      average,
+      width: r.cutableWidth != null ? Number(r.cutableWidth) : null,
+    });
+  }
+  return out;
+}
+
+/**
+ * The fabrics whose lots carry DIFFERENT markers. The lay screen takes one layer length per fabric, so the lots
+ * of one fabric in a batch are cut on one marker — lots with different Production CADs go in separate batches
+ * (owner, 2026-10-03).
+ */
+export function fabricsWithMixedMarkers(
+  lots: Array<{ fabricStockId: string; fabricId: string | null; average: number }>
+): Array<{ fabricId: string; averages: number[]; lotIds: string[] }> {
+  const byFabric = new Map<string, Array<{ fabricStockId: string; average: number }>>();
+  for (const lot of lots) {
+    const key = lot.fabricId ?? `lot:${lot.fabricStockId}`;
+    byFabric.set(key, [...(byFabric.get(key) ?? []), lot]);
+  }
+  const mixed: Array<{ fabricId: string; averages: number[]; lotIds: string[] }> = [];
+  for (const [fabricId, group] of byFabric) {
+    const averages = group.map((g) => g.average);
+    if (Math.max(...averages) - Math.min(...averages) > CAD_AVERAGE_TOLERANCE) {
+      mixed.push({
+        fabricId,
+        averages: [...new Set(averages)].sort((a, b) => a - b),
+        lotIds: group.map((g) => g.fabricStockId),
+      });
+    }
+  }
+  return mixed;
+}
+
+// ============================================
+// Per-fabric variance + short on return — the ONE reading of a completed batch's fabric (2026-10-03)
+// ============================================
+
+/** One lot of a batch as the variance rule reads it. */
+export interface VarianceLotInput {
+  fabricStockId: string;
+  fabricId: string | null;
+  fabricName: string;
+  cadAvgUsed: number | null;
+  /** issued to this batch (less returns booked before completion) */
+  issued: number;
+  /** returned at completion */
+  returned: number;
+  /** this lot's share of the lay metres (cutting_batch_fabrics.fabricConsumed) */
+  layMetres: number;
+  shortReason?: string | null;
+  shortNote?: string | null;
+}
+
+export interface FabricVarianceRow {
+  fabricKey: string;
+  fabricId: string | null;
+  fabricName: string;
+  lotIds: string[];
+  issued: number;
+  returned: number;
+  /** issued − returned; the lay metres when nothing was issued (old batches) */
+  consumption: number;
+  layMetres: number;
+  /** issued − used in lays: what should come back */
+  expectedBack: number;
+  /** fabric used but not in any lay: expected back that did not come back */
+  shortQty: number;
+  /** more came back than the lays account for */
+  overReturnQty: number;
+  cadAverage: number | null;
+  actualAverage: number | null;
+  variancePercent: number | null;
+  shortReason: string | null;
+  shortNote: string | null;
+}
+
+export interface BatchVariance {
+  fabrics: FabricVarianceRow[];
+  /** "Fabric per garment": every fabric's metres per piece added up, against every fabric's CAD average added up */
+  perGarment: {
+    cadAverage: number | null;
+    actualAverage: number | null;
+    varianceFromCad: number | null;
+    variancePercent: number | null;
+    issued: number;
+    consumption: number;
+    layMetres: number;
+    shortQty: number;
+    shortPercent: number | null;
+  };
+}
+
+const roundTo = (x: number, dp: number) => new Prisma.Decimal(x).toDecimalPlaces(dp).toNumber();
+
+/**
+ * A batch's fabric, fabric by fabric. Each garment takes every fabric of the batch, so a fabric's actual average is
+ * its consumption ÷ the pieces cut and is compared with THAT fabric's CAD average. Before this the batch compared
+ * every fabric's metres added up with the first fabric's CAD average alone.
+ *
+ * Short on return: the lays say `issued − lay metres` should come back; what did not is fabric used but not in any
+ * lay (end bits, damage, a roll measured short…) — recorded with a reason at completion (owner, 2026-10-03).
+ */
+export function fabricVarianceRows(lots: VarianceLotInput[], totalCut: number): BatchVariance {
+  const groups = new Map<string, VarianceLotInput[]>();
+  for (const lot of lots) {
+    const key = lot.fabricId ?? `lot:${lot.fabricStockId}`;
+    groups.set(key, [...(groups.get(key) ?? []), lot]);
+  }
+  const fabrics: FabricVarianceRow[] = [];
+  for (const [fabricKey, group] of groups) {
+    const issued = roundTo(
+      group.reduce((s, l) => s + (l.issued || 0), 0),
+      3
+    );
+    const returned = roundTo(
+      group.reduce((s, l) => s + (l.returned || 0), 0),
+      3
+    );
+    const layMetres = roundTo(
+      group.reduce((s, l) => s + (l.layMetres || 0), 0),
+      3
+    );
+    const nothingIssued = isQtyZero(issued);
+    // With no lays recorded for the fabric there is nothing to measure the return against — no shortfall is judged
+    const judged = !nothingIssued && !isQtyZero(layMetres);
+    const consumption = nothingIssued ? layMetres : qtyRemaining(issued, returned);
+    const expectedBack = nothingIssued ? 0 : qtyRemaining(issued, layMetres);
+    const shortQty = judged ? roundTo(qtyRemaining(consumption, layMetres), 2) : 0;
+    const overReturnQty = judged ? roundTo(qtyRemaining(returned, expectedBack), 2) : 0;
+    const cad = group.find((l) => l.cadAvgUsed != null && l.cadAvgUsed > 0)?.cadAvgUsed ?? null;
+    const actualAverage = totalCut > 0 && consumption > 0 ? roundTo(consumption / totalCut, 4) : null;
+    const variancePercent = actualAverage != null && cad ? roundTo(((actualAverage - cad) / cad) * 100, 2) : null;
+    const withReason = group.find((l) => l.shortReason);
+    fabrics.push({
+      fabricKey,
+      fabricId: group[0].fabricId,
+      fabricName: group[0].fabricName,
+      lotIds: group.map((l) => l.fabricStockId),
+      issued,
+      returned,
+      consumption: roundTo(consumption, 3),
+      layMetres,
+      expectedBack: roundTo(expectedBack, 2),
+      shortQty,
+      overReturnQty,
+      cadAverage: cad,
+      actualAverage,
+      variancePercent,
+      shortReason: withReason?.shortReason ?? null,
+      shortNote: withReason?.shortNote ?? group.find((l) => l.shortNote)?.shortNote ?? null,
+    });
+  }
+
+  const sum = (pick: (f: FabricVarianceRow) => number) => fabrics.reduce((s, f) => s + pick(f), 0);
+  const withCad = fabrics.filter((f) => f.cadAverage != null);
+  const cadAverage =
+    withCad.length > 0
+      ? roundTo(
+          sum((f) => f.cadAverage ?? 0),
+          4
+        )
+      : null;
+  const consumption = roundTo(
+    sum((f) => f.consumption),
+    3
+  );
+  const issued = roundTo(
+    sum((f) => f.issued),
+    3
+  );
+  const actualAverage = totalCut > 0 && consumption > 0 ? roundTo(consumption / totalCut, 4) : null;
+  const varianceFromCad = actualAverage != null && cadAverage ? roundTo(actualAverage - cadAverage, 4) : null;
+  const variancePercent =
+    varianceFromCad != null && cadAverage ? roundTo((varianceFromCad / cadAverage) * 100, 2) : null;
+  const shortQty = roundTo(
+    sum((f) => f.shortQty),
+    2
+  );
+  return {
+    fabrics,
+    perGarment: {
+      cadAverage,
+      actualAverage,
+      varianceFromCad,
+      variancePercent,
+      issued,
+      consumption,
+      layMetres: roundTo(
+        sum((f) => f.layMetres),
+        3
+      ),
+      shortQty,
+      shortPercent: issued > 0 ? roundTo((shortQty / issued) * 100, 2) : null,
+    },
+  };
+}
+
+/** A fabric's shortfall spread over its lots by what each sent (the last lot takes the rounding). */
+export function splitShortByLot(row: FabricVarianceRow, issuedByLot: Map<string, number>): Map<string, number> {
+  const out = new Map<string, number>();
+  const total = new Prisma.Decimal(row.shortQty);
+  const weights = row.lotIds.map((id) => Math.max(0, issuedByLot.get(id) ?? 0));
+  const totalWeight = weights.reduce((s, w) => s + w, 0);
+  let given = new Prisma.Decimal(0);
+  row.lotIds.forEach((id, i) => {
+    const share =
+      i === row.lotIds.length - 1
+        ? total.minus(given)
+        : (isQtyZero(totalWeight)
+            ? total.div(row.lotIds.length)
+            : total.mul(weights[i]).div(totalWeight)
+          ).toDecimalPlaces(2);
+    given = given.plus(share);
+    out.set(id, share.toDecimalPlaces(2).toNumber());
+  });
+  return out;
 }

@@ -879,6 +879,15 @@ export const RequirementSource = {
 } as const;
 export type RequirementSource = (typeof RequirementSource)[keyof typeof RequirementSource];
 
+export const CuttingReturnShortReason = {
+  END_BITS: 'END_BITS',
+  DAMAGED: 'DAMAGED',
+  SHORT_IN_ROLL: 'SHORT_IN_ROLL',
+  NOT_TRACED: 'NOT_TRACED',
+  OTHER: 'OTHER',
+} as const;
+export type CuttingReturnShortReason = (typeof CuttingReturnShortReason)[keyof typeof CuttingReturnShortReason];
+
 export const CuttingBatchStatus = {
   PENDING: 'PENDING',
   IN_PROGRESS: 'IN_PROGRESS',

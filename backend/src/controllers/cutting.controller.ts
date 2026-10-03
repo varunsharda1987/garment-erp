@@ -3,7 +3,7 @@ import { NotFoundError, ValidationError } from '../errors';
 import prisma from '../config/database';
 import { loadBatchSlipBalance, piecesLeftByBatch } from '../services/helpers/cutting-slip.helper';
 import { lockOrder, syncOrderStatus } from '../services/helpers/order-status.helper';
-import { Prisma } from '@prisma/client';
+import { Prisma, CuttingReturnShortReason } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import {
   transformCuttingBatch,
@@ -17,6 +17,11 @@ import {
   LAY_COVERAGE_SELECT,
   layCoverage,
   toLayBatchFabric,
+  lotProductionCads,
+  fabricsWithMixedMarkers,
+  fabricVarianceRows,
+  splitShortByLot,
+  CAD_AVERAGE_TOLERANCE,
 } from './cutting.utils';
 import { countsForPurposeAverage } from '../services/helpers/cad-status.helper';
 import { syncBomFabricId } from '../services/order-bom.service';
@@ -200,7 +205,6 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
     cuttingDate,
     fabricStockId,
     actualFabricWidth,
-    cadAverageUsed,
     cadWidthUsed,
     layersPerLay,
     numberOfLays,
@@ -287,12 +291,63 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
     }
   }
 
-  // Validate cadAverageUsed is present and > 0 (must come from PRODUCTION CAD planning)
-  if (!cadAverageUsed || Number(cadAverageUsed) <= 0) {
+  // Every lot is cut on ITS OWN approved Production CAD (owner, 2026-10-03) — resolved here, never taken from the
+  // request: the page used to send one average per fabric, picked across all of that fabric's lots.
+  const requestedLots = [
+    fabricStockId,
+    ...((fabricStocks || []) as Array<{ fabricStockId?: string }>).map((fs) => fs.fabricStockId),
+  ].filter(Boolean) as string[];
+  const [lotCads, lotFabrics] = await Promise.all([
+    lotProductionCads(workOrder.styleId, requestedLots),
+    prisma.fabric_stock.findMany({
+      where: { id: { in: requestedLots } },
+      select: { id: true, fabricId: true, rollNumbers: true, fabricMaster: { select: { fabricName: true } } },
+    }),
+  ]);
+  const lotLabel = (id: string) => {
+    const l = lotFabrics.find((x) => x.id === id);
+    return `${l?.rollNumbers ? `Lot ${l.rollNumbers}` : 'A lot'} of ${l?.fabricMaster?.fabricName || 'the fabric'}`;
+  };
+  const lotsWithoutCad = [...new Set(requestedLots)].filter((id) => !lotCads.has(id));
+  if (lotsWithoutCad.length > 0) {
     throw new ValidationError(
-      'CAD average is required and must be greater than 0. Complete PRODUCTION CAD planning first.'
+      `${lotsWithoutCad.map(lotLabel).join('; ')} ${lotsWithoutCad.length === 1 ? 'has' : 'have'} no approved Production CAD. ` +
+        'In CAD Planning, press Create CAD on the lot and approve it — each lot is cut on its own marker.',
+      { code: 'CUTTING_LOT_NO_PRODUCTION_CAD', fabricStockIds: lotsWithoutCad }
     );
   }
+  const mixed = fabricsWithMixedMarkers(
+    [...new Set(requestedLots)].map((id) => ({
+      fabricStockId: id,
+      fabricId: lotFabrics.find((l) => l.id === id)?.fabricId ?? null,
+      average: lotCads.get(id)!.average,
+    }))
+  );
+  if (mixed.length > 0) {
+    throw new ValidationError(
+      mixed
+        .map(
+          (m) =>
+            `${m.lotIds.map(lotLabel).join(', ')} have different markers (${m.averages.map((a) => `${a} m`).join(' / ')} per piece)`
+        )
+        .join('; ') + ' — the lots of one fabric are laid on one marker, so cut them in separate batches.',
+      { code: 'CUTTING_LOTS_DIFFERENT_MARKERS', fabrics: mixed }
+    );
+  }
+  const primaryCad = lotCads.get(fabricStockId)!;
+  const resolvedCadAvg = primaryCad.average;
+  const resolvedCadWidth = primaryCad.width ?? (Number(cadWidthUsed) > 0 ? Number(cadWidthUsed) : null);
+  const resolvedFabricStocks = (
+    (fabricStocks || []) as Array<{ fabricStockId: string; actualWidth?: number | null }>
+  ).map((fs) => {
+    const cad = lotCads.get(fs.fabricStockId);
+    return {
+      fabricStockId: fs.fabricStockId,
+      actualWidth: fs.actualWidth ?? null,
+      cadAvgUsed: cad?.average ?? null,
+      cadWidthUsed: cad?.width ?? null,
+    };
+  });
 
   // The width is NOT NULL on the batch, but the Cutting Chart page only knows it when the lot
   // carries one (it sends 0 otherwise). Resolve it here — request, then the lot's finished width,
@@ -311,8 +366,8 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
       ? Number(actualFabricWidth)
       : Number(lot.finishedWidth) > 0
         ? Number(lot.finishedWidth)
-        : Number(cadWidthUsed) > 0
-          ? Number(cadWidthUsed)
+        : Number(resolvedCadWidth) > 0
+          ? Number(resolvedCadWidth)
           : 0;
   if (resolvedWidth <= 0) {
     throw new ValidationError(
@@ -340,8 +395,8 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
       cuttingDate: new Date(cuttingDate),
       fabricStockId,
       actualFabricWidth: resolvedWidth,
-      cadAverageUsed,
-      cadWidthUsed: cadWidthUsed || resolvedWidth,
+      cadAverageUsed: resolvedCadAvg,
+      cadWidthUsed: resolvedCadWidth || resolvedWidth,
       layersPerLay: layersPerLay ?? 0,
       numberOfLays: numberOfLays ?? 0,
       fabricConsumed: 0, // Will be updated when recording output
@@ -389,8 +444,8 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
   // guard blocked the batch for ever. Seeding the primary lot is what makes manual issuance work.
   const batchFabricRows = buildBatchFabricRows(
     batch.id,
-    { fabricStockId, cadAvgUsed: cadAverageUsed, cadWidthUsed, actualWidth: resolvedWidth },
-    fabricStocks
+    { fabricStockId, cadAvgUsed: resolvedCadAvg, cadWidthUsed: resolvedCadWidth, actualWidth: resolvedWidth },
+    resolvedFabricStocks
   );
   if (batchFabricRows.length > 0) {
     // @@unique([batchId, fabricStockId]) + skipDuplicates makes the primary/extra overlap harmless.
@@ -408,9 +463,9 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
     // would now hit the (cuttingBatchId, stockId) unique key. First cadAvg wins.
     const stocksToReserve = new Map<string, number | null>();
     if (fabricStockId) {
-      stocksToReserve.set(fabricStockId, cadAverageUsed ? Number(cadAverageUsed) : null);
+      stocksToReserve.set(fabricStockId, resolvedCadAvg);
     }
-    for (const fs of (fabricStocks || []) as Array<{ fabricStockId: string; cadAvgUsed?: number }>) {
+    for (const fs of resolvedFabricStocks) {
       if (fs.fabricStockId && !stocksToReserve.has(fs.fabricStockId)) {
         stocksToReserve.set(fs.fabricStockId, fs.cadAvgUsed ? Number(fs.cadAvgUsed) : null);
       }
@@ -826,15 +881,56 @@ export const completeCuttingBatch = async (req: Request, res: Response) => {
   // Build a map of fabricStockId -> returned quantity from request, and the rolls / thans ticked as back whole
   const returnMap = new Map<string, number>();
   const wholeMap = new Map<string, string[]>();
+  const reasonMap = new Map<string, { reason: string | null; note: string | null }>();
   if (fabricReturns && Array.isArray(fabricReturns)) {
     for (const ret of fabricReturns) {
-      if (ret.fabricStockId && ret.returnedQuantity > 0) {
+      if (!ret.fabricStockId) continue;
+      if (ret.shortReason || ret.shortNote) {
+        reasonMap.set(ret.fabricStockId, {
+          reason: ret.shortReason ?? null,
+          note: typeof ret.shortNote === 'string' && ret.shortNote.trim() ? ret.shortNote.trim() : null,
+        });
+      }
+      if (ret.returnedQuantity > 0) {
         returnMap.set(ret.fabricStockId, ret.returnedQuantity);
         if (Array.isArray(ret.wholePieceIds) && ret.wholePieceIds.length > 0) {
           wholeMap.set(ret.fabricStockId, ret.wholePieceIds);
         }
       }
     }
+  }
+
+  // The batch's fabric, fabric by fabric (cutting.utils fabricVarianceRows): actual average against THAT fabric's
+  // CAD average, and what the lays say should have come back but did not. Worked out BEFORE anything is booked —
+  // a refusal after the return challan left the lot credited.
+  const variance = fabricVarianceRows(
+    existing.additionalFabrics.map((bf) => ({
+      fabricStockId: bf.fabricStockId,
+      fabricId: bf.fabricStock?.fabricId ?? null,
+      fabricName: bf.fabricStock?.fabricMaster?.fabricName || 'Fabric',
+      cadAvgUsed: bf.cadAvgUsed != null ? Number(bf.cadAvgUsed) : null,
+      issued: issuedMap.get(bf.fabricStockId) || 0,
+      returned: returnMap.get(bf.fabricStockId) || 0,
+      layMetres: Number(bf.fabricConsumed) || 0,
+      shortReason: reasonMap.get(bf.fabricStockId)?.reason ?? null,
+      shortNote: reasonMap.get(bf.fabricStockId)?.note ?? null,
+    })),
+    totalCut
+  );
+  // Fabric short on return needs a reason (owner, 2026-10-03); Other needs a note
+  const missingReason = variance.fabrics.filter(
+    (f) => !isQtyZero(f.shortQty) && (!f.shortReason || (f.shortReason === 'OTHER' && !f.shortNote))
+  );
+  if (missingReason.length > 0) {
+    throw new ValidationError(
+      `Less fabric came back than the lays account for: ${missingReason
+        .map((f) => `${f.fabricName} ${f.shortQty.toFixed(2)} m short`)
+        .join(', ')}. Choose why for each (and write a note for Other) before completing.`,
+      {
+        code: 'CUTTING_RETURN_SHORT_REASON_REQUIRED',
+        fabrics: missingReason.map((f) => ({ fabricName: f.fabricName, lotIds: f.lotIds, shortQty: f.shortQty })),
+      }
+    );
   }
 
   // Create return challan if any fabric is being returned
@@ -865,26 +961,36 @@ export const completeCuttingBatch = async (req: Request, res: Response) => {
     returnChallanId = returnChallan.id;
   }
 
-  // Calculate per-fabric actual consumption and update cutting_batch_fabrics
+  // Per lot: issued, returned, consumption, and its share of its fabric's shortfall (with the fabric's reason)
   let totalFabricIssued = 0;
   let totalFabricReturned = 0;
+  const actualAverageByLot = new Map<string, number | null>();
 
-  for (const batchFabric of existing.additionalFabrics) {
-    const issued = issuedMap.get(batchFabric.fabricStockId) || 0;
-    const returned = returnMap.get(batchFabric.fabricStockId) || 0;
-    const actualCons = Math.max(0, issued - returned);
+  for (const row of variance.fabrics) {
+    const shortByLot = splitShortByLot(row, issuedMap);
+    for (const lotId of row.lotIds) {
+      const batchFabric = existing.additionalFabrics.find((f) => f.fabricStockId === lotId)!;
+      const issued = issuedMap.get(lotId) || 0;
+      const returned = returnMap.get(lotId) || 0;
+      const actualCons = Math.max(0, issued - returned);
+      const short = shortByLot.get(lotId) ?? 0;
 
-    totalFabricIssued += issued;
-    totalFabricReturned += returned;
+      totalFabricIssued += issued;
+      totalFabricReturned += returned;
+      actualAverageByLot.set(lotId, row.actualAverage);
 
-    await prisma.cutting_batch_fabrics.update({
-      where: { id: batchFabric.id },
-      data: {
-        fabricIssued: issued,
-        fabricReturned: returned,
-        actualConsumption: actualCons,
-      },
-    });
+      await prisma.cutting_batch_fabrics.update({
+        where: { id: batchFabric.id },
+        data: {
+          fabricIssued: issued,
+          fabricReturned: returned,
+          actualConsumption: actualCons,
+          returnShortQty: isQtyZero(short) ? null : short,
+          returnShortReason: isQtyZero(row.shortQty) ? null : (row.shortReason as CuttingReturnShortReason | null),
+          returnShortNote: isQtyZero(row.shortQty) ? null : row.shortNote,
+        },
+      });
+    }
   }
 
   // BUG-CUT5 fix: Use decimal.js for precision in cutting calculations
@@ -894,28 +1000,30 @@ export const completeCuttingBatch = async (req: Request, res: Response) => {
   // If no challans found (legacy), fall back to lay-based fabricConsumed
   const consumptionForAvg = totalFabricIssued > 0 ? totalActualConsumption : legacyFabricConsumed;
 
-  // BUG-CUT5 fix: Use decimal.js for precision in average, variance, and wastage calculations
-  // Calculate actual average
+  // "Fabric per garment": every fabric's metres per piece added up
   let calcActualAverage = actualAverage;
   if (!calcActualAverage && totalCut > 0 && consumptionForAvg > 0) {
     calcActualAverage = toNumber(divideCurrency(consumptionForAvg, totalCut));
   }
 
-  // Calculate variance from CAD
+  // Variance against every fabric's CAD average added up (one per fabric) — a batch of two fabrics used to compare
+  // both fabrics' metres with the first fabric's average alone. A batch with no lot rows keeps its own average.
+  const cadPerGarment =
+    variance.perGarment.cadAverage ?? (Number(existing.cadAverageUsed) > 0 ? Number(existing.cadAverageUsed) : null);
   let varianceFromCad: number | null = null;
   let variancePercent: number | null = null;
-  if (calcActualAverage && Number(existing.cadAverageUsed) > 0) {
-    const cadAvgUsed = toCurrency(existing.cadAverageUsed);
+  if (calcActualAverage && cadPerGarment) {
+    const cadAvgUsed = toCurrency(cadPerGarment);
     varianceFromCad = toNumber(subtractCurrency(calcActualAverage, cadAvgUsed));
     variancePercent = toNumber(divideCurrency(varianceFromCad, cadAvgUsed).times(100));
   }
 
-  // Calculate wastage: issued - actual consumption
+  // Wastage = fabric used but not in any lay: what the lays say should have come back and did not. It used to be
+  // issued − consumption, which is the RETURN — CB-WO2609-0087-002 read 0 with 77.88 m missing.
   let wastageMeters: number | null = null;
   let wastagePercent: number | null = null;
-  if (totalFabricIssued > 0 && consumptionForAvg > 0) {
-    const wastage = subtractCurrency(totalFabricIssued, consumptionForAvg);
-    wastageMeters = Math.max(0, toNumber(wastage));
+  if (totalFabricIssued > 0) {
+    wastageMeters = variance.perGarment.shortQty;
     wastagePercent = toNumber(divideCurrency(wastageMeters, totalFabricIssued).times(100));
   }
 
@@ -978,7 +1086,8 @@ export const completeCuttingBatch = async (req: Request, res: Response) => {
             allocationStatus: 'CONSUMED',
             quantityConsumed: actualConsumed,
             quantityReturned: returned,
-            actualCad: calcActualAverage || undefined,
+            // the lot's FABRIC's metres per piece — not every fabric of the batch added up
+            actualCad: actualAverageByLot.get(stockId) ?? calcActualAverage ?? undefined,
             consumptionDate: new Date(),
           },
         });
@@ -1090,6 +1199,10 @@ export const getIssuedFabric = async (req: Request, res: Response) => {
       cuttingBatchFabricId: bf.id,
       fabricName: bf.fabricStock?.fabricMaster?.fabricName || 'Unknown',
       fabricCode: bf.fabricStock?.fabricMaster?.fabricCode || '',
+      // The lots of one fabric are laid together: the completion dialog groups them by this key, compares each
+      // fabric with its own CAD average and asks one short-on-return reason per fabric (cutting.utils fabricVarianceRows)
+      fabricKey: bf.fabricStock?.fabricId ?? `lot:${bf.fabricStockId}`,
+      cadAvgUsed: bf.cadAvgUsed != null ? Number(bf.cadAvgUsed) : null,
       rollNumbers: bf.fabricStock?.rollNumbers || '',
       issuedQty,
       consumedInLays,
@@ -2122,6 +2235,12 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
     return l ? Math.max(0, l.issued - l.returned) : 0;
   };
 
+  // Each lot's own approved Production CAD — what a batch cut from it will use (cutting.utils lotProductionCads)
+  const chartLotCads = await lotProductionCads(
+    workOrder.styleId,
+    fabricStockRecords.map((s) => s.id)
+  );
+
   const fabricStockMap = new Map<string, typeof fabricStockRecords>();
   for (const fs of fabricStockRecords) {
     if (!fabricStockMap.has(fs.fabricId)) {
@@ -2182,6 +2301,10 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
         inStore: inStoreOf(s),
         atCutting: atCuttingOf(s.id),
         qualityGrade: s.qualityGrade,
+        // null = no approved Production CAD on this lot: it cannot be cut until one is made on it
+        productionAverage: chartLotCads.get(s.id)?.average ?? null,
+        productionWidth: chartLotCads.get(s.id)?.width ?? null,
+        productionCadId: chartLotCads.get(s.id)?.cadId ?? null,
       })),
     };
   });
@@ -2194,16 +2317,37 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
     const availableStock = stocks.reduce((sum, s) => sum + inStoreOf(s) + runHeldOf(s.id), 0);
     const atCutting = stocks.reduce((sum, s) => sum + atCuttingOf(s.id), 0);
     const inStore = stocks.reduce((sum, s) => sum + inStoreOf(s), 0);
-    const cadAvg = f.productionAverage ? Number(f.productionAverage) : 0; // Production CAD only
+    // Each lot on ITS OWN Production CAD (owner, 2026-10-03): a lot with none cannot be cut yet, so it adds no
+    // pieces; the order is planned on the lowest average among the lots that have one
+    const lotsWithCad = stocks.filter((s) => chartLotCads.has(s.id));
+    const lotsWithoutCad = stocks
+      .filter((s) => !chartLotCads.has(s.id))
+      .map((s) => ({ lotId: s.id, rollNumbers: s.rollNumbers || '' }));
+    const lotAverages = [...new Set(lotsWithCad.map((s) => chartLotCads.get(s.id)!.average))].sort((a, b) => a - b);
+    const cadAvg = lotAverages[0] ?? 0;
     const cadSet = cadAvg > 0;
-    const maxPcs = cadSet ? Math.floor(availableStock / cadAvg) : null;
+    const maxPcs = cadSet
+      ? Math.floor(
+          lotsWithCad.reduce((sum, s) => sum + (inStoreOf(s) + runHeldOf(s.id)) / chartLotCads.get(s.id)!.average, 0) +
+            1e-9
+        )
+      : null;
     const requiredMeters = totalOrderQty * cadAvg;
     const shortfallMeters = cadSet ? Math.max(0, requiredMeters - availableStock) : 0;
+    if (lotAverages.length > 1 && lotAverages[lotAverages.length - 1] - lotAverages[0] > CAD_AVERAGE_TOLERANCE) {
+      warnings.push(
+        `${f.part}${f.fabricName ? ` (${f.fabricName})` : ''}: its lots have different markers ` +
+          `(${lotAverages.join(' / ')} m per piece) — cut them in separate batches.`
+      );
+    }
     return {
       part: f.part,
       fabricId: f.fabricId,
       fabricName: f.fabricName,
       cadAverage: cadAvg,
+      /** every distinct lot average, lowest first — one value when the lots share a marker */
+      lotAverages,
+      lotsWithoutCad,
       cadSet,
       availableStock,
       atCutting,

@@ -602,6 +602,9 @@ export type MaterialRequirementStatus = z.infer<typeof MaterialRequirementStatus
 export const RequirementSourceEnum = z.enum(['SALES_ORDER', 'WORK_ORDER', 'MANUAL']);
 export type RequirementSource = z.infer<typeof RequirementSourceEnum>;
 
+export const CuttingReturnShortReasonEnum = z.enum(['END_BITS', 'DAMAGED', 'SHORT_IN_ROLL', 'NOT_TRACED', 'OTHER']);
+export type CuttingReturnShortReason = z.infer<typeof CuttingReturnShortReasonEnum>;
+
 export const CuttingBatchStatusEnum = z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED', 'ON_HOLD']);
 export type CuttingBatchStatus = z.infer<typeof CuttingBatchStatusEnum>;
 

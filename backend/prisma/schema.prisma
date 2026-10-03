@@ -6824,20 +6824,26 @@ model cutting_batches {
 
 /// Cutting Batch Fabrics - junction table for multi-fabric batches
 model cutting_batch_fabrics {
-  id                String                @id @default(uuid())
+  id                String                    @id @default(uuid())
   batchId           String
   fabricStockId     String
-  cadAvgUsed        Decimal?              @db.Decimal(10, 4)
-  cadWidthUsed      Decimal?              @db.Decimal(10, 2)
-  actualWidth       Decimal?              @db.Decimal(10, 2)
-  fabricConsumed    Decimal               @default(0) @db.Decimal(10, 2)
-  fabricIssued      Decimal?              @db.Decimal(10, 2)
-  fabricReturned    Decimal?              @db.Decimal(10, 2)
-  actualConsumption Decimal?              @db.Decimal(10, 2)
-  createdAt         DateTime              @default(now())
-  batch             cutting_batches       @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  fabricStock       fabric_stock          @relation(fields: [fabricStockId], references: [id])
-  lays              cutting_lays[]        @relation("LegacyLayFabric")
+  cadAvgUsed        Decimal?                  @db.Decimal(10, 4)
+  cadWidthUsed      Decimal?                  @db.Decimal(10, 2)
+  actualWidth       Decimal?                  @db.Decimal(10, 2)
+  fabricConsumed    Decimal                   @default(0) @db.Decimal(10, 2)
+  fabricIssued      Decimal?                  @db.Decimal(10, 2)
+  fabricReturned    Decimal?                  @db.Decimal(10, 2)
+  actualConsumption Decimal?                  @db.Decimal(10, 2)
+  /// Metres that should have come back at completion (issued − used in lays, this lot's share) but did not —
+  /// the fabric's shortfall, written on each of its lot rows' shares. NULL = nothing short / batch not completed.
+  returnShortQty    Decimal?                  @db.Decimal(10, 2)
+  /// Why it did not come back — asked per fabric at Complete Batch (owner, 2026-10-03). NULL on old batches = not recorded.
+  returnShortReason CuttingReturnShortReason?
+  returnShortNote   String?
+  createdAt         DateTime                  @default(now())
+  batch             cutting_batches           @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  fabricStock       fabric_stock              @relation(fields: [fabricStockId], references: [id])
+  lays              cutting_lays[]            @relation("LegacyLayFabric")
   layFabrics        cutting_lay_fabrics[]
 
   @@unique([batchId, fabricStockId])
@@ -10771,6 +10777,15 @@ enum RequirementSource {
   SALES_ORDER
   WORK_ORDER
   MANUAL
+}
+
+/// Why fabric expected back from a cutting batch did not come back (cutting_batch_fabrics.returnShortReason)
+enum CuttingReturnShortReason {
+  END_BITS
+  DAMAGED
+  SHORT_IN_ROLL
+  NOT_TRACED
+  OTHER
 }
 
 enum CuttingBatchStatus {

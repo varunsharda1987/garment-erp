@@ -8,6 +8,7 @@
 import { z } from 'zod';
 import {
   CuttingBatchStatusEnum as PrismaCuttingBatchStatusEnum,
+  CuttingReturnShortReasonEnum as PrismaCuttingReturnShortReasonEnum,
   StitchingIssueStatusEnum as PrismaStitchingIssueStatusEnum,
   FinishingStatusEnum as PrismaFinishingStatusEnum,
 } from './generated/prisma-enums';
@@ -86,7 +87,9 @@ export const createCuttingBatchSchema = z.object({
   // answered "Invalid request data" — never noticed because nothing had reached cutting (order-system
   // T4-B, 2026-09-17). 0 = not yet known; the controller resolves the width from the lot.
   actualFabricWidth: z.number().nonnegative().optional(),
-  cadAverageUsed: z.number().positive('CAD average must be positive'),
+  // Ignored since 2026-10-03: the server takes each lot's own approved Production CAD (cutting.utils
+  // lotProductionCads). Still accepted so an older page does not 400.
+  cadAverageUsed: z.number().nonnegative().optional(),
   cadWidthUsed: z.number().nonnegative().optional(),
   layersPerLay: z.number().int().nonnegative().optional(),
   numberOfLays: z.number().int().nonnegative().optional(),
@@ -242,10 +245,15 @@ export const completeCuttingBatchSchema = z
             // 'returnedQuantity' — the name BOTH the controller (cutting.controller completeCuttingBatch)
             // and the frontend (cutting.types.ts) use; the old 'returnQuantity' meant the validated value
             // never reached the controller and fabric returns were silently 0 (bug-hunt production-2).
-            returnedQuantity: z.number().positive('Return quantity must be positive'),
+            // 0 is allowed: a fabric whose expected return did not come back still sends its line, with the reason
+            returnedQuantity: z.number().nonnegative('Return quantity cannot be negative'),
             // Optional, rare (owner 2026-09-28): the rolls / thans that came back WHOLE. The rest of the metres
             // comes back as one end piece (fabric-lot-pieces.service settleLotBack).
             wholePieceIds: z.array(z.string().uuid('Invalid roll / than')).max(2000).optional(),
+            // Why the lays' expected return did not come back (owner 2026-10-03) — required by the controller when the
+            // fabric is short; the note is required for OTHER
+            shortReason: PrismaCuttingReturnShortReasonEnum.optional().nullable(),
+            shortNote: z.string().max(500).optional().nullable(),
           })
           .passthrough()
       )

@@ -22,6 +22,7 @@ import { CuttingBatchStatusLabels, CuttingBatchStatusColors } from '@/types/cutt
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { differenceInCalendarDays } from 'date-fns';
 import { formatDate } from '@/lib/date';
+import { isQtyZero } from '@/lib/quantity';
 import { StyleIdentity } from '@/components/StyleIdentity';
 import {
   BUYER_STYLE_CODE_LABEL,
@@ -308,7 +309,12 @@ export default function CuttingList() {
                       <TableHead className="text-center">Days</TableHead>
                       <TableHead className="text-right">Layers</TableHead>
                       <TableHead className="text-right">Fabric (m)</TableHead>
-                      <TableHead className="text-right">Actual Avg</TableHead>
+                      <TableHead className="text-right" title="Fabric per garment — every fabric of the batch added up">
+                        Actual Avg
+                      </TableHead>
+                      <TableHead className="text-right" title="Fabric the lays say should have come back and did not">
+                        Short (m)
+                      </TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
@@ -362,6 +368,15 @@ export default function CuttingList() {
                             >
                               {batch.actualAverage.toFixed(4)}
                             </span>
+                          ) : (
+                            '—'
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {batch.status === 'COMPLETED' &&
+                          batch.wastageMeters != null &&
+                          !isQtyZero(batch.wastageMeters) ? (
+                            <span className="text-destructive font-medium">{batch.wastageMeters!.toFixed(2)}</span>
                           ) : (
                             '—'
                           )}

@@ -164,7 +164,10 @@ export default function CuttingChart() {
   // only reports a production average from an approved row
   const fabricsMissingCAD = useMemo(() => {
     if (!chartData?.fabrics) return [];
-    return chartData.fabrics.filter((f) => !f.productionAverage || !f.productionWidth);
+    // A fabric with lots needs at least one lot with its own approved Production CAD (each lot is cut on its own)
+    return chartData.fabrics.filter((f) =>
+      f.lots.length > 0 ? !f.lots.some((l) => l.productionAverage != null) : !f.productionAverage || !f.productionWidth
+    );
   }, [chartData]);
   const hasProductionCAD = fabricsMissingCAD.length === 0;
 
@@ -177,6 +180,19 @@ export default function CuttingChart() {
     if (!chartData?.fabricDetails) return [];
     return chartData.fabricDetails.filter((fd) => fd.extraShortage < 0);
   }, [chartData]);
+
+  // The lots of one fabric are laid on one marker: ticked lots with different Production CADs go in separate
+  // batches (owner, 2026-10-03 — the server refuses them too)
+  const fabricsWithMixedLots = useMemo(() => {
+    if (!chartData?.fabrics) return [];
+    return chartData.fabrics.filter((f) => {
+      const averages = f.lots
+        .filter((l) => (selectedLots[f.partKey] || []).includes(l.lotId))
+        .map((l) => l.productionAverage)
+        .filter((a): a is number => a != null);
+      return averages.length > 1 && Math.max(...averages) - Math.min(...averages) > 0.0005;
+    });
+  }, [chartData, selectedLots]);
 
   // Handle batch creation — one batch per selected fabric lot
   const handleCreateBatch = async () => {
@@ -210,18 +226,13 @@ export default function CuttingChart() {
       const primaryLotIds = selectedLots[getFabricKey(primaryFabric)] || [];
       const primaryLotId = primaryLotIds[0];
       const primaryLot = primaryFabric.lots.find((l) => l.lotId === primaryLotId);
-      const primaryCadAvg =
-        primaryFabric.productionAverage || primaryFabric.rawMatCalcAverage || primaryFabric.costingAverage || 0;
-      const primaryCadWidth =
-        primaryFabric.productionWidth || primaryFabric.rawMatCalcWidth || primaryFabric.costingWidth || 0;
 
       const requestData: CreateCuttingBatchRequest = {
         workOrderId: chartData.workOrderId,
         cuttingDate,
         fabricStockId: primaryLotId,
         actualFabricWidth: primaryLot?.actualWidth || 0,
-        cadAverageUsed: primaryCadAvg,
-        cadWidthUsed: primaryCadWidth,
+        // No CAD average is sent: the server cuts each lot on its own approved Production CAD
         layersPerLay: 0,
         numberOfLays: 0,
         skuOutputs: sizesWithCutQty
@@ -240,12 +251,7 @@ export default function CuttingChart() {
           const lotIds = selectedLots[getFabricKey(fabric)] || [];
           return lotIds.map((lotId) => {
             const lot = fabric.lots.find((l) => l.lotId === lotId);
-            return {
-              fabricStockId: lotId,
-              cadAvgUsed: fabric.productionAverage || fabric.rawMatCalcAverage || fabric.costingAverage || 0,
-              cadWidthUsed: fabric.productionWidth || fabric.rawMatCalcWidth || fabric.costingWidth || 0,
-              actualWidth: lot?.actualWidth || 0,
-            };
+            return { fabricStockId: lotId, actualWidth: lot?.actualWidth || 0 };
           });
         }),
       };
@@ -340,8 +346,17 @@ export default function CuttingChart() {
               not count.
             </span>
           )}
+          {chartData && fabricsWithMixedLots.length > 0 && (
+            <span className="text-xs text-destructive max-w-[300px] text-right">
+              The ticked lots of {fabricsWithMixedLots.map((f) => f.part || f.fabricName).join(', ')} have different
+              markers — they are laid on one marker, so cut them in separate batches.
+            </span>
+          )}
           {chartData && (
-            <Button onClick={handleCreateBatch} disabled={isSaving || !hasProductionCAD || cutPlanBlocked}>
+            <Button
+              onClick={handleCreateBatch}
+              disabled={isSaving || !hasProductionCAD || cutPlanBlocked || fabricsWithMixedLots.length > 0}
+            >
               <Save className="h-4 w-4 mr-2" />
               {isSaving ? 'Creating...' : 'Create Batch'}
             </Button>
@@ -701,9 +716,21 @@ export default function CuttingChart() {
                         </TableCell>
                         <TableCell className="text-right">
                           {fa.cadSet ? (
-                            fa.cadAverage.toFixed(2)
+                            (fa.lotAverages?.length ?? 0) > 1 ? (
+                              <span title="The lots of this fabric have different markers">
+                                {fa.lotAverages!.map((a) => a.toFixed(3)).join(' / ')}
+                              </span>
+                            ) : (
+                              fa.cadAverage.toFixed(3)
+                            )
                           ) : (
                             <span className="text-warning text-xs">CAD not set</span>
+                          )}
+                          {(fa.lotsWithoutCad?.length ?? 0) > 0 && (
+                            <div className="text-xs text-warning">
+                              {fa.lotsWithoutCad!.length} lot{fa.lotsWithoutCad!.length === 1 ? '' : 's'} without a
+                              Production CAD
+                            </div>
                           )}
                         </TableCell>
                         <TableCell className="text-right">{fa.availableStock.toFixed(1)}</TableCell>
@@ -910,6 +937,7 @@ export default function CuttingChart() {
                               <TableHead>Lot #</TableHead>
                               <TableHead>Roll Numbers</TableHead>
                               <TableHead className="text-center">Prod Width</TableHead>
+                              <TableHead className="text-right">CAD Avg (m/pc)</TableHead>
                               <TableHead className="text-right">Available (m)</TableHead>
                               <TableHead>Grade</TableHead>
                             </TableRow>
@@ -917,11 +945,18 @@ export default function CuttingChart() {
                           <TableBody>
                             {fabric.lots.map((lot) => {
                               const isSelected = (selectedLots[fabricKey] || []).includes(lot.lotId);
+                              // A lot is cut on its own Production CAD — without one it cannot be picked
+                              const hasCad = lot.productionAverage != null;
                               return (
                                 <TableRow
                                   key={lot.lotId}
-                                  className={`cursor-pointer ${isSelected ? 'bg-primary/10' : ''}`}
+                                  className={
+                                    hasCad
+                                      ? `cursor-pointer ${isSelected ? 'bg-primary/10' : ''}`
+                                      : 'cursor-not-allowed opacity-60'
+                                  }
                                   onClick={() =>
+                                    hasCad &&
                                     setSelectedLots((prev) => {
                                       const current = prev[fabricKey] || [];
                                       const updated = current.includes(lot.lotId)
@@ -932,11 +967,31 @@ export default function CuttingChart() {
                                   }
                                 >
                                   <TableCell>
-                                    <Checkbox checked={isSelected} />
+                                    <Checkbox
+                                      checked={isSelected}
+                                      disabled={!hasCad}
+                                      aria-label={`Use lot ${lot.lotNumber}`}
+                                    />
                                   </TableCell>
                                   <TableCell className="font-medium">Lot {lot.lotNumber}</TableCell>
                                   <TableCell>{lot.rollNumbers || '-'}</TableCell>
                                   <TableCell className="text-center">{lot.actualWidth}"</TableCell>
+                                  <TableCell className="text-right">
+                                    {hasCad ? (
+                                      <>
+                                        {lot.productionAverage!.toFixed(3)}
+                                        {lot.productionWidth != null && (
+                                          <div className="text-xs text-muted-foreground">
+                                            marker {lot.productionWidth}"
+                                          </div>
+                                        )}
+                                      </>
+                                    ) : (
+                                      <span className="text-xs text-warning">
+                                        No Production CAD — Create CAD on this lot in CAD Planning
+                                      </span>
+                                    )}
+                                  </TableCell>
                                   <TableCell className="text-right font-medium">
                                     {lot.quantityAvailable.toFixed(1)}
                                     {(lot.atCutting ?? 0) > 0 && (

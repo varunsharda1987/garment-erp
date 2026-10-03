@@ -2,6 +2,8 @@
 // Cutting Module Types
 // ============================================
 
+import type { CuttingReturnShortReason } from '@/types/generated/prisma-enums';
+
 // ============================================
 // Status Enums
 // ============================================
@@ -95,8 +97,11 @@ export interface CuttingBatch {
   returnChallanId?: string;
   varianceFromCad?: number;
   variancePercent?: number;
+  /** Fabric used but not in any lay — the batch's "Short on return" (since 2026-10-03) */
   wastageMeters?: number;
   wastagePercent?: number;
+  /** A COMPLETED batch's fabric, fabric by fabric (null before completion) */
+  fabricVariance?: BatchFabricVariance | null;
 
   remarks?: string;
 
@@ -192,7 +197,8 @@ export interface CreateCuttingBatchRequest {
   cuttingDate: string;
   fabricStockId: string;
   actualFabricWidth: number;
-  cadAverageUsed: number;
+  /** Ignored by the server since 2026-10-03 — it takes each lot's own approved Production CAD */
+  cadAverageUsed?: number;
   cadWidthUsed?: number;
   layersPerLay: number;
   numberOfLays: number;
@@ -210,8 +216,6 @@ export interface CreateCuttingBatchRequest {
   }[];
   fabricStocks?: {
     fabricStockId: string;
-    cadAvgUsed: number;
-    cadWidthUsed: number;
     actualWidth: number;
   }[];
 }
@@ -249,7 +253,50 @@ export interface CompleteCuttingBatchRequest {
     returnedQuantity: number;
     /** Optional, rare: rolls / thans that came back WHOLE — the rest of the metres is one end piece */
     wholePieceIds?: string[];
+    /** Why the lays' expected return did not come back — required when the fabric is short */
+    shortReason?: CuttingReturnShortReason | null;
+    /** Required for OTHER */
+    shortNote?: string | null;
   }>;
+}
+
+/** One fabric of a batch: its actual average against its own CAD average, and what did not come back */
+export interface FabricVarianceRow {
+  fabricKey: string;
+  fabricId: string | null;
+  fabricName: string;
+  lotIds: string[];
+  issued: number;
+  returned: number;
+  consumption: number;
+  layMetres: number;
+  /** issued − used in lays */
+  expectedBack: number;
+  /** expected back that did not come back */
+  shortQty: number;
+  /** more came back than the lays account for */
+  overReturnQty: number;
+  cadAverage: number | null;
+  actualAverage: number | null;
+  variancePercent: number | null;
+  shortReason: CuttingReturnShortReason | null;
+  shortNote: string | null;
+}
+
+export interface BatchFabricVariance {
+  fabrics: FabricVarianceRow[];
+  /** Every fabric's metres per piece added up, against every fabric's CAD average added up */
+  perGarment: {
+    cadAverage: number | null;
+    actualAverage: number | null;
+    varianceFromCad: number | null;
+    variancePercent: number | null;
+    issued: number;
+    consumption: number;
+    layMetres: number;
+    shortQty: number;
+    shortPercent: number | null;
+  };
 }
 
 /** A roll / than that went to this batch whole and has not come back (COUNTED metres) */
@@ -275,6 +322,10 @@ export interface IssuedFabricItem {
   fabricName: string;
   fabricCode: string;
   rollNumbers: string;
+  /** The lots of one fabric share this key — the dialog groups them and asks one reason per fabric */
+  fabricKey: string;
+  /** This lot's Production CAD average, saved on the batch */
+  cadAvgUsed: number | null;
   issuedQty: number;
   consumedInLays: number;
   balance: number;
@@ -420,6 +471,10 @@ export interface CuttingChartLot {
   /** Issued to this run's cutting, not returned, not yet used by a completed batch */
   atCutting?: number;
   qualityGrade: string;
+  /** This lot's own approved Production CAD — null: it cannot be cut until one is made on it */
+  productionAverage: number | null;
+  productionWidth: number | null;
+  productionCadId: string | null;
 }
 
 export interface CuttingChartFabric {
@@ -515,7 +570,12 @@ export interface CuttingFabricAnalysis {
   part: string;
   fabricId: string | null;
   fabricName: string;
+  /** The lowest average among the lots that have a Production CAD (0 = none has one) */
   cadAverage: number;
+  /** Every distinct lot average, lowest first — more than one = lots with different markers */
+  lotAverages?: number[];
+  /** Lots of this fabric with no approved Production CAD of their own */
+  lotsWithoutCad?: Array<{ lotId: string; rollNumbers: string }>;
   cadSet: boolean;
   availableStock: number;
   maxPcsFromStock: number | null;

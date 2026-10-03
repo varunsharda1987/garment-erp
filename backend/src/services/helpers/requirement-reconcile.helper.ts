@@ -29,6 +29,7 @@ import { MaterialRequirementStatus, Prisma, Unit } from '@prisma/client';
 import type { CalculatedRequirement } from '../../types/mrp.types';
 import { isQtyZero, qtyRemaining } from '../../utils/quantity';
 import { heldForRequirement, releaseReservations } from './stock-reservation.helper';
+import { shrinkRequirementToNeed } from './po-allocation.helper';
 
 type Tx = Prisma.TransactionClient;
 
@@ -384,9 +385,28 @@ export async function reconcileRequirementLineage(
       );
     }
 
-    // Less needed than already committed: record it on the committed row (declined metres are not on
-    // any PO, so they never count here)
-    const over = committed - need;
+    // Less needed than already committed (declined metres are not on any PO, so they never count here). A row
+    // committed only by PO links comes DOWN with the need — its links and holds too, so the goods pass to the
+    // next order on the line (shrinkRequirementToNeed, 2026-10-03). What cannot come down (issued already, on job
+    // work or a challan, greige sent, part of a split, PROCESSING) is recorded as surplusQty, as before.
+    let over = round3(committed - need);
+    const shrinkable = (r: FamilyRow) =>
+      type === 'MATERIAL' &&
+      r.requirement_po_links.length > 0 &&
+      r.requirement_jwo_links.length === 0 &&
+      r._count.challanItems === 0 &&
+      !settled.has(r.id) &&
+      r.splitFromId === null &&
+      !active.some((a) => a.splitFromId === r.id);
+    if (over > 0 && !isQtyZero(over) && args.userId) {
+      for (const r of [...lockedRoots].reverse().filter(shrinkable)) {
+        if (!(over > 0) || isQtyZero(over)) break;
+        const total = Number(r.totalRequired);
+        const result = await shrinkRequirementToNeed(tx, r.id, Math.max(0, round3(total - over)), args.userId);
+        over = round3(over - result.shrunk);
+        r.surplusQty = result.stuck > 0 ? new Prisma.Decimal(result.stuck) : null; // written by the shrink
+      }
+    }
     const surplus = over > 0 && !isQtyZero(over) ? round3(over) : null;
     for (const [i, r] of lockedRoots.entries()) {
       const value = i === 0 ? surplus : null;

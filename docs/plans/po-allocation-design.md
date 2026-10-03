@@ -830,7 +830,7 @@ Tell the other terminal first with `npm run notice`.
 | Requirement on a DRAFT MRP PO | Already covered, so not a candidate. Delete that line first (release helper) |
 | Requirement with several live links (legacy) | Undo refused (M4) |
 | BOM needs more later | DECISION_PENDING row, as now |
-| BOM needs less later | `surplusQty` flag on the card; Undo applies it (M3) |
+| BOM needs less later | **Since 2026-10-03 the row shrinks at once** (`shrinkRequirementToNeed`, called by MRP's reconcile): its link's allocation comes down — unreceived part first, then its Use Stock, then received goods, never below what it issued — and the line is recomputed, so the freed goods fill the next order in line or become free stock. `surplusQty` is kept only for what cannot come down (issued, on job work / a challan, split, PROCESSING); Undo still applies that (M3). Existing rows: `scripts/repair-unshrunk-holds.ts` |
 | THREAD, greige, fabric, lace, service | Excluded |
 | Buttons in GROSS | Free and allocation in pieces; a 2,300-piece need on a 16-gross line leaves 4 free |
 | Two tabs over-allocating | PO row lock, re-check, then 409 |

@@ -58,7 +58,8 @@ import { getDerivedOnHandMap } from './derived-stock.helper';
 type Tx = Prisma.TransactionClient;
 type Db = Prisma.TransactionClient | typeof prisma;
 
-export type ReceiptEvent = 'approve' | 'reverse' | 'order-cancel' | 'link';
+/** 'order-change': the order needs less and its links were lowered (shrinkRequirementToNeed) */
+export type ReceiptEvent = 'approve' | 'reverse' | 'order-cancel' | 'link' | 'order-change';
 
 /**
  * How a line's goods are held:

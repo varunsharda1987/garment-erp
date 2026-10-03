@@ -1876,6 +1876,138 @@ export async function releaseCompletedOrderHolds(tx: Tx, orderId: string): Promi
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────
+// The order needs less
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+export interface ShrinkToNeedResult {
+  requirementId: string;
+  /** How much the requirement came down by */
+  shrunk: number;
+  /** What could not come down — already issued to production, or not on a PO link this engine owns */
+  stuck: number;
+}
+
+/**
+ * An order now needs LESS of a committed requirement (its sizes or quantity came down, owner 2026-10-03): the
+ * requirement, its PO links and its holds come down with it, so the goods it no longer needs pass to the next
+ * order on the line (or become free stock) at once. Until then only `surplusQty` was written and every link and
+ * hold stayed at the old quantity: ESSKY091LS S went 525 → 336 and 189 labels stayed held for it.
+ *
+ * Takes the unreceived part of each link first, then its Use Stock hold, then received goods — never below what
+ * the link already issued. Then the lines are recomputed (`applyLineReceipts`, which re-places every receipt hold
+ * from the new allocations) and re-ranked. A link left with nothing allocated, received or issued is removed.
+ * PROCESSING lines (pro-rata) are never touched, nor is a requirement on job work or a challan — those keep
+ * `surplusQty`, as the caller decides. Call inside the caller's transaction.
+ */
+export async function shrinkRequirementToNeed(
+  tx: Tx,
+  requirementId: string,
+  newTotal: number,
+  userId: string
+): Promise<ShrinkToNeedResult> {
+  const r = await tx.material_requirements.findUnique({
+    where: { id: requirementId },
+    select: {
+      id: true,
+      totalRequired: true,
+      allocatedFromStock: true,
+      requirement_po_links: {
+        where: {
+          purchase_orders: {
+            status: { notIn: ['CANCELLED'] },
+            OR: [{ poCategory: null }, { poCategory: { not: 'PROCESSING' } }],
+          },
+        },
+        orderBy: { fillOrder: 'desc' }, // the link filled last gives back first
+        select: { id: true, purchaseOrderItemId: true, allocatedQuantity: true, receivedQuantity: true },
+      },
+    },
+  });
+  if (!r) return { requirementId, shrunk: 0, stuck: 0 };
+  const total = num(r.totalRequired);
+  const target = Math.max(0, round3(newTotal));
+  let over = round3(total - target);
+  if (!qtyExceeds(over, 0)) return { requirementId, shrunk: 0, stuck: 0 };
+
+  const floors = await consumedByLinkPool(
+    tx,
+    r.requirement_po_links.map((l) => l.id)
+  );
+  const issuedOf = (linkId: string) => sumOf(Object.values(floors.get(linkId) ?? {}));
+  const newAlloc = new Map(r.requirement_po_links.map((l) => [l.id, num(l.allocatedQuantity)]));
+
+  // 1. What has not arrived yet
+  for (const link of r.requirement_po_links) {
+    if (!qtyExceeds(over, 0)) break;
+    const alloc = newAlloc.get(link.id)!;
+    const unreceived = Math.max(0, alloc - Math.max(num(link.receivedQuantity), issuedOf(link.id)));
+    const take = Math.min(over, unreceived);
+    if (take > 0) {
+      newAlloc.set(link.id, round3(alloc - take));
+      over = round3(over - take);
+    }
+  }
+  // 2. Use Stock holds
+  let fromStock = num(r.allocatedFromStock);
+  if (qtyExceeds(over, 0) && qtyExceeds(fromStock, 0)) {
+    const take = Math.min(over, fromStock);
+    await releaseReservations(tx, [r.id], round3(take), { kind: 'stock' });
+    fromStock = round3(fromStock - take);
+    over = round3(over - take);
+  }
+  // 3. Goods that arrived for it but were not issued — they pass to the next order on the line
+  for (const link of r.requirement_po_links) {
+    if (!qtyExceeds(over, 0)) break;
+    const alloc = newAlloc.get(link.id)!;
+    const take = Math.min(over, Math.max(0, alloc - issuedOf(link.id)));
+    if (take > 0) {
+      newAlloc.set(link.id, round3(alloc - take));
+      over = round3(over - take);
+    }
+  }
+  const stuck = Math.max(0, round3(over));
+  const shrunk = round3(total - target - stuck);
+  if (!qtyExceeds(shrunk, 0)) return { requirementId, shrunk: 0, stuck };
+
+  const changed = r.requirement_po_links.filter((l) => !isQtyZero(newAlloc.get(l.id)! - num(l.allocatedQuantity)));
+  for (const link of changed) {
+    await tx.requirement_po_links.update({
+      where: { id: link.id },
+      data: { allocatedQuantity: qty3(newAlloc.get(link.id)!) },
+    });
+  }
+  const newTotalRequired = round3(total - shrunk);
+  await tx.material_requirements.update({
+    where: { id: r.id },
+    data: {
+      totalRequired: qty3(newTotalRequired),
+      allocatedFromStock: qty3(fromStock),
+      shortfall: qty3(Math.max(0, newTotalRequired - fromStock)),
+      surplusQty: qtyExceeds(stuck, 0) ? qty3(stuck) : null,
+    },
+  });
+
+  const itemIds = uniq(changed.map((l) => l.purchaseOrderItemId)).sort();
+  if (itemIds.length > 0) {
+    // A link left with nothing allocated and nothing issued is removed BEFORE the recompute — the recompute would
+    // otherwise read 0 of 0 as complete and mark the row RECEIVED
+    const empty = changed.filter((l) => isQtyZero(newAlloc.get(l.id)!) && isQtyZero(issuedOf(l.id)));
+    if (empty.length > 0) {
+      await releaseLinkHolds(
+        tx,
+        empty.map((l) => l.id)
+      );
+      await tx.requirement_po_links.deleteMany({ where: { id: { in: empty.map((l) => l.id) } } });
+    }
+    await applyLineReceipts(tx, itemIds, { event: 'order-change', userId });
+    // No link left: the row goes back to demand (CANCELLED when nothing is needed any more)
+    if (empty.length > 0) await returnDemandAfterUnlink(tx, [{ id: r.id }], { userId, label: 'order needs less' });
+    await assignLineFillOrder(tx, itemIds);
+  }
+  return { requirementId, shrunk, stuck };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
 // Goods held for another order (D10)
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 

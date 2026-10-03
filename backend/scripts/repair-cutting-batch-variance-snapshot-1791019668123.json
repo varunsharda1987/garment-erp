@@ -1,0 +1,38 @@
+[
+  {
+    "batchId": "138f81f3-6c62-4192-947c-fdff4d14ea7d",
+    "batchNumber": "CB-WO2609-0088-003",
+    "before": {
+      "varianceFromCad": "0.0649",
+      "variancePercent": "8.85",
+      "wastageMeters": "0",
+      "wastagePercent": "0",
+      "lots": [
+        {
+          "id": "92ad1397-58fb-4a6f-ae27-547d0502710b",
+          "returnShortQty": null
+        }
+      ]
+    }
+  },
+  {
+    "batchId": "8127207b-6200-440a-abfa-74e45e16a8c6",
+    "batchNumber": "CB-WO2609-0087-002",
+    "before": {
+      "varianceFromCad": "0.052",
+      "variancePercent": "7.08",
+      "wastageMeters": "0",
+      "wastagePercent": "0",
+      "lots": [
+        {
+          "id": "ad3f7205-de5b-4902-98b9-0bf000662fa7",
+          "returnShortQty": null
+        },
+        {
+          "id": "7c36981a-2ef5-4953-ab5b-a3b1b4a1e058",
+          "returnShortQty": null
+        }
+      ]
+    }
+  }
+]

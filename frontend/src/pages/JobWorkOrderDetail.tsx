@@ -1552,7 +1552,7 @@ export default function JobWorkOrderDetail() {
                       <TableRow>
                         <TableHead>Lot sent</TableHead>
                         <TableHead className="text-right">Sent out</TableHead>
-                        <TableHead className="text-right">Returned undyed</TableHead>
+                        <TableHead className="text-right">Returned {notProcessedWord(jwo.processType)}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>

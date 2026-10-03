@@ -167,6 +167,10 @@ beforeAll(async () => {
   // Issue stamps sentDate = now. Backdate the job AND its outward challan: the statement dates
   // SENT from the challan line, and a receipt may not predate the send.
   await prisma.job_work_orders.update({ where: { id: jwoA }, data: { sentDate: new Date(`${SENT_ON}T00:00:00Z`) } });
+  await prisma.job_work_order_lines.updateMany({
+    where: { jobWorkOrderId: jwoA },
+    data: { sentDate: new Date(`${SENT_ON}T00:00:00Z`) },
+  });
   await prisma.challans.updateMany({
     where: { jobWorkOrderId: jwoA, challanType: 'OUTWARD' },
     data: { challanDate: new Date(`${SENT_ON}T00:00:00Z`), issuedDate: new Date(`${SENT_ON}T00:00:00Z`) },
@@ -217,6 +221,10 @@ beforeAll(async () => {
   if (issuedB.status !== 200) throw new Error(`JWO-B issue failed: ${JSON.stringify(issuedB.body)}`);
 
   await prisma.job_work_orders.update({ where: { id: jwoB }, data: { sentDate: new Date(`${B_SENT_ON}T00:00:00Z`) } });
+  await prisma.job_work_order_lines.updateMany({
+    where: { jobWorkOrderId: jwoB },
+    data: { sentDate: new Date(`${B_SENT_ON}T00:00:00Z`) },
+  });
   await prisma.challans.updateMany({
     where: { jobWorkOrderId: jwoB, challanType: 'OUTWARD' },
     data: { challanDate: new Date(`${B_SENT_ON}T00:00:00Z`), issuedDate: new Date(`${B_SENT_ON}T00:00:00Z`) },

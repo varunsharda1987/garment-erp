@@ -52,7 +52,11 @@ import {
 } from '../services/helpers/lot-location.helper';
 import { toDateInputValue } from '../utils/date';
 import { echoShadowPoStatus } from '../services/helpers/shadow-po.helper';
-import { returnJobWorkUnprocessed, returnLineUnprocessed } from '../services/helpers/jwo-return-unprocessed.helper';
+import {
+  dropLine,
+  returnJobWorkUnprocessed,
+  returnLineUnprocessed,
+} from '../services/helpers/jwo-return-unprocessed.helper';
 import {
   closeLine,
   createOneLineJobWorkOrder,
@@ -76,6 +80,7 @@ import type {
   CloseJwoInput,
   CloseShortInput,
   ReturnUnprocessedInput,
+  DropJwoLineInput,
   DispatchJwoInput,
 } from '../schemas/jobWorkOrder.schema';
 
@@ -944,7 +949,7 @@ class JobWorkOrderController {
         success: true,
         data: line,
         message:
-          `${line.lineLabel} on ${line.jobWorkNumber}: ${line.returnedQty} back undyed on challan ` +
+          `${line.lineLabel} on ${line.jobWorkNumber}: ${line.returnedQty} back unprocessed on challan ` +
           `${line.inwardChallanNumber}${line.jobClosed ? ' — the job is finished' : ''}`,
       });
     }
@@ -962,6 +967,31 @@ class JobWorkOrderController {
       success: true,
       data: result,
       message: `${result.jobWorkNumber}: ${result.returnedQty} back on challan ${result.inwardChallanNumber}`,
+    });
+  }
+
+  /**
+   * POST /api/job-work-orders/:id/lines/:lineId/drop — a colour never sent that the job will not do (2026-10-03):
+   * its orders go back to "needs processing"; the last open colour finishes the job on the colours it did.
+   */
+  async dropLine(req: Request, res: Response) {
+    const { id, lineId } = req.params;
+    const body = req.body as DropJwoLineInput;
+    const userId = req.user?.userId || req.user?.id;
+    if (!userId) throw new UnauthorizedError();
+    const result = await dropLine({
+      jobWorkOrderId: id,
+      lineId,
+      userId,
+      remarks: body.remarks,
+      shortCloseConfirmed: body.shortCloseConfirmed,
+    });
+    res.json({
+      success: true,
+      data: result,
+      message:
+        `${result.lineLabel} dropped from ${result.jobWorkNumber} — its order is back in "needs processing"` +
+        (result.jobClosed ? '; the job is finished' : ''),
     });
   }
 
@@ -1255,6 +1285,11 @@ class JobWorkOrderController {
               sentWidthInches: true,
               closedAt: true,
               closedHow: true,
+              // Greige back unprocessed, and when / on which challan this colour went (sent colour by colour)
+              qtyReturned: true,
+              sentDate: true,
+              outwardChallanId: true,
+              outwardChallan: { select: { id: true, challanNumber: true } },
               style: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
               colorMaster: { select: { colorName: true, hexCode: true } },
               finishedFabric: { select: { id: true, fabricCode: true, fabricName: true, colorName: true } },
@@ -1349,6 +1384,7 @@ class JobWorkOrderController {
         acknowledgeWidthMismatch,
         fabricDetails,
         takeHeld,
+        lineId,
       } = req.body;
       const userId = (req as any).user?.userId;
       if (!userId) {
@@ -1370,6 +1406,8 @@ class JobWorkOrderController {
         fabricPicks: fabricDetails,
         // The user confirmed taking goods held for other orders (D10)
         takeHeld,
+        // One colour's greige (2026-10-03); omitted = every colour not yet sent
+        lineId,
       });
 
       const updated = await prisma.job_work_orders.findUnique({ where: { id }, include: jwoInclude });
@@ -1412,7 +1450,9 @@ class JobWorkOrderController {
   async issuePreview(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const v = await validateIssue(id, {});
+      // One colour's greige (2026-10-03): the preview asks for that colour's metres, not the job's
+      const lineId = typeof req.query.lineId === 'string' && req.query.lineId ? req.query.lineId : undefined;
+      const v = await validateIssue(id, { lineId });
       // A style-less stock order has no resolvable greige identity — anchoring the list to
       // expectedGreigeId there hands the UI an empty dropdown, so offer every issuable lot and
       // let the operator anchor the order by what they pick (LOT_GREIGE_MIXED holds the line).
@@ -1514,7 +1554,9 @@ class JobWorkOrderController {
               : v.expectedGreige,
           // false ⇒ the list below spans many greiges; the UI must hold the same-greige rule itself
           greigeAnchored: v.expectedGreigeId != null || (v.jwo.fabricType === 'LACE' && v.jwo.greigeLaceId != null),
-          requiredQty: Number(v.jwo.qtySentMeters),
+          requiredQty: v.requiredQty,
+          // The colour this issue sends ("ESSKY092LS Red"), when one colour of several
+          colourLabel: v.targetLabel,
           uom: v.jwo.uom,
           fabricType: v.jwo.fabricType,
           processorName: v.jwo.processor?.name ?? null,
@@ -2408,6 +2450,7 @@ class JobWorkOrderController {
         acknowledgeWidthMismatch,
         finishedFabricId,
         takeHeld,
+        lineId,
       } = req.body;
       const userId = (req as any).user?.userId;
       if (!userId) {
@@ -2430,6 +2473,7 @@ class JobWorkOrderController {
         acknowledgeWidthMismatch,
         finishedFabricId,
         takeHeld,
+        lineId,
       });
 
       const updated = await prisma.job_work_orders.findUnique({ where: { id }, include: jwoInclude });

@@ -60,6 +60,7 @@ import {
   type FabricPiecePick,
 } from './fabric-lot-pieces.service';
 import { BusinessError } from '../errors';
+import { claimLinesForIssue, isLineOut, lineIsSent, lineLabel, stampLinesSent } from './helpers/jwo-lines.helper';
 
 type Tx = Prisma.TransactionClient;
 
@@ -122,6 +123,11 @@ export interface IssueJwoOptions {
    * STOCK_HELD_FOR_ORDER, naming who holds the goods.
    */
   takeHeld?: boolean;
+  /**
+   * Send ONE colour's greige (its job line, 2026-10-03): the lots add up to that line's greige, and only the line is
+   * stamped sent. Without it the issue sends every colour not yet sent, together.
+   */
+  lineId?: string | null;
 }
 
 export interface IssueJwoResult {
@@ -139,6 +145,8 @@ export interface IssueJwoResult {
 
 export const ISSUE_ERROR_CODES = {
   ALREADY_ISSUED: 'ALREADY_ISSUED',
+  /** The colour named is not on the job, already finished, or its greige already went */
+  LINE_NOT_ISSUABLE: 'LINE_NOT_ISSUABLE',
   ORDER_CANCELLED: 'ORDER_CANCELLED',
   NO_GREIGE_LOT: 'NO_GREIGE_LOT',
   NO_LACE_LOT: 'NO_LACE_LOT',
@@ -186,8 +194,23 @@ const JWO_ISSUE_INCLUDE = {
   finishedLace: { select: { id: true, laceCode: true, laceName: true, color: true } },
   labDip: { select: { fabric: { select: { greigeId: true } } } },
   workOrder: { select: { orderId: true } },
+  // Each colour (line): what it sends, and whether it went yet (greige sent colour by colour, 2026-10-03)
+  lines: {
+    orderBy: { lineNo: 'asc' },
+    select: {
+      id: true,
+      lineNo: true,
+      qtySent: true,
+      sentDate: true,
+      closedAt: true,
+      closedHow: true,
+      styleId: true,
+      colorName: true,
+    },
+  },
   requirementLinks: {
     select: {
+      lineId: true,
       material_requirements: {
         select: {
           id: true,
@@ -386,6 +409,12 @@ export interface ValidateIssueResult {
   /** Picked lots that other orders hold beyond what is free for this job, and who holds them (D10) */
   heldShort: HeldShortLot[];
   blockers: IssueBlocker[];
+  /** The colours (lines) this issue sends: the one named, else every one not yet sent. Empty on a job with no lines. */
+  targetLines: JwoForIssue['lines'];
+  /** "ESSKY092LS Red" when the issue sends one colour of a job with several, else null */
+  targetLabel: string | null;
+  /** What this issue sends: the target lines' greige, else the job's */
+  requiredQty: number;
 }
 
 /**
@@ -402,12 +431,48 @@ export async function validateIssue(
   }
 
   const blockers: IssueBlocker[] = [];
-  if (jwo.sentDate) {
+  // The colours this issue sends (2026-10-03): the one named, else every colour still to go. A job sent whole before
+  // lines kept their own send date has every line sent with it (lineIsSent).
+  const openToSend = jwo.lines.filter((l) => !l.closedAt && !isLineOut(l) && !lineIsSent(l, jwo, jwo.lines));
+  let targetLines: JwoForIssue['lines'] = openToSend;
+  if (opts.lineId) {
+    const named = jwo.lines.find((l) => l.id === opts.lineId);
+    const namedLabel = named ? await lineLabel(prisma, named) : null;
+    if (!named) {
+      blockers.push({
+        code: ISSUE_ERROR_CODES.LINE_NOT_ISSUABLE,
+        message: `That colour is not on ${jwo.jobWorkNumber}.`,
+      });
+    } else if (named.closedAt || isLineOut(named)) {
+      blockers.push({
+        code: ISSUE_ERROR_CODES.LINE_NOT_ISSUABLE,
+        message: `${namedLabel} on ${jwo.jobWorkNumber} is finished — nothing of it is to be sent.`,
+      });
+    } else if (lineIsSent(named, jwo, jwo.lines)) {
+      blockers.push({
+        code: ISSUE_ERROR_CODES.ALREADY_ISSUED,
+        message: `${namedLabel}'s greige on ${jwo.jobWorkNumber} already went${named.sentDate ? ` on ${formatDate(named.sentDate)}` : ''}.`,
+      });
+    } else if (jwo.fabricType !== 'GREIGE' && jwo.fabricType !== 'LACE') {
+      blockers.push({
+        code: ISSUE_ERROR_CODES.LINE_NOT_ISSUABLE,
+        message: `${jwo.jobWorkNumber} does not send greige or lace — it is sent whole.`,
+      });
+    }
+    targetLines = named ? [named] : [];
+  } else if (jwo.lines.length > 0 ? openToSend.length === 0 : jwo.sentDate != null) {
     blockers.push({
       code: ISSUE_ERROR_CODES.ALREADY_ISSUED,
-      message: `${jwo.jobWorkNumber} was already issued on ${formatDate(jwo.sentDate)}.`,
+      message: `${jwo.jobWorkNumber} was already issued${jwo.sentDate ? ` on ${formatDate(jwo.sentDate)}` : ''}.`,
     });
   }
+  const severalLines = jwo.lines.length > 1;
+  const targetLabel = severalLines && targetLines.length === 1 ? await lineLabel(prisma, targetLines[0]) : null;
+  // What leaves: the colours' greige when the job has lines, else the job's
+  const requiredQty =
+    targetLines.length > 0
+      ? toNumber(roundToCent(addCurrency(0, ...targetLines.map((l) => toCurrency(l.qtySent)))))
+      : Number(jwo.qtySentMeters);
   if (jwo.jwoStatus === 'CANCELLED' || jwo.jwoStatus === 'CLOSED') {
     blockers.push({
       code: ISSUE_ERROR_CODES.ORDER_CANCELLED,
@@ -432,7 +497,7 @@ export async function validateIssue(
     opts.lots && opts.lots.length > 0
       ? opts.lots
       : singleLotId
-        ? [{ greigeStockLotId: singleLotId, qty: Number(jwo.qtySentMeters) }]
+        ? [{ greigeStockLotId: singleLotId, qty: requiredQty }]
         : [];
   const greigeLotInputs = isLaceJob
     ? []
@@ -467,10 +532,10 @@ export async function validateIssue(
         code: ISSUE_ERROR_CODES.LOT_QTY_MISMATCH,
         message: 'Every lot quantity must be greater than 0.',
       });
-    } else if (toNumber(sum.minus(toCurrency(jwo.qtySentMeters)).abs()) > 0.01) {
+    } else if (toNumber(sum.minus(toCurrency(requiredQty)).abs()) > 0.01) {
       blockers.push({
         code: ISSUE_ERROR_CODES.LOT_QTY_MISMATCH,
-        message: `Lot quantities total ${toNumber(sum)} but the order issues ${Number(jwo.qtySentMeters)} ${jwo.uom}.`,
+        message: `Lot quantities total ${toNumber(sum)} but ${targetLabel ?? 'the order'} issues ${requiredQty} ${jwo.uom}.`,
       });
     }
 
@@ -600,14 +665,14 @@ export async function validateIssue(
         message: 'Every lot quantity must be greater than 0.',
       });
     } else if (
-      toNumber(sum.minus(toCurrency(jwo.qtySentMeters)).abs()) >
-      (namesThans ? (Number(jwo.qtySentMeters) * THAN_PICK_TOLERANCE_PCT) / 100 : 0.01)
+      toNumber(sum.minus(toCurrency(requiredQty)).abs()) >
+      (namesThans ? (requiredQty * THAN_PICK_TOLERANCE_PCT) / 100 : 0.01)
     ) {
       blockers.push({
         code: ISSUE_ERROR_CODES.LOT_QTY_MISMATCH,
         message: namesThans
-          ? `The picked thans come to ${toNumber(sum)} ${jwo.uom}, more than ${THAN_PICK_TOLERANCE_PCT}% away from the order's ${Number(jwo.qtySentMeters)} ${jwo.uom}.`
-          : `Lot quantities total ${toNumber(sum)} but the order issues ${Number(jwo.qtySentMeters)} ${jwo.uom}.`,
+          ? `The picked thans come to ${toNumber(sum)} ${jwo.uom}, more than ${THAN_PICK_TOLERANCE_PCT}% away from ${targetLabel ? `${targetLabel}'s` : "the order's"} ${requiredQty} ${jwo.uom}.`
+          : `Lot quantities total ${toNumber(sum)} but ${targetLabel ?? 'the order'} issues ${requiredQty} ${jwo.uom}.`,
       });
     }
 
@@ -770,7 +835,7 @@ export async function validateIssue(
         blockers.push({ code: ISSUE_ERROR_CODES.LOT_QTY_MISMATCH, message: err.message });
       }
     }
-    const orderQty = Number(jwo.qtySentMeters);
+    const orderQty = requiredQty;
     const fabricTakeQty = fabricPick?.actual ?? orderQty;
     const fabricLocation = row ? resolveLotLocation({ warehouse: row.warehouse }, jwo.processorId) : null;
     // Ready fabric delivered straight to a processor (Phase 2) is DRAWN where it lies by that processor's
@@ -849,7 +914,19 @@ export async function validateIssue(
     blockers.push({ code: ISSUE_ERROR_CODES.STOCK_HELD_FOR_ORDER, message: heldShortMessage(jwo, heldShort) });
   }
 
-  return { jwo, lots, laceLots, fabricLotRow, expectedGreigeId, expectedGreige, heldShort, blockers };
+  return {
+    jwo,
+    lots,
+    laceLots,
+    fabricLotRow,
+    expectedGreigeId,
+    expectedGreige,
+    heldShort,
+    blockers,
+    targetLines,
+    targetLabel,
+    requiredQty,
+  };
 }
 
 /**
@@ -999,9 +1076,12 @@ function buildOutwardChallanItems(v: ValidateIssueResult): CreateChallanItemInpu
   const { jwo, lots, laceLots, fabricLotRow } = v;
   const isMeters = jwo.uom === 'MTR';
   const unit = jwoStockUnit(jwo.uom);
-  // The style named Buyer Style Code first: 'DYEING job work — DJ-EBWW-021-001 · SP27DR27 (EBWW-021)'.
-  const styleLabel = styleCodeLabel(jwo.style, null, '');
+  // The style named Buyer Style Code first: 'DYEING job work — DJ-EBWW-021-001 · SP27DR27 (EBWW-021)'. One colour of
+  // a job with several names its colour: 'DYEING job work — DJ-EBEW-002-001 · SP27CK130-T Teal'.
+  const styleLabel = v.targetLabel ?? styleCodeLabel(jwo.style, null, '');
   const description = `${jwo.processType} job work — ${jwo.jobWorkNumber}${styleLabel ? ` · ${styleLabel}` : ''}`;
+  // The colour these goods are for, when the issue sends exactly one (2026-10-03)
+  const onLine = v.targetLines.length === 1 ? { jobWorkOrderLineId: v.targetLines[0].id } : {};
 
   if (laceLots.length > 0) {
     // laceStockId is set for the trail, NOT for deduction: the challan is created DRAFT and
@@ -1018,6 +1098,7 @@ function buildOutwardChallanItems(v: ValidateIssueResult): CreateChallanItemInpu
         rate: row.purchaseCost != null ? Number(row.purchaseCost) : undefined,
         description: `${description} — ${row.laceMaster?.laceName ?? 'greige lace'}`,
         jobWorkOrderId: jwo.id,
+        ...onLine,
       }));
   }
 
@@ -1033,6 +1114,7 @@ function buildOutwardChallanItems(v: ValidateIssueResult): CreateChallanItemInpu
       rate: row.purchaseCost != null ? Number(row.purchaseCost) : undefined,
       description,
       jobWorkOrderId: jwo.id,
+      ...onLine,
     }));
   }
   return [
@@ -1048,6 +1130,7 @@ function buildOutwardChallanItems(v: ValidateIssueResult): CreateChallanItemInpu
       unit,
       description,
       jobWorkOrderId: jwo.id,
+      ...onLine,
     },
   ];
 }
@@ -1057,7 +1140,33 @@ function buildOutwardChallanItems(v: ValidateIssueResult): CreateChallanItemInpu
  * updateMany and its whole transaction rolls back, so the same stock can never leave twice.
  * Explicit OR because Prisma `notIn` on a nullable enum silently excludes NULL rows.
  */
-async function acquireIssueMutex(tx: Tx, jwo: JwoForIssue, issueDate: Date): Promise<void> {
+async function acquireIssueMutex(tx: Tx, v: ValidateIssueResult, issueDate: Date): Promise<void> {
+  const { jwo, targetLines } = v;
+  if (targetLines.length > 0) {
+    // The colours are the mutex (2026-10-03): each must still be unsent and open. The job takes the date of its
+    // FIRST issue — a later colour leaves it as it is.
+    const live = await tx.job_work_orders.findUnique({ where: { id: jwo.id }, select: { jwoStatus: true } });
+    if (live?.jwoStatus === 'CANCELLED' || live?.jwoStatus === 'CLOSED') {
+      throw new JobWorkOrderError(
+        ISSUE_ERROR_CODES.ORDER_CANCELLED,
+        `${jwo.jobWorkNumber} is ${live.jwoStatus.toLowerCase()}.`
+      );
+    }
+    const claimed = await claimLinesForIssue(
+      tx,
+      jwo.id,
+      targetLines.map((l) => l.id),
+      issueDate
+    );
+    if (!claimed) {
+      throw new JobWorkOrderError(
+        ISSUE_ERROR_CODES.ALREADY_ISSUED,
+        `${v.targetLabel ?? jwo.jobWorkNumber} was already sent — reload the page.`
+      );
+    }
+    await tx.job_work_orders.updateMany({ where: { id: jwo.id, sentDate: null }, data: { sentDate: issueDate } });
+    return;
+  }
   const mutex = await tx.job_work_orders.updateMany({
     where: {
       id: jwo.id,
@@ -1129,6 +1238,11 @@ async function issueOneWithinTx(
   const { jwo, lots, laceLots, fabricLotRow } = v;
   const jwoId = jwo.id;
   const warnings: string[] = [];
+  // The colour these goods go out for, when the issue sends one (2026-10-03): its components say so, and a later
+  // colour's components are numbered on from the earlier ones'
+  const lineId = v.targetLines.length === 1 ? v.targetLines[0].id : null;
+  const forColour = v.targetLabel ? ` (${v.targetLabel})` : '';
+  const firstIssue = jwo.sentDate == null;
 
   // 3-0. GOODS HELD FOR OTHER ORDERS (D10) — read again here, before any lot is consumed: holds may have moved
   // since validateIssue. Without takeHeld the issue is refused as the dialog would have been; with it the goods
@@ -1283,12 +1397,16 @@ async function issueOneWithinTx(
   // 4a. LACE COMPONENTS — written for EVERY lace lot, even a single one. Unlike greige, the
   // header has no lot pointer to fall back on, so the component IS the record of which lot went
   // out and at what cost; cancel-restore and the receipt's cost build both read it.
+  const priorLace = laceLots.length
+    ? await tx.job_work_order_components.count({ where: { jobWorkOrderId: jwo.id, materialType: 'LACE' } })
+    : 0;
   for (let i = 0; i < laceLots.length; i++) {
     const { row, qty } = laceLots[i];
     const cost = row.purchaseCost != null ? Number(row.purchaseCost) : Number(row.weightedAvgCost);
     const component = await tx.job_work_order_components.create({
       data: {
         jobWorkOrderId: jwo.id,
+        lineId,
         materialType: 'LACE',
         laceId: row.laceId,
         laceStockId: row.id,
@@ -1299,8 +1417,8 @@ async function issueOneWithinTx(
         declaredValue: new Prisma.Decimal(toNumber(roundToCent(multiplyCurrency(qty, cost)))),
         isChargeable: false, // principal's free-issue material
         isReturnable: true,
-        componentName: `Greige lace lot ${i + 1} — ${row.laceMaster?.laceCode ?? row.id.slice(0, 8)}`,
-        sortOrder: i,
+        componentName: `Greige lace lot ${priorLace + i + 1} — ${row.laceMaster?.laceCode ?? row.id.slice(0, 8)}${forColour}`,
+        sortOrder: priorLace + i,
       },
     });
     if (challan) {
@@ -1317,8 +1435,13 @@ async function issueOneWithinTx(
   // 4. MULTI-LOT — components carry the per-lot trail (reconciliation + PDF prefer them). Also when a
   // single lot gave other than the planned metres (named thans within the ±1% tolerance): the cancel
   // path restores from components, and without one it would credit back the PLANNED quantity.
+  // A job with several colours always records them: its greige may go out colour by colour, from different lots, and
+  // the header's one lot pointer cannot say which went for which.
   const takenTotal = lots.reduce((sum, l) => sum + l.qty, 0);
-  if (lots.length > 1 || (lots.length === 1 && !isQtyZero(takenTotal - Number(jwo.qtySentMeters)))) {
+  const priorGreige = lots.length
+    ? await tx.job_work_order_components.count({ where: { jobWorkOrderId: jwo.id, materialType: 'GREIGE' } })
+    : 0;
+  if (lots.length > 1 || jwo.lines.length > 1 || (lots.length === 1 && !isQtyZero(takenTotal - v.requiredQty))) {
     for (let i = 0; i < lots.length; i++) {
       const { row, qty } = lots[i];
       const cost =
@@ -1330,6 +1453,7 @@ async function issueOneWithinTx(
       const component = await tx.job_work_order_components.create({
         data: {
           jobWorkOrderId: jwo.id,
+          lineId,
           materialType: 'GREIGE',
           greigeId: row.greigeId,
           greigeStockId: row.id,
@@ -1340,8 +1464,8 @@ async function issueOneWithinTx(
           declaredValue: cost != null ? new Prisma.Decimal(toNumber(roundToCent(multiplyCurrency(qty, cost)))) : null,
           isChargeable: false, // principal's free-issue material
           isReturnable: true,
-          componentName: `Greige lot ${i + 1} — ${row.greige?.greigeCode ?? row.id.slice(0, 8)}`,
-          sortOrder: i,
+          componentName: `Greige lot ${priorGreige + i + 1} — ${row.greige?.greigeCode ?? row.id.slice(0, 8)}${forColour}`,
+          sortOrder: priorGreige + i,
         },
       });
       // Match on the ORDER too: a consolidated dispatch puts several orders' lines on one
@@ -1369,9 +1493,13 @@ async function issueOneWithinTx(
   // (stock-reservation.helper): until 2026-09-26 this marked every reservation consumed even on a part
   // issue, and decremented the lots the cloth was taken from — stripping another order's hold on them and
   // leaving the real hold (on the reserved lot) in place for ever. Fabric holds were never released.
-  const reqIds = jwo.requirementLinks.flatMap((l) =>
-    [l.material_requirements.id, l.material_requirements.linkedRequirementId].filter((id): id is string => !!id)
-  );
+  // Only the colours this issue sends: a colour still to go keeps its order's hold until its own issue (2026-10-03)
+  const sendingLineIds = new Set(v.targetLines.map((l) => l.id));
+  const reqIds = jwo.requirementLinks
+    .filter((l) => sendingLineIds.size === 0 || (l.lineId != null && sendingLineIds.has(l.lineId)))
+    .flatMap((l) =>
+      [l.material_requirements.id, l.material_requirements.linkedRequirementId].filter((id): id is string => !!id)
+    );
   if (reqIds.length > 0) {
     const fabricIssued = lots.length === 0 && fabricLotRow ? fabricLotRow.issueQty : 0;
     const issuedQty =
@@ -1427,6 +1555,25 @@ async function issueOneWithinTx(
     const clockFrom = arrivals.length > 0 ? new Date(Math.min(...arrivals.map((d) => d.getTime()))) : null;
     await jobWorkOrderService.setStatutoryDueDate(jwoId, issueDate, tx, clockFrom);
   }
+  // 7a. THE COLOURS SENT — each keeps its own send, challan and return date (§143 runs per despatch). The job keeps
+  // its FIRST issue's: the earliest, so the job is never shown later than its oldest goods.
+  if (v.targetLines.length > 0) {
+    const arrivedFirst = [
+      ...lots.filter((l) => l.location?.category === 'AT_THIS_PROCESSOR' && l.row.receivedDate),
+      ...laceLots.filter((l) => l.heldHere && l.row.receivedDate),
+    ].map((l) => new Date(l.row.receivedDate as Date).getTime());
+    const clockFrom = arrivedFirst.length > 0 ? new Date(Math.min(...arrivedFirst)) : null;
+    await stampLinesSent(
+      tx,
+      v.targetLines.map((l) => l.id),
+      {
+        outwardChallanId: challan?.id ?? null,
+        statutoryDueDate: jobWorkOrderService.calculateStatutoryDueDate(
+          clockFrom && clockFrom < issueDate ? clockFrom : issueDate
+        ),
+      }
+    );
+  }
 
   // 8. TOTALS — non-fatal (R1 blocks documents, not issue). Throws before any SQL
   //    when the rate is unresolved, so the tx is never aborted mid-flight.
@@ -1478,6 +1625,14 @@ async function issueOneWithinTx(
   ].join(', ');
   // A finished fabric minted at send time (Create & Send) is the job line's — jwo-lines.helper
   if (opts.finishedFabricId) await stampJwoFinishedFabric(jwoId, opts.finishedFabricId, tx);
+  if (!firstIssue) {
+    // A later colour (2026-10-03): the job is already out — its status, challan and lot stay as the first issue set
+    // them (never moved back from PARTIALLY_RECEIVED); only the value of what went out grows.
+    if (declaredValue > 0) {
+      await tx.job_work_orders.update({ where: { id: jwoId }, data: { declaredValue: { increment: declaredValue } } });
+    }
+    return warnings;
+  }
   await setJwoStatus(tx, jwoId, 'ISSUED', {
     challanNumber:
       opts.challanNumber ||
@@ -1534,7 +1689,7 @@ export async function issueJobWorkOrder(jwoId: string, opts: IssueJwoOptions): P
   const result = await prisma.$transaction(
     async (tx) => {
       // 1. MUTEX — claim the order before anything is created or consumed
-      await acquireIssueMutex(tx, jwo, issueDate);
+      await acquireIssueMutex(tx, v, issueDate);
 
       let challan: IssuedChallan | null = null;
 
@@ -1858,7 +2013,7 @@ export async function dispatchJobWorkOrders(rawInput: DispatchInput): Promise<Di
       // 1. MUTEX every order FIRST — an already-issued order in the list must stop the whole
       //    dispatch before a challan number is drawn, not halfway through consuming stock.
       for (const one of v.validations) {
-        await acquireIssueMutex(tx, one.jwo, issueDate);
+        await acquireIssueMutex(tx, one, issueDate);
       }
 
       // 2. ONE challan for the vehicle. purchaseOrderId is omitted on purpose: the orders may
@@ -2189,13 +2344,23 @@ export async function unissueForCancel(
   // Cancel the outward challan — safe HERE because this same tx just restored the stock
   // the issue deducted (the DRAFT-only guard on cancelChallan protects everyone else).
   // ITC-04 and reconciliation filter status != CANCELLED, so the movement stops counting.
-  if (jwo.outwardChallanId) {
+  // Greige sent colour by colour went on a challan per colour (2026-10-03): every one of them.
+  const lineChallans = await tx.job_work_order_lines.findMany({
+    where: { jobWorkOrderId: jwo.id, outwardChallanId: { not: null } },
+    select: { outwardChallanId: true },
+  });
+  const outwardChallanIds = [
+    ...new Set(
+      [jwo.outwardChallanId, ...lineChallans.map((l) => l.outwardChallanId)].filter((id): id is string => !!id)
+    ),
+  ];
+  for (const outwardChallanId of outwardChallanIds) {
     const cancelled = await tx.challans.updateMany({
-      where: { id: jwo.outwardChallanId, status: { in: ['DRAFT', 'ISSUED'] } },
+      where: { id: outwardChallanId, status: { in: ['DRAFT', 'ISSUED'] } },
       data: { status: 'CANCELLED' },
     });
     if (cancelled.count === 0) {
-      logWarn(`[Issuance] Outward challan ${jwo.outwardChallanId} not cancellable (already received?) — left as-is`, {
+      logWarn(`[Issuance] Outward challan ${outwardChallanId} not cancellable (already received?) — left as-is`, {
         jwoId: jwo.id,
       });
     }
@@ -2217,6 +2382,8 @@ export interface IssueJwoWithDetailsOptions {
   acknowledgeWidthMismatch?: boolean;
   /** See IssueJwoOptions.takeHeld */
   takeHeld?: boolean;
+  /** See IssueJwoOptions.lineId — one colour's greige */
+  lineId?: string | null;
 }
 
 /**
@@ -2262,6 +2429,7 @@ export async function issueJobWorkOrderWithDetails(
     acknowledgeWidthMismatch: opts.acknowledgeWidthMismatch,
     thanPicks,
     takeHeld: opts.takeHeld,
+    lineId: opts.lineId,
   });
   logInfo(
     `[Issuance] ${Object.keys(thanPicks).length} lot(s) issued than by than (` +
@@ -2297,6 +2465,7 @@ export async function issueForSendToMill(
     finishedFabricId: plain.finishedFabricId,
     acknowledgeWidthMismatch: plain.acknowledgeWidthMismatch,
     takeHeld: plain.takeHeld,
+    lineId: plain.lineId,
   });
 }
 

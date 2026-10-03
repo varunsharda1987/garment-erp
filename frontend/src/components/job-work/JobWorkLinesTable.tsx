@@ -6,6 +6,7 @@
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { StyleIdentity } from '@/components/StyleIdentity';
 import { formatQuantity } from '@/lib/formatters';
+import { formatDate } from '@/lib/date';
 import { isQtyZero } from '@/lib/quantity';
 import { lineColour, notProcessedWord } from '@/lib/jwo-lines';
 import type { ReactNode } from 'react';
@@ -20,6 +21,8 @@ interface JobWorkLinesTableProps {
   actions?: (line: JobWorkOrderLine) => ReactNode;
   /** The job's process — a colour back untouched reads "back undyed" / "back unprinted" */
   processType?: string | null;
+  /** Greige going out colour by colour: say under each colour's greige when (and on which challan) it went */
+  showSendState?: boolean;
 }
 
 /** How a finished line reads under its Received figure */
@@ -34,7 +37,14 @@ const closedLabel = (closedHow: string | null | undefined, processType: string |
 const sum = (lines: JobWorkOrderLine[], pick: (l: JobWorkOrderLine) => number | string | null | undefined) =>
   lines.reduce((total, l) => total + Number(pick(l) ?? 0), 0);
 
-export function JobWorkLinesTable({ lines, uom, compact = false, actions, processType }: JobWorkLinesTableProps) {
+export function JobWorkLinesTable({
+  lines,
+  uom,
+  compact = false,
+  actions,
+  processType,
+  showSendState = false,
+}: JobWorkLinesTableProps) {
   const many = lines.length > 1;
   const received = sum(lines, (l) => l.receivedQty);
   return (
@@ -101,7 +111,16 @@ export function JobWorkLinesTable({ lines, uom, compact = false, actions, proces
                   )}
                 </TableCell>
               )}
-              <TableCell className="text-right whitespace-nowrap">{formatQuantity(line.qtySent, uom)}</TableCell>
+              <TableCell className="text-right whitespace-nowrap">
+                {formatQuantity(line.qtySent, uom)}
+                {showSendState && !compact && line.closedHow !== 'DROPPED' && (
+                  <div className="text-xs text-muted-foreground">
+                    {line.sentDate
+                      ? `sent ${formatDate(line.sentDate)}${line.outwardChallan ? ` · ${line.outwardChallan.challanNumber}` : ''}`
+                      : 'not sent yet'}
+                  </div>
+                )}
+              </TableCell>
               <TableCell className="text-right whitespace-nowrap">
                 {line.qtyExpected != null ? formatQuantity(line.qtyExpected, uom) : '-'}
                 {line.expectedShrinkage != null && Number(line.expectedShrinkage) > 0 && (

@@ -18,6 +18,8 @@ import {
   closeJwoSchema,
   closeShortSchema,
   returnUnprocessedSchema,
+  dropJwoLineSchema,
+  issuePreviewQuerySchema,
   issueJwoSchema,
   issueWithDetailsSchema,
   recordThansSchema,
@@ -79,11 +81,22 @@ router.post(
   asyncHandler(jobWorkOrderController.returnUnprocessed.bind(jobWorkOrderController))
 );
 
+// A colour never sent that the job will not do (2026-10-03): its orders go back to "needs processing"
+router.post(
+  '/:id/lines/:lineId/drop',
+  validateBody(dropJwoLineSchema),
+  asyncHandler(jobWorkOrderController.dropLine.bind(jobWorkOrderController))
+);
+
 // Actions
 // no-body — recompute is triggered by the POST alone; all inputs live on the order
 router.post('/:id/compute-totals', jobWorkOrderController.computeTotals.bind(jobWorkOrderController));
 // Read-only dry run of the issuance validation (blockers, expected greige, candidate lots)
-router.get('/:id/issue-preview', jobWorkOrderController.issuePreview.bind(jobWorkOrderController));
+router.get(
+  '/:id/issue-preview',
+  validateQuery(issuePreviewQuerySchema),
+  jobWorkOrderController.issuePreview.bind(jobWorkOrderController)
+);
 // Read-only dry run of a receipt: the loss split and the over-receipt ceiling for a quantity, from the
 // same pure function applyLossSplit uses — the dialog warns before commit and computes no money math.
 router.get(

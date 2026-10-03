@@ -67,6 +67,10 @@ export async function closeOutwardChallanForJwo(
   // Rule 7: the challan(s) covering cloth this job took where it lay follow it too.
   await recomputeCoveringChallansForJwo(tx, jobWorkOrderId, opts.receivedAt);
 
+  // Rule 8: colours that went out on challans of their own move them by their own colours
+  const byColour = await moveColourChallans(tx, jobWorkOrderId, 'RECEIVE', opts.receivedAt, opts.receivedById);
+  if (byColour !== undefined) return byColour;
+
   const jwo = await tx.job_work_orders.findUnique({
     where: { id: jobWorkOrderId },
     select: { outwardChallanId: true },
@@ -123,6 +127,10 @@ export async function resyncOutwardChallanAfterReversal(
   // Rule 7: a covering challan moves back with the job's receipts.
   await recomputeCoveringChallansForJwo(tx, jobWorkOrderId, new Date());
 
+  // Rule 8: colours that went out on challans of their own move them back by their own colours
+  const byColour = await moveColourChallans(tx, jobWorkOrderId, 'REVERSE', new Date(), null);
+  if (byColour !== undefined) return byColour;
+
   const jwo = await tx.job_work_orders.findUnique({
     where: { id: jobWorkOrderId },
     select: { outwardChallanId: true },
@@ -141,6 +149,70 @@ export async function resyncOutwardChallanAfterReversal(
   });
 
   return moved.count > 0 ? target : null;
+}
+
+/**
+ * Rule 8 (2026-10-03): a job's greige may go out colour by colour, each colour on its own OUTWARD challan
+ * (`job_work_order_lines.outwardChallanId`). Each such challan is recomputed from ITS colours:
+ *
+ * | its colours | other jobs on it | status |
+ * |---|---|---|
+ * | all finished (received in full, closed short, back unprocessed) | all settled | `RECEIVED` |
+ * | something back, or one finished | — | `PARTIALLY_RECEIVED` |
+ * | nothing back yet | — | `ISSUED` |
+ *
+ * A receipt only moves a challan forward out of its open statuses; a reversal only moves one we closed back
+ * (rule 4 either way). A job whose lines name no challan (sent whole before lines kept theirs, or drawn where the
+ * cloth lay) returns `undefined` — the job-level rule above applies.
+ */
+async function moveColourChallans(
+  tx: DbClient,
+  jobWorkOrderId: string,
+  mode: 'RECEIVE' | 'REVERSE',
+  at: Date,
+  receivedById: string | null
+): Promise<ChallanStatus | null | undefined> {
+  const lines = await tx.job_work_order_lines.findMany({
+    where: { jobWorkOrderId, outwardChallanId: { not: null } },
+    select: { id: true, outwardChallanId: true, closedAt: true },
+  });
+  if (lines.length === 0) return undefined;
+
+  let moved: ChallanStatus | null = null;
+  for (const challanId of new Set(lines.map((l) => l.outwardChallanId as string))) {
+    const onIt = lines.filter((l) => l.outwardChallanId === challanId);
+    const allFinished = onIt.every((l) => l.closedAt != null);
+    const somethingBack =
+      allFinished ||
+      onIt.some((l) => l.closedAt != null) ||
+      (await tx.grn_items.count({
+        where: { jobWorkOrderLineId: { in: onIt.map((l) => l.id) }, goods_receiving_notes: { status: 'ACCEPTED' } },
+      })) > 0;
+    // A consolidated dispatch can carry other jobs on the same challan (rule 1)
+    const othersOut = await tx.job_work_orders.count({
+      where: {
+        id: { not: jobWorkOrderId },
+        outwardChallanId: challanId,
+        jwoStatus: { notIn: SETTLED_JWO_STATUSES as never },
+      },
+    });
+    const target: ChallanStatus =
+      allFinished && othersOut === 0 ? 'RECEIVED' : somethingBack ? 'PARTIALLY_RECEIVED' : 'ISSUED';
+    const from: ChallanStatus[] =
+      mode === 'RECEIVE'
+        ? OUTWARD_OPEN_STATUSES.filter((s) => s !== target)
+        : (['RECEIVED', 'PARTIALLY_RECEIVED'] as ChallanStatus[]).filter((s) => s !== target);
+    if (mode === 'RECEIVE' && target === 'ISSUED') continue;
+    const result = await tx.challans.updateMany({
+      where: { id: challanId, status: { in: from } },
+      data:
+        target === 'RECEIVED'
+          ? { status: target, receivedDate: at, ...(receivedById ? { receivedById } : {}) }
+          : { status: target, receivedDate: null, receivedById: null },
+    });
+    if (result.count > 0) moved = target;
+  }
+  return moved;
 }
 
 /** A covering challan's statuses this helper may move between (never CANCELLED or DRAFT). */

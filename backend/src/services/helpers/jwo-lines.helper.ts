@@ -383,9 +383,16 @@ export async function pickReceiptLine(
   const label = await lineLabel(tx, line);
   if (isLineOut(line)) {
     throw new BusinessError(
-      `${label} on ${job.jobWorkNumber} is ${line.closedHow === 'RETURNED' ? 'back undyed' : 'dropped from the job'} — ` +
+      `${label} on ${job.jobWorkNumber} ${line.closedHow === 'RETURNED' ? 'came back unprocessed' : 'was dropped from the job'} — ` +
         `nothing more comes back on it.`,
       { reason: 'JWO_LINE_OUT', lineId: line.id }
+    );
+  }
+  // Greige sent colour by colour: a colour not yet sent has nothing at the processor to come back
+  if (line.sentDate == null && lines.some((l) => l.sentDate != null)) {
+    throw new BusinessError(
+      `${label}'s greige has not been sent to the processor yet on ${job.jobWorkNumber} — send it first.`,
+      { reason: 'JWO_LINE_NOT_SENT', lineId: line.id }
     );
   }
   if (line.closedAt) {
@@ -505,6 +512,54 @@ export async function takeLineOut(
     ...new Set(links.flatMap((l) => [l.requirementId, l.material_requirements.linkedRequirementId]).filter(Boolean)),
   ] as string[];
   return { released, jobClosed: open === 0 };
+}
+
+/**
+ * Has this line's greige gone to the processor (2026-10-03, greige sent colour by colour)? Its own send date when it
+ * has one; a job sent whole before lines kept theirs (no line has a date) counts every line sent with the job.
+ */
+export const lineIsSent = (
+  line: { sentDate?: Date | null },
+  job: { sentDate?: Date | null; jwoStatus?: string | null },
+  lines: ReadonlyArray<{ sentDate?: Date | null }>
+) => line.sentDate != null || (jobWentOut(job) && lines.every((l) => l.sentDate == null));
+
+/** Statuses of a job whose goods have not left yet */
+const NOT_YET_SENT_STATUSES = ['DRAFT', 'PENDING_APPROVAL', 'APPROVED'];
+
+/** The job's goods went out: it has a send date, or its status is past approval (an old path that kept no date) */
+const jobWentOut = (job: { sentDate?: Date | null; jwoStatus?: string | null }) =>
+  job.sentDate != null ||
+  (job.jwoStatus != null && job.jwoStatus !== 'CANCELLED' && !NOT_YET_SENT_STATUSES.includes(job.jwoStatus));
+
+/** The job's greige goes out colour by colour: some line has a send date of its own while another has none */
+export const sentColourByColour = (lines: ReadonlyArray<{ sentDate?: Date | null; closedHow?: string | null }>) =>
+  lines.some((l) => l.sentDate != null) && lines.some((l) => l.sentDate == null && !isLineOut(l));
+
+/**
+ * Claim lines for an issue — the claim IS the mutex: each must still be unsent and open, or the whole issue is
+ * refused (a second press, or another user sending the same colour). Returns whether every line was claimed.
+ */
+export async function claimLinesForIssue(
+  tx: Tx,
+  jobWorkOrderId: string,
+  lineIds: readonly string[],
+  sentDate: Date
+): Promise<boolean> {
+  const { count } = await tx.job_work_order_lines.updateMany({
+    where: { id: { in: [...lineIds] }, jobWorkOrderId, sentDate: null, closedAt: null },
+    data: { sentDate },
+  });
+  return count === lineIds.length;
+}
+
+/** What an issue sent its lines on: the outward challan (none when drawn where it lay) and their §143 return date */
+export async function stampLinesSent(
+  tx: Tx,
+  lineIds: readonly string[],
+  data: { outwardChallanId: string | null; statutoryDueDate: Date }
+) {
+  await tx.job_work_order_lines.updateMany({ where: { id: { in: [...lineIds] } }, data });
 }
 
 /** Tie a requirement to the line that brings back its fabric */

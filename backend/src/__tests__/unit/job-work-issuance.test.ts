@@ -48,6 +48,9 @@ function baseJwo(overrides: Record<string, unknown> = {}) {
     style: { styleCode: 'EBEW-003', buyerStyleRef: null },
     fabric: null,
     labDip: null,
+    // The job's colours — none here: these cases are about lots, not colours (greige sent colour by colour has its
+    // own integration walk, jwo-issue-colour-by-colour)
+    lines: [],
     requirementLinks: [
       { material_requirements: { id: 'req-1', materialId: GREIGE_ID, materials: { greigeId: GREIGE_ID } } },
     ],

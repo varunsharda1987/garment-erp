@@ -79,6 +79,10 @@ export interface JobWorkOrderLine {
   closedHow?: 'FINAL' | 'SHORT' | 'RETURNED' | 'DROPPED' | null;
   /** Greige of this colour that came back undyed */
   qtyReturned?: number | string | null;
+  /** When this colour's greige went out, when it went on its own (null = not sent yet, or sent with the whole job) */
+  sentDate?: string | null;
+  outwardChallanId?: string | null;
+  outwardChallan?: { id: string; challanNumber: string } | null;
   style?: { id: string; styleCode: string; buyerStyleRef?: string | null; styleName?: string | null } | null;
   colorMaster?: { colorName: string; hexCode?: string | null } | null;
   finishedFabric?: { id: string; fabricCode: string; fabricName: string; colorName?: string | null } | null;

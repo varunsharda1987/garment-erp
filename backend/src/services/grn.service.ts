@@ -3361,16 +3361,18 @@ class GRNService {
     const lineJob = await jwoLineView(jwo, line, opts?.tx);
 
     // A return cannot be dated before the day the greige went out (the owner's first receipt was
-    // dated 27-Aug on a job sent 19-Sep — nothing refused it). Calendar-day compare, UTC.
-    if (data.receivedDate && jwo.sentDate) {
+    // dated 27-Aug on a job sent 19-Sep — nothing refused it). Calendar-day compare, UTC. The colour's own
+    // send date when its greige went out on its own (2026-10-03), else the job's.
+    const sentOn = line.sentDate ?? jwo.sentDate;
+    if (data.receivedDate && sentOn) {
       const day = (d: Date) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
       const received = new Date(data.receivedDate);
-      if (!Number.isNaN(received.getTime()) && day(received) < day(new Date(jwo.sentDate))) {
+      if (!Number.isNaN(received.getTime()) && day(received) < day(new Date(sentOn))) {
         const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const fmtDay = (d: Date) =>
           `${String(d.getUTCDate()).padStart(2, '0')}-${MONTHS[d.getUTCMonth()]}-${d.getUTCFullYear()}`;
         throw new BusinessError(
-          `Date received ${fmtDay(received)} is before the day the greige was sent (${fmtDay(new Date(jwo.sentDate))})`
+          `Date received ${fmtDay(received)} is before the day the greige was sent (${fmtDay(new Date(sentOn))})`
         );
       }
     }

@@ -299,7 +299,7 @@ describe('one colour of a job comes back undyed', () => {
   it('a returned colour takes no receipt, and cannot come back twice', async () => {
     const receipt = await receive(jobId, { lineId: teal.id, qtyReceivedMeters: 100, isFinal: false });
     expect(receipt.status).toBe(422);
-    expect(receipt.body.message).toMatch(/back undyed/);
+    expect(receipt.body.message).toMatch(/came back unprocessed/);
     const again = await returnUndyed(jobId, { lineId: teal.id, returnedQty: 10 });
     expect(again.status).toBe(422);
     expect(again.body.message).toMatch(/already finished/);

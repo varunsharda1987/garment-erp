@@ -139,6 +139,11 @@ beforeAll(async () => {
   // The receipt below is dated RECEIVED_ON to prove the user's date flows through — and a return may
   // not be dated before the send (refused since 2026-09-19), so the fixture's send is backdated too.
   await prisma.job_work_orders.update({ where: { id: jwoId }, data: { sentDate: new Date('2026-09-01T00:00:00Z') } });
+  // …and its line: each colour keeps its own send date since 2026-10-03
+  await prisma.job_work_order_lines.updateMany({
+    where: { jobWorkOrderId: jwoId },
+    data: { sentDate: new Date('2026-09-01T00:00:00Z') },
+  });
 });
 
 afterAll(async () => {

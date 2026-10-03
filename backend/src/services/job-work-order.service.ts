@@ -22,7 +22,7 @@ import { formatDate } from '../utils/date';
 import { isQtyZero } from '../utils/quantity';
 import { logWarn } from '../utils/logger';
 import { closeOutwardChallanForJwo } from './helpers/jwo-challan-lifecycle.helper';
-import { closeOpenLinesShort, jobSentForLoss } from './helpers/jwo-lines.helper';
+import { closeOpenLinesShort, jobSentForLoss, lineIsSent, lineLabel } from './helpers/jwo-lines.helper';
 import { resettleJobRequirements } from './helpers/jwo-requirement-settle.helper';
 import {
   toCurrency,
@@ -395,6 +395,19 @@ class JobWorkOrderService {
         throw new BusinessError(
           `${jwo.jobWorkNumber} is not part-received (status ${jwo.jwoStatus}). Close short is for a job that has ` +
             `a part in and was expecting more.`
+        );
+      }
+      // Greige sent colour by colour (2026-10-03): a colour not yet sent is not short — it never went. Closing it
+      // short would charge its greige to the processor as loss.
+      const jobLinesNow = await tx.job_work_order_lines.findMany({ where: { jobWorkOrderId: jwo.id } });
+      const unsent = jobLinesNow.filter((l) => !l.closedAt && !lineIsSent(l, jwo, jobLinesNow));
+      if (unsent.length > 0) {
+        const names = await Promise.all(unsent.map((l) => lineLabel(tx, l)));
+        throw new BusinessError(
+          `${names.join(', ')} ${unsent.length === 1 ? 'has' : 'have'} not been sent to ${jwo.processor?.name ?? 'the processor'} ` +
+            `yet — send ${unsent.length === 1 ? 'it' : 'them'}, or Drop ${unsent.length === 1 ? 'that colour' : 'those colours'}, ` +
+            `before closing ${jwo.jobWorkNumber} short.`,
+          { reason: 'JWO_LINES_NOT_SENT' }
         );
       }
 

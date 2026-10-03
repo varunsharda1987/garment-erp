@@ -43,7 +43,15 @@ import fabricStockService from '../fabric-stock.service';
 import { bringHeldLaceLotToStore } from '../laceStock.service';
 import { settleLotBack } from '../fabric-lot-pieces.service';
 import { styleCodeLabel } from '../../utils/style-code';
-import { isLineOut, jobSentForLoss, lineLabel, lineReceivedSoFar, takeLineOut } from './jwo-lines.helper';
+import {
+  isLineOut,
+  jobSentForLoss,
+  lineIsSent,
+  lineLabel,
+  lineReceivedSoFar,
+  sentColourByColour,
+  takeLineOut,
+} from './jwo-lines.helper';
 import { isQtyZero, qtyExceeds } from '../../utils/quantity';
 import { unconsumeReservations } from './stock-reservation.helper';
 import { resettleJobRequirements } from './jwo-requirement-settle.helper';
@@ -79,7 +87,7 @@ const RETURN_INCLUDE = {
   processor: { select: { id: true, name: true } },
   style: { select: { styleCode: true, buyerStyleRef: true } },
   greigeStockLot: { select: { id: true, warehouseId: true } },
-  components: { select: { materialType: true, laceStockId: true, greigeStockId: true, qtySent: true } },
+  components: { select: { materialType: true, laceStockId: true, greigeStockId: true, qtySent: true, lineId: true } },
 } satisfies Prisma.job_work_ordersInclude;
 
 /**
@@ -133,7 +141,14 @@ export async function returnJobWorkUnprocessed(input: ReturnUnprocessedInput): P
       // by colour (returnLineUnprocessed), never as the whole job again
       if ((await tx.job_work_order_lines.count({ where: { jobWorkOrderId: job.id, closedAt: { not: null } } })) > 0) {
         throw new BusinessError(
-          `A colour of ${job.jobWorkNumber} has already come back undyed or been dropped — return the others colour by colour.`
+          `A colour of ${job.jobWorkNumber} has already come back unprocessed or been dropped — return the others colour by colour.`
+        );
+      }
+      // Greige sent colour by colour: the colours not yet sent have nothing at the processor to come back
+      if (sentColourByColour(await tx.job_work_order_lines.findMany({ where: { jobWorkOrderId: job.id } }))) {
+        throw new BusinessError(
+          `${job.jobWorkNumber}'s greige went out colour by colour and some colours are not sent yet — return each sent ` +
+            `colour on its own, and drop the ones the job will not do.`
         );
       }
       // A job that took its cloth where it already lay at the processor moved nothing: no outward
@@ -446,6 +461,14 @@ export async function returnLineUnprocessed(input: ReturnLineUnprocessedInput): 
           `${label} on ${job.jobWorkNumber} is already finished — nothing of it can come back undyed.`
         );
       }
+      const jobLinesNow = await tx.job_work_order_lines.findMany({ where: { jobWorkOrderId: job.id } });
+      if (!lineIsSent(line, job, jobLinesNow)) {
+        throw new BusinessError(
+          `${label}'s greige has not been sent yet on ${job.jobWorkNumber} — nothing of it is at the processor. ` +
+            `Use Drop this colour if the job will not do it.`,
+          { reason: 'JWO_LINE_NOT_SENT' }
+        );
+      }
       if (!isQtyZero(await lineReceivedSoFar(tx, line.id))) {
         throw new BusinessError(
           `Some of ${label} has already come back dyed. Receive the rest, or close it short — it cannot also come ` +
@@ -458,11 +481,13 @@ export async function returnLineUnprocessed(input: ReturnLineUnprocessedInput): 
         );
       }
 
-      // Which lot(s) it comes back on: the ones this job's greige went out from, each capped at what that lot sent
-      // on this job less what already came back on it.
+      // Which lot(s) it comes back on: the ones this job's greige went out from — this colour's own, when it went out
+      // on its own (2026-10-03) — each capped at what that lot sent on this job less what already came back on it.
       const sentByLot = new Map<string, number>();
+      const ownLots = job.components.some((c) => c.lineId === line.id);
       for (const c of job.components) {
         if (c.materialType !== 'GREIGE' || !c.greigeStockId) continue;
+        if (ownLots && c.lineId !== line.id) continue;
         sentByLot.set(c.greigeStockId, (sentByLot.get(c.greigeStockId) ?? 0) + Number(c.qtySent));
       }
       if (sentByLot.size === 0 && job.greigeStockLot) sentByLot.set(job.greigeStockLot.id, Number(job.qtySentMeters));
@@ -514,7 +539,8 @@ export async function returnLineUnprocessed(input: ReturnLineUnprocessedInput): 
             OR: [{ jobWorkOrderId: job.id }, { items: { some: { jobWorkOrderId: job.id } } }],
           },
         })) > 0;
-      const heldReturn = !travelled && !!job.sentDate;
+      // Sent on its own: its own challan says whether it travelled
+      const heldReturn = line.sentDate ? !line.outwardChallanId : !travelled && !!job.sentDate;
       if (heldReturn && !input.storeWarehouseId) {
         throw new BusinessError(
           `${job.jobWorkNumber} took cloth already lying at ${job.processor?.name ?? 'the processor'} — say which of ` +
@@ -590,81 +616,17 @@ export async function returnLineUnprocessed(input: ReturnLineUnprocessedInput): 
       // The other colours' requirements settle as they always do (a finished colour with no open PO)
       await resettleJobRequirements(tx, job.id);
 
-      const lines = await tx.job_work_order_lines.findMany({ where: { jobWorkOrderId: job.id } });
-      const nothingDyed = lines.every((l) => isLineOut(l));
-      const noteLine =
-        `[RETURNED UNDYED ${toDateInputValue(returnDate)}] ${label}: ${returnedQty} ${job.uom} on ` +
-        `${challan.challanNumber}${remarks ? ` — ${remarks}` : ''}`;
-      const withNote = `${job.remarks || ''}\n${noteLine}`.trim();
-      if (jobClosed && nothingDyed) {
-        // Every colour came back undyed: as the whole-job return, the job is cancelled with nothing received
-        await setJwoStatus(tx, job.id, 'CANCELLED', {
-          inwardChallanId: challan.id,
-          qtyReceivedMeters: 0,
-          receivedDate: returnDate,
-          remarks: withNote,
-        });
-      } else if (jobClosed) {
-        // The other colours are all in: the job finishes on what was really dyed (loss split on effective totals).
-        // Finishing it short beyond the allowance must be said out loud — the same question Close short asks.
-        const after = await tx.job_work_orders.findUniqueOrThrow({
-          where: { id: job.id },
-          select: {
-            qtySentMeters: true,
-            qtyBillable: true,
-            expectedShrinkage: true,
-            tolerancePercent: true,
-            agreedRatePerMeter: true,
-            processTypeMaster: { select: { tolerancePercent: true } },
-          },
-        });
-        const received = Number(job.qtyReceivedMeters ?? 0);
-        const split = jobWorkOrderService.calculateLossSplit({
-          qtySent: await jobSentForLoss(tx, job.id, after.qtySentMeters),
-          qtyReceived: received,
-          qtyExpected: after.qtyBillable,
-          expectedShrinkagePercent: after.expectedShrinkage,
-          tolerancePercent: Number(after.tolerancePercent ?? after.processTypeMaster?.tolerancePercent ?? 0),
-          ratePerMeter: after.agreedRatePerMeter,
-        });
-        if (split.isOverTolerance && !input.shortCloseConfirmed) {
-          const uom = job.uom;
-          throw new BusinessError(
-            `${label} was the last colour still out, so this finishes ${job.jobWorkNumber} — but the colours that came ` +
-              `back are short: ${received.toFixed(2)} ${uom} received against ${split.qtyExpected.toFixed(2)} ${uom} ` +
-              `expected, ${split.qtyAbnormalLoss.toFixed(2)} ${uom} beyond the ${split.tolerancePercent.toNumber()}% ` +
-              `allowance. Confirm only if nothing more is coming on them.`,
-            {
-              reason: 'SHORT_CLOSE_UNCONFIRMED',
-              cumulative: received,
-              expected: split.qtyExpected.toNumber(),
-              shortfall: split.shortfall.toNumber(),
-              beyondAllowance: split.qtyAbnormalLoss.toNumber(),
-              tolerancePercent: split.tolerancePercent.toNumber(),
-              debitNoteAmount: split.debitNoteAmount ? split.debitNoteAmount.toNumber() : null,
-            }
-          );
-        }
-        await jobWorkOrderService.applyLossSplit(job.id, received, tx);
-        await setJwoStatus(tx, job.id, 'STOCK_UPDATED', {
-          receivedDate: job.receivedDate ?? returnDate,
-          remarks: withNote,
-        });
-      } else {
-        await tx.job_work_orders.update({ where: { id: job.id }, data: { remarks: withNote } });
-      }
-      try {
-        await closeOutwardChallanForJwo(tx, job.id, {
-          isFinal: jobClosed,
-          receivedById: userId,
-          receivedAt: returnDate,
-        });
-      } catch (challanError) {
-        logWarn('[JWO] Could not advance the outward challan after an undyed return', {
-          jobWorkOrderId: job.id,
-          error: challanError instanceof Error ? challanError.message : challanError,
-        });
-      }
+      await finishJobAfterLineOut(tx, job, {
+        label,
+        closedAt: returnDate,
+        jobClosed,
+        noteLine:
+          `[RETURNED UNPROCESSED ${toDateInputValue(returnDate)}] ${label}: ${returnedQty} ${job.uom} on ` +
+          `${challan.challanNumber}${remarks ? ` — ${remarks}` : ''}`,
+        inwardChallanId: challan.id,
+        shortCloseConfirmed: input.shortCloseConfirmed,
+        userId,
+      });
 
       return {
         jobWorkOrderId: job.id,
@@ -676,6 +638,177 @@ export async function returnLineUnprocessed(input: ReturnLineUnprocessedInput): 
         lineLabel: label,
         jobClosed,
       };
+    },
+    { timeout: 20000, maxWait: 5000 }
+  );
+}
+
+/**
+ * A colour has just left the job (back unprocessed, or dropped): finish the job when it was the last colour still
+ * open. Every colour out → CANCELLED (nothing was processed); some received → STOCK_UPDATED with the loss split on
+ * what was really processed — after the same short-close question Close short asks; else the job carries on. The
+ * note goes on the job's remarks either way, and a job that went out has its outward challan(s) brought up to date.
+ */
+async function finishJobAfterLineOut(
+  tx: Prisma.TransactionClient,
+  job: {
+    id: string;
+    jobWorkNumber: string;
+    uom: string;
+    remarks: string | null;
+    qtyReceivedMeters: Prisma.Decimal | number | null;
+    receivedDate: Date | null;
+    sentDate: Date | null;
+  },
+  o: {
+    label: string;
+    closedAt: Date;
+    jobClosed: boolean;
+    noteLine: string;
+    inwardChallanId?: string | null;
+    shortCloseConfirmed?: boolean;
+    userId: string;
+  }
+): Promise<void> {
+  const lines = await tx.job_work_order_lines.findMany({ where: { jobWorkOrderId: job.id } });
+  const nothingProcessed = lines.every((l) => isLineOut(l));
+  const withNote = `${job.remarks || ''}\n${o.noteLine}`.trim();
+  if (o.jobClosed && nothingProcessed) {
+    // Every colour came back unprocessed or was dropped: as the whole-job return, cancelled with nothing received
+    await setJwoStatus(tx, job.id, 'CANCELLED', {
+      ...(o.inwardChallanId ? { inwardChallanId: o.inwardChallanId } : {}),
+      qtyReceivedMeters: 0,
+      ...(job.sentDate ? { receivedDate: o.closedAt } : {}),
+      remarks: withNote,
+    });
+  } else if (o.jobClosed) {
+    // The other colours are all in: the job finishes on what was really processed (loss split on effective totals).
+    // Finishing it short beyond the allowance must be said out loud — the same question Close short asks.
+    const after = await tx.job_work_orders.findUniqueOrThrow({
+      where: { id: job.id },
+      select: {
+        qtySentMeters: true,
+        qtyBillable: true,
+        expectedShrinkage: true,
+        tolerancePercent: true,
+        agreedRatePerMeter: true,
+        processTypeMaster: { select: { tolerancePercent: true } },
+      },
+    });
+    const received = Number(job.qtyReceivedMeters ?? 0);
+    const split = jobWorkOrderService.calculateLossSplit({
+      qtySent: await jobSentForLoss(tx, job.id, after.qtySentMeters),
+      qtyReceived: received,
+      qtyExpected: after.qtyBillable,
+      expectedShrinkagePercent: after.expectedShrinkage,
+      tolerancePercent: Number(after.tolerancePercent ?? after.processTypeMaster?.tolerancePercent ?? 0),
+      ratePerMeter: after.agreedRatePerMeter,
+    });
+    if (split.isOverTolerance && !o.shortCloseConfirmed) {
+      const uom = job.uom;
+      throw new BusinessError(
+        `${o.label} was the last colour still open, so this finishes ${job.jobWorkNumber} — but the colours that came ` +
+          `back are short: ${received.toFixed(2)} ${uom} received against ${split.qtyExpected.toFixed(2)} ${uom} ` +
+          `expected, ${split.qtyAbnormalLoss.toFixed(2)} ${uom} beyond the ${split.tolerancePercent.toNumber()}% ` +
+          `allowance. Confirm only if nothing more is coming on them.`,
+        {
+          reason: 'SHORT_CLOSE_UNCONFIRMED',
+          cumulative: received,
+          expected: split.qtyExpected.toNumber(),
+          shortfall: split.shortfall.toNumber(),
+          beyondAllowance: split.qtyAbnormalLoss.toNumber(),
+          tolerancePercent: split.tolerancePercent.toNumber(),
+          debitNoteAmount: split.debitNoteAmount ? split.debitNoteAmount.toNumber() : null,
+        }
+      );
+    }
+    await jobWorkOrderService.applyLossSplit(job.id, received, tx);
+    await setJwoStatus(tx, job.id, 'STOCK_UPDATED', {
+      receivedDate: job.receivedDate ?? o.closedAt,
+      remarks: withNote,
+    });
+  } else {
+    await tx.job_work_orders.update({ where: { id: job.id }, data: { remarks: withNote } });
+  }
+  if (!job.sentDate) return;
+  try {
+    await closeOutwardChallanForJwo(tx, job.id, {
+      isFinal: o.jobClosed,
+      receivedById: o.userId,
+      receivedAt: o.closedAt,
+    });
+  } catch (challanError) {
+    logWarn('[JWO] Could not advance the outward challan after a colour left the job', {
+      jobWorkOrderId: job.id,
+      error: challanError instanceof Error ? challanError.message : challanError,
+    });
+  }
+}
+
+export interface DropLineInput {
+  jobWorkOrderId: string;
+  /** The colour (job line) never sent that the job will not do */
+  lineId: string;
+  userId: string;
+  remarks?: string;
+  /** Dropping the last open colour finishes a job whose other colours came back short — asked, then confirmed */
+  shortCloseConfirmed?: boolean;
+}
+
+export interface DropLineResult {
+  jobWorkOrderId: string;
+  jobWorkNumber: string;
+  lineLabel: string;
+  /** Every colour of the job is now finished (it closed, or was cancelled when nothing was processed at all) */
+  jobClosed: boolean;
+}
+
+/**
+ * Drop a colour whose greige was never sent (2026-10-03, owner): the job will not do it. Its orders go back to
+ * "needs processing" so a new job can be raised; it counts in neither the bill nor the processor's loss; when it was
+ * the last colour still open the job finishes on the colours it did (or is cancelled when it did none). A colour
+ * already at the processor comes back through Return unprocessed instead; a job of one colour is cancelled instead.
+ */
+export async function dropLine(input: DropLineInput): Promise<DropLineResult> {
+  const { jobWorkOrderId, lineId, userId, remarks } = input;
+  return prisma.$transaction(
+    async (tx) => {
+      await lockJobWorkOrder(tx, jobWorkOrderId);
+      const job = await tx.job_work_orders.findUnique({ where: { id: jobWorkOrderId }, include: RETURN_INCLUDE });
+      if (!job) throw new NotFoundError('Job work order', jobWorkOrderId);
+      if (isJwoDead(job.jwoStatus)) {
+        throw new BusinessError(`${job.jobWorkNumber} is ${job.jwoStatus.toLowerCase()} — there is nothing to drop.`);
+      }
+      const lines = await tx.job_work_order_lines.findMany({ where: { jobWorkOrderId: job.id } });
+      const line = lines.find((l) => l.id === lineId);
+      if (!line) throw new BusinessError(`That colour is not on ${job.jobWorkNumber} — reload the page.`);
+      const label = await lineLabel(tx, line);
+      if (lines.length === 1) {
+        throw new BusinessError(`${label} is the only colour on ${job.jobWorkNumber} — cancel the job instead.`);
+      }
+      if (line.closedAt) {
+        throw new BusinessError(`${label} on ${job.jobWorkNumber} is already finished — there is nothing to drop.`);
+      }
+      if (lineIsSent(line, job, lines)) {
+        throw new BusinessError(
+          `${label}'s greige already went to ${job.processor?.name ?? 'the processor'} — if it comes back untouched, ` +
+            `record it with Return unprocessed.`,
+          { reason: 'JWO_LINE_ALREADY_SENT' }
+        );
+      }
+
+      const closedAt = new Date();
+      const { jobClosed } = await takeLineOut(tx, line, 'DROPPED', closedAt, null);
+      if (job.sentDate) await resettleJobRequirements(tx, job.id);
+      await finishJobAfterLineOut(tx, job, {
+        label,
+        closedAt,
+        jobClosed,
+        noteLine: `[DROPPED ${toDateInputValue(closedAt)}] ${label} — never sent${remarks ? `: ${remarks}` : ''}`,
+        shortCloseConfirmed: input.shortCloseConfirmed,
+        userId,
+      });
+      return { jobWorkOrderId: job.id, jobWorkNumber: job.jobWorkNumber, lineLabel: label, jobClosed };
     },
     { timeout: 20000, maxWait: 5000 }
   );

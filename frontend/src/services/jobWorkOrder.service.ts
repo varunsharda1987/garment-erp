@@ -151,6 +151,8 @@ export interface IssueWithDetailsPayload {
   /** The user confirmed "take them anyway" for goods held for other orders (hooks/useHeldStockConfirm) */
   takeHeld?: boolean;
   lots: IssueLotWithDetailsInput[];
+  /** Send one colour's greige (its job line); omitted = every colour not yet sent */
+  lineId?: string;
 }
 
 /** GET /api/job-work-orders/:id/than-record — one greige lot the job took. */
@@ -299,6 +301,8 @@ export interface JwoReceivePreview {
  * single lace lot travels as a one-element `lots` array.
  */
 export interface IssueJwoPayload {
+  /** Send one colour's greige (its job line); omitted = every colour not yet sent */
+  lineId?: string;
   sentDate?: string;
   greigeStockLotId?: string;
   lots?: IssueLotInput[];
@@ -386,6 +390,8 @@ export interface JwoIssuePreview {
   /** false ⇒ availableLots spans several greiges, so the UI must hold the same-greige rule itself */
   greigeAnchored: boolean;
   requiredQty: number;
+  /** The colour this issue sends ("ESSKY092LS Red"), when one colour of several */
+  colourLabel?: string | null;
   uom: string;
   fabricType: string | null;
   /** Processor name for display (e.g., "Mangal Textile") */
@@ -577,9 +583,20 @@ export const jobWorkOrderService = {
    * already filtered (right cloth, AVAILABLE, not at a processor, not a transfer) and sorted
    * quantity-desc, which is what makes the dialog's greedy auto-fill correct.
    */
-  async getIssuePreview(id: string): Promise<JwoIssuePreview> {
-    const response = await api.get(`${BASE_URL}/${id}/issue-preview`);
+  /** lineId: one colour's greige — the preview then asks for that colour's metres */
+  async getIssuePreview(id: string, lineId?: string): Promise<JwoIssuePreview> {
+    const response = await api.get(`${BASE_URL}/${id}/issue-preview`, { params: lineId ? { lineId } : undefined });
     return response.data.data;
+  },
+
+  /** A colour never sent that the job will not do: its orders go back to "needs processing" */
+  async dropLine(
+    id: string,
+    lineId: string,
+    payload: { remarks?: string; shortCloseConfirmed?: boolean } = {}
+  ): Promise<{ data: { jobWorkNumber: string; lineLabel: string; jobClosed: boolean }; message: string }> {
+    const response = await api.post(`${BASE_URL}/${id}/lines/${lineId}/drop`, payload);
+    return response.data;
   },
 
   /**

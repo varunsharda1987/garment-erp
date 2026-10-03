@@ -199,6 +199,20 @@ export const returnUnprocessedSchema = z.object({
 
 export type ReturnUnprocessedInput = z.infer<typeof returnUnprocessedSchema>;
 
+/** Drop a colour never sent (2026-10-03): the job will not do it; its orders go back to needs processing */
+export const dropJwoLineSchema = z.object({
+  remarks: z.string().max(500).optional(),
+  // Dropping the last open colour finishes a job whose other colours came back short — asked, then answered yes
+  shortCloseConfirmed: z.boolean().optional(),
+});
+
+export type DropJwoLineInput = z.infer<typeof dropJwoLineSchema>;
+
+/** GET /:id/issue-preview — the colour to send, when the issue sends one */
+export const issuePreviewQuerySchema = z.object({
+  lineId: z.string().uuid().optional(),
+});
+
 /**
  * POST /api/job-work-orders/:id/issue — Phase 4c operational issue.
  * greigeStockLotId consumes that lot; challanNumber is the manual/vendor challan ref.
@@ -239,6 +253,8 @@ export const issueJwoSchema = z.object({
   acknowledgeWidthMismatch: z.boolean().optional(),
   // The user confirmed "take them anyway": goods held for other orders on the picked lots are taken (D10)
   takeHeld: z.boolean().optional(),
+  // Send one colour's greige (its job line, 2026-10-03); omitted = every colour not yet sent
+  lineId: z.string().uuid().nullish(),
 });
 
 /**
@@ -324,6 +340,8 @@ export const thanPickSchema = z.object({
 });
 
 export const issueWithDetailsSchema = z.object({
+  // Send one colour's greige (its job line, 2026-10-03); omitted = every colour not yet sent
+  lineId: z.string().uuid().nullish(),
   sentDate: z.coerce.date().optional(),
   vehicleNumber: z.string().max(50).trim().optional(),
   challanNumber: z.string().max(100).trim().optional(),

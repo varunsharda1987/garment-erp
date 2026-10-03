@@ -6,7 +6,7 @@
 import { unitPer, unitShort } from '@/lib/units';
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { lineName, notProcessedWord } from '@/lib/jwo-lines';
+import { lineIsSent, lineName, notProcessedWord } from '@/lib/jwo-lines';
 import type { JobWorkOrderLine } from '@/types/jobWorkOrder.types';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -195,6 +195,11 @@ export default function JobWorkOrderDetail() {
   const [returnLine, setReturnLine] = useState<JobWorkOrderLine | null>(null);
   // Phase 4c: operational issue dialog (greige lots + transport)
   const [issueDialogOpen, setIssueDialogOpen] = useState(false);
+  // The colour the Issue dialog sends (its line, 2026-10-03); '' = every colour not yet sent
+  const [issueLineId, setIssueLineId] = useState('');
+  // A colour never sent that the job will not do — Drop this colour (2026-10-03)
+  const [dropLine, setDropLine] = useState<JobWorkOrderLine | null>(null);
+  const [dropShortQuestion, setDropShortQuestion] = useState<string | null>(null);
   const [issueRows, setIssueRows] = useState<IssueLotRow[]>([{ lotId: '', qty: '' }]);
   const [issueWidthAcknowledged, setIssueWidthAcknowledged] = useState(false);
   const [issueVehicle, setIssueVehicle] = useState('');
@@ -301,6 +306,30 @@ export default function JobWorkOrderDetail() {
     },
   });
 
+  // Drop this colour (2026-10-03): never sent, the job will not do it — its orders go back to "needs processing".
+  // Dropping the last open colour may finish the job short: the server asks, the dialog answers.
+  const dropMutation = useMutation({
+    mutationFn: (shortCloseConfirmed: boolean) =>
+      jobWorkOrderService.dropLine(id!, dropLine!.id, shortCloseConfirmed ? { shortCloseConfirmed: true } : {}),
+    onSuccess: (result) => {
+      toast.success(result.message);
+      setDropLine(null);
+      setDropShortQuestion(null);
+      queryClient.invalidateQueries({ queryKey: ['job-work-order', id] });
+      queryClient.invalidateQueries({ queryKey: ['job-work-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['mrp'] });
+    },
+    onError: (err: unknown) => {
+      const data = (err as { response?: { data?: { message?: string; details?: { reason?: string } } } })?.response
+        ?.data;
+      if (data?.details?.reason === 'SHORT_CLOSE_UNCONFIRMED') {
+        setDropShortQuestion(data.message ?? 'This finishes the job short.');
+        return;
+      }
+      toast.error(data?.message ?? 'Could not drop the colour');
+    },
+  });
+
   const approveMutation = useMutation({
     mutationFn: () => jobWorkOrderService.approve(id!),
     onSuccess: () => {
@@ -322,8 +351,8 @@ export default function JobWorkOrderDetail() {
     isError: issuePreviewFailed,
     refetch: refetchIssuePreview,
   } = useQuery({
-    queryKey: ['jwo-issue-preview', id],
-    queryFn: () => jobWorkOrderService.getIssuePreview(id!),
+    queryKey: ['jwo-issue-preview', id, issueLineId],
+    queryFn: () => jobWorkOrderService.getIssuePreview(id!, issueLineId || undefined),
     enabled: issueDialogOpen && !!id,
     staleTime: 0,
   });
@@ -336,6 +365,7 @@ export default function JobWorkOrderDetail() {
       setIssueRows([{ lotId: '', qty: '' }]);
       setIssueWidthAcknowledged(false);
       setIssueSentDate(toDateInputValue(new Date()));
+      setIssueLineId('');
       return;
     }
     if (!issuePreview) return;
@@ -390,6 +420,7 @@ export default function JobWorkOrderDetail() {
         const sent = await withHeldStockConfirm(
           (takeHeld) =>
             jobWorkOrderService.issueWithDetails(id!, {
+              ...(issueLineId ? { lineId: issueLineId } : {}),
               sentDate: issueSentDate || undefined,
               vehicleNumber: issueVehicle || undefined,
               acknowledgeWidthMismatch: issueWidthAcknowledged || undefined,
@@ -408,6 +439,7 @@ export default function JobWorkOrderDetail() {
         return sent && { ...sent, thansUnrecorded, fabricUnrecorded: false };
       }
       const payload: IssueJwoPayload = {
+        ...(issueLineId ? { lineId: issueLineId } : {}),
         sentDate: issueSentDate || undefined,
         vehicleNumber: issueVehicle || undefined,
         acknowledgeWidthMismatch: issueWidthAcknowledged || undefined,
@@ -820,6 +852,20 @@ export default function JobWorkOrderDetail() {
     severalLines &&
     jwo.fabricType === 'GREIGE' &&
     ['ISSUED', 'IN_TRANSIT', 'AT_PROCESSOR', 'PARTIALLY_RECEIVED'].includes(jwo.jwoStatus ?? '');
+  // Greige sent colour by colour (2026-10-03): the colours still to go, each with Send and Drop
+  const lineSent = (line: JobWorkOrderLine) => lineIsSent(line, jwo, jobLines);
+  const unsentLines = severalLines ? jobLines.filter((line) => !line.closedAt && !lineSent(line)) : [];
+  const canSendLine =
+    severalLines &&
+    (jwo.fabricType === 'GREIGE' || jwo.fabricType === 'LACE') &&
+    ['APPROVED', 'ISSUED', 'IN_TRANSIT', 'AT_PROCESSOR', 'PARTIALLY_RECEIVED'].includes(jwo.jwoStatus ?? '');
+  const canDropLine = severalLines && !['CANCELLED', 'CLOSED'].includes(jwo.jwoStatus ?? '') && !jwo.receivedDate;
+  const openIssueDialog = (lineId = '') => {
+    setIssueFabricPickState({ touched: false, picks: [] });
+    setIssueRows([{ lotId: '', qty: '' }]);
+    setIssueLineId(lineId);
+    setIssueDialogOpen(true);
+  };
   const isOverdue = daysOutstanding !== null && daysOutstanding > SECTION_143_CRITICAL_DAYS && !jwo.receivedDate;
   const hasAbnormalLoss = (jwo.qtyAbnormalLoss || 0) > 0;
   const currentStatus = jwo.jwoStatus;
@@ -1373,14 +1419,34 @@ export default function JobWorkOrderDetail() {
                   lines={jobLines}
                   uom={jwo.uom}
                   processType={jwo.processType}
+                  showSendState={jobLines.some((line) => line.sentDate)}
                   actions={
-                    canReturnLine
-                      ? (line) =>
-                          !line.closedAt && isQtyZero(line.receivedQty) ? (
+                    canReturnLine || canSendLine || canDropLine
+                      ? (line) => {
+                          if (line.closedAt) return null;
+                          if (!lineSent(line)) {
+                            return (
+                              <div className="flex justify-end gap-2">
+                                {canSendLine && (
+                                  <Button variant="outline" size="sm" onClick={() => openIssueDialog(line.id)}>
+                                    <Send className="mr-1 h-3.5 w-3.5" />
+                                    Send
+                                  </Button>
+                                )}
+                                {canDropLine && (
+                                  <Button variant="ghost" size="sm" onClick={() => setDropLine(line)}>
+                                    Drop
+                                  </Button>
+                                )}
+                              </div>
+                            );
+                          }
+                          return canReturnLine && isQtyZero(line.receivedQty) ? (
                             <Button variant="outline" size="sm" onClick={() => setReturnLine(line)}>
                               Return {notProcessedWord(jwo.processType)}
                             </Button>
-                          ) : null
+                          ) : null;
+                        }
                       : undefined
                   }
                 />
@@ -1578,15 +1644,16 @@ export default function JobWorkOrderDetail() {
               )}
 
               {currentStatus === 'APPROVED' && (
-                <Button
-                  className="w-full"
-                  onClick={() => {
-                    setIssueFabricPickState({ touched: false, picks: [] });
-                    setIssueDialogOpen(true);
-                  }}
-                >
+                <Button className="w-full" onClick={() => openIssueDialog()}>
                   <Send className="mr-2 h-4 w-4" />
                   Issue to Processor
+                </Button>
+              )}
+
+              {currentStatus !== 'APPROVED' && canSendLine && unsentLines.length > 0 && (
+                <Button className="w-full" variant="outline" onClick={() => openIssueDialog()}>
+                  <Send className="mr-2 h-4 w-4" />
+                  Send the {unsentLines.length === 1 ? 'colour' : `${unsentLines.length} colours`} still to go
                 </Button>
               )}
 
@@ -1895,6 +1962,53 @@ export default function JobWorkOrderDetail() {
         />
       )}
 
+      {/* Drop this colour — never sent, the job will not do it (2026-10-03) */}
+      <Dialog
+        open={!!dropLine}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDropLine(null);
+            setDropShortQuestion(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Drop {dropLine ? lineName(dropLine) : 'this colour'}?</DialogTitle>
+            <DialogDescription>
+              Its greige was never sent. {jwo.jobWorkNumber} will not do it: its order goes back to &quot;needs
+              processing&quot; so a new job can be raised, and it counts in neither the bill nor{' '}
+              {jwo.processor?.name ?? 'the processor'}&apos;s loss. The other colours carry on.
+            </DialogDescription>
+          </DialogHeader>
+          {dropShortQuestion && (
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{dropShortQuestion}</AlertDescription>
+            </Alert>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDropLine(null);
+                setDropShortQuestion(null);
+              }}
+              disabled={dropMutation.isPending}
+            >
+              Keep it
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => dropMutation.mutate(!!dropShortQuestion)}
+              disabled={dropMutation.isPending}
+            >
+              {dropShortQuestion ? 'Yes — nothing more is coming, finish it short' : 'Drop this colour'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Receive Dialog — piece work only */}
       <Dialog open={receiveDialogOpen} onOpenChange={setReceiveDialogOpen}>
         <DialogContent>
@@ -1963,10 +2077,52 @@ export default function JobWorkOrderDetail() {
           <div className="space-y-4 py-4">
             {severalLines && (
               <div className="space-y-2 rounded-md border bg-muted/30 p-3">
-                <p className="text-sm font-medium">
-                  This greige is for {jobLines.length} fabrics — it goes out together:
-                </p>
-                <JobWorkLinesTable lines={jobLines} uom={jwo.uom} compact />
+                {unsentLines.length > 1 && canSendLine ? (
+                  <div className="space-y-1">
+                    <Label>Which colour goes now?</Label>
+                    <Select
+                      value={issueLineId || 'ALL'}
+                      onValueChange={(value) => {
+                        // A different colour asks for different metres: start the lot rows again
+                        setIssueRows([{ lotId: '', qty: '' }]);
+                        setIssueLineId(value === 'ALL' ? '' : value);
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ALL">All {unsentLines.length} colours still to go — together</SelectItem>
+                        {/* allow-plain-select: the job's own colours, a handful */}
+                        {unsentLines.map((line) => (
+                          <SelectItem key={line.id} value={line.id}>
+                            {lineName(line)} — {formatQuantity(line.qtySent, jwo.uom)} of greige
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      A colour can go on its own challan; the rest stay to be sent (or dropped) later.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-sm font-medium">
+                    {issuePreview?.colourLabel
+                      ? `This sends ${issuePreview.colourLabel}'s greige — the other colours stay to be sent:`
+                      : `This greige is for ${jobLines.length} fabrics — it goes out together:`}
+                  </p>
+                )}
+                <JobWorkLinesTable
+                  lines={
+                    issueLineId
+                      ? jobLines.filter((line) => line.id === issueLineId)
+                      : unsentLines.length
+                        ? unsentLines
+                        : jobLines
+                  }
+                  uom={jwo.uom}
+                  compact
+                />
               </div>
             )}
 

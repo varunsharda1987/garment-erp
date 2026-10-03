@@ -742,6 +742,13 @@ Several terminals edit this ONE folder at once and share ONE git index and ONE l
    (`scripts/ship/deployer.js`) notices the commit, builds EXACTLY that commit in a private folder
    (`C:\Users\NEW\garment-erp-build`), swaps it in, restarts safely and runs fleet-check. One deploy
    at a time; commits that land during a deploy ship together. **Uncommitted edits never ship.**
+   **The API is switched, not restarted (2026-10-03):** PM2 runs `server/api-supervisor.js`, which holds
+   port 5000 and runs the API from `backend/dist-<sha>` (named in `backend/.live-build`) as a cluster
+   worker. A backend deploy starts the new build beside the old one, moves traffic once it answers, and
+   lets the old one finish its requests (`drain` in `server.ts`) — nobody is dropped (16,646 requests
+   across 4 switches, 0 failed), and a build that will not start is refused while the old one keeps
+   serving. Never delete a `backend/dist-*` folder by hand: an old worker may still load modules from it.
+   When no supervisor answers (PM2 still on `dist/server.js`), the deployer stops/swaps/starts as before.
 2. **After committing, run `npm run ship:wait`** (Bash timeout 600000) before checking the live app.
    It prints LIVE, or FAILED/BLOCKED with the reason; the live app is then unchanged.
    `npm run ship:status` shows what is live, queued, running, failed or paused.
@@ -759,11 +766,13 @@ Several terminals edit this ONE folder at once and share ONE git index and ONE l
 6. **API or web not answering? `npm run ship:status` first.** If a deploy is running, wait for it;
    fleet-check prints a DEPLOY IN PROGRESS banner and `pm2-safe-restart` refuses garment-erp then.
    Do not run the fleet skill because of a deploy.
-7. **Migrations are applied by hand, BEFORE the commit that needs them** (the deployer BLOCKS a commit
-   whose migration is not applied): `npm run ship -- pause "migration"` → `pm2 stop garment-erp-api`
+7. **Migrations are applied BEFORE the commit that needs them** (the deployer BLOCKS a commit whose
+   migration is not applied). From a worktree: **`npm run wt -- migrate`** does all of it in one go and
+   always lifts its pause. By hand (main folder): `npm run ship -- pause "migration" --for 20` → `pm2 stop garment-erp-api`
    → `cd backend && npx prisma migrate deploy && npx prisma generate` → `pm2 start garment-erp-api`
    → `npm run ship -- resume`. A changed `package-lock.json` likewise needs `npm ci` in that folder
-   first. Retry a blocked/failed deploy with `npm run ship -- now`.
+   first. Retry a blocked/failed deploy with `npm run ship -- now`. **A pause lifts by itself** at its
+   limit (`--for <minutes>`, default 30, max 120) — a forgotten pause no longer holds everyone up.
    **A migration may only ADD** (nullable / defaulted columns, tables, indexes, enum values): it reaches
    the live database before its code deploys, and the running code breaks on a drop, rename, retype or
    `SET NOT NULL` (retire_legacy_jwo_status, jwo_line_links_required did). Do that in a LATER migration,

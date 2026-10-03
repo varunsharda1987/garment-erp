@@ -371,7 +371,7 @@ function cmdMigrate(testOnly) {
     if (!typeCheck(TOP)) die('Type errors — nothing changed. Fix, commit, run again.');
 
     console.log('\n4. Pausing deploys, waiting for any running deploy ...');
-    ship('pause', `migration ${added.map((f) => f.split('/')[3]).join(', ')}`);
+    ship('pause', `migration ${added.map((f) => f.split('/')[3]).join(', ')}`, '--for', '20');
     paused = true;
     for (let i = 0; S.isDeployActive(S.readState()); i++) {
       if (i > 180) die('A deploy has been running for 15 min — not stopping the API. npm run ship:status');

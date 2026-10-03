@@ -54,7 +54,7 @@ function describeNow(st, pause) {
       : 'fix it and commit again (that deploys automatically), or retry: npm run ship -- now';
     return `${st.state.toUpperCase()} ${S.short(st.failedSha)} (${ago(st.finishedAt)}): ${st.error}\n  -> ${hint}`;
   }
-  if (pause) return `PAUSED since ${clock(pause.at)} by ${pause.by}${pause.reason ? ` — "${pause.reason}"` : ''}\n  -> npm run ship -- resume`;
+  if (pause) return `PAUSED since ${clock(pause.at)} by ${pause.by}${pause.reason ? ` — "${pause.reason}"` : ''}${pause.until ? ` — lifts by itself at ${clock(pause.until)}` : ''}\n  -> npm run ship -- resume`;
   return 'idle';
 }
 
@@ -155,22 +155,50 @@ async function now() {
   return wait();
 }
 
-function pause(reason) {
-  S.writeJson(S.PAUSE_FILE, { at: new Date().toISOString(), by: who(), reason: reason || null });
-  notices.post(`Deploys PAUSED by ${who()}${reason ? ` — "${reason}"` : ''}. Commits wait until \`npm run ship -- resume\`. ` +
+// A pause EXPIRES (2026-10-03): one forgotten pause held every terminal's work back. The deployer
+// lifts it at `until`; that is safe because pre-flight still BLOCKS a commit whose migration is not
+// applied or whose Prisma client is behind.
+const PAUSE_DEFAULT_MIN = 30;
+const PAUSE_MAX_MIN = 120;
+
+function logLine(text) {
+  try {
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, '0');
+    fs.appendFileSync(S.LOG_FILE, `[${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}] ${text}\n`);
+  } catch { /* the log is a convenience */ }
+}
+
+function pause(args) {
+  const k = args.indexOf('--for');
+  let minutes = PAUSE_DEFAULT_MIN;
+  if (k >= 0) {
+    minutes = Number(args[k + 1]);
+    if (!Number.isFinite(minutes) || minutes <= 0) {
+      console.error('--for takes minutes, e.g. npm run ship -- pause "migration x" --for 20');
+      return 1;
+    }
+    minutes = Math.min(minutes, PAUSE_MAX_MIN);
+  }
+  const reason = args.filter((_, i) => i !== k && i !== k + 1).join(' ').trim() || null;
+  const until = new Date(Date.now() + minutes * 60000).toISOString();
+  S.writeJson(S.PAUSE_FILE, { at: new Date().toISOString(), by: who(), reason, until });
+  logLine(`PAUSED by ${who()} until ${clock(until)}${reason ? ` — "${reason}"` : ''}`);
+  notices.post(`Deploys PAUSED by ${who()}${reason ? ` — "${reason}"` : ''} until ${clock(until)} at the latest. Commits wait until \`npm run ship -- resume\`. ` +
     'If the API is stopped meanwhile, that is deliberate — do not restart it.', { hours: 12 });
   const st = S.readState();
   if (S.isDeployActive(st)) {
-    console.log(`Paused — but a deploy of ${S.short(st.targetSha)} is running now (${st.step}); it will finish first.`);
+    console.log(`Paused until ${clock(until)} — but a deploy of ${S.short(st.targetSha)} is running now (${st.step}); it will finish first.`);
     console.log('Wait for it (npm run ship:status) before stopping the API.');
   } else {
-    console.log('Paused. No deploy will start until: npm run ship -- resume');
+    console.log(`Paused until ${clock(until)} (lifted automatically then). Resume sooner: npm run ship -- resume`);
   }
   return 0;
 }
 
 function resume() {
   fs.rmSync(S.PAUSE_FILE, { force: true });
+  logLine(`RESUMED by ${who()}`);
   notices.post(`Deploys RESUMED by ${who()} — queued commits on main will now ship.`, { hours: 12 });
   console.log('Resumed — the deployer will ship main if it is not live.');
   return 0;
@@ -214,7 +242,7 @@ async function main() {
     case 'status': status(); return 0;
     case 'wait': return wait(rest[0]);
     case 'now': return now();
-    case 'pause': return pause(rest.join(' '));
+    case 'pause': return pause(rest);
     case 'resume': return resume();
     case 'notify': return notify(rest.includes('--if-deployer'));
     case 'log': return logTail(rest[0]);

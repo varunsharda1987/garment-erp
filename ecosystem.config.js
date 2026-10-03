@@ -21,7 +21,11 @@ module.exports = {
     {
       name: 'garment-erp-api',
       cwd: './backend',
-      script: 'dist/server.js',
+      // The supervisor holds port 5000 and runs the API (backend/<build>/server.js, named in
+      // backend/.live-build; plain backend/dist when there is none) as a cluster worker, so a
+      // deploy switches builds with nobody dropped (2026-10-03). It watches the worker's memory
+      // itself — max_memory_restart below only sees the supervisor.
+      script: '../server/api-supervisor.js',
       env: {
         NODE_ENV: 'production',
         PORT: 5000,
@@ -35,7 +39,9 @@ module.exports = {
       // Space loop retries out (100ms doubling to ~15s) instead of hammering every 3s.
       exp_backoff_restart_delay: 100,
       max_memory_restart: '1G',
-      kill_timeout: 8000,
+      // The supervisor gives its worker 20 s to shut down cleanly, then kills its process tree
+      // (headless Chrome included); PM2 must wait longer than that before it kills the supervisor.
+      kill_timeout: 30000,
       // Windows can't deliver SIGINT/SIGTERM to a Node child, so PM2 sends IPC message instead
       shutdown_with_message: true,
       error_file: './logs/pm2-error.log',

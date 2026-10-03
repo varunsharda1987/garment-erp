@@ -361,8 +361,94 @@ async function buildFrontend() {
   }
 }
 
-async function swapBackend() {
-  step('putting the new backend live');
+// ---------------------------------------------------------------------------------------------
+// zero-downtime switch (server/api-supervisor.js) — the API keeps serving through a backend deploy
+// ---------------------------------------------------------------------------------------------
+const SUPERVISOR_STATE = path.join(S.STATE_DIR, 'garment-erp.api-supervisor.json');
+const BUILDS_KEPT = 3;
+
+/** Ask the supervisor something: { status, body } or null when no supervisor answers. */
+function supervisor(method, p, timeoutMs = 10000) {
+  const sup = S.readJson(SUPERVISOR_STATE);
+  if (!sup || !S.pidAlive(sup.pid)) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const req = http.request(
+      { host: '127.0.0.1', port: sup.port, path: p, method, headers: { 'x-supervisor-token': sup.token }, timeout: timeoutMs },
+      (res) => {
+        let b = '';
+        res.on('data', (d) => { b += d; });
+        res.on('end', () => {
+          try {
+            resolve({ status: res.statusCode, body: JSON.parse(b) });
+          } catch {
+            resolve(null);
+          }
+        });
+      },
+    );
+    req.on('timeout', () => { req.destroy(); resolve(null); });
+    req.on('error', () => resolve(null));
+    req.end();
+  });
+}
+
+/** Delete old backend/dist-<sha> folders — never one a worker runs from (it loads modules lazily). */
+function pruneBuilds(st) {
+  const backend = path.join(S.REPO, 'backend');
+  const inUse = new Set([st.pointer, st.current && st.current.build, ...(st.draining || []).map((d) => d.build)].filter(Boolean));
+  const builds = fs.readdirSync(backend)
+    .filter((n) => /^dist-[0-9a-f]{7,40}$/.test(n))
+    .map((n) => ({ n, t: fs.statSync(path.join(backend, n)).mtimeMs }))
+    .sort((a, b) => b.t - a.t);
+  let kept = 0;
+  for (const { n } of builds) {
+    if (inUse.has(n) || kept < BUILDS_KEPT) {
+      kept++;
+      continue;
+    }
+    rm(path.join(backend, n));
+    log(`removed old build backend/${n}`);
+  }
+}
+
+async function swapBackend(sha) {
+  const status = await supervisor('GET', '/status');
+  if (!status || status.status !== 200) return swapBackendByRestart();
+
+  step('putting the new backend live (zero-downtime switch)');
+  const build = `dist-${sha.slice(0, 12)}`;
+  const dest = path.join(S.REPO, 'backend', build);
+  if (status.body.current && status.body.current.build === build) {
+    log(`${build} is already serving`);
+    return;
+  }
+  rm(dest);
+  fs.cpSync(path.join(S.BUILD_DIR, 'backend', 'dist'), dest, { recursive: true });
+
+  const r = await supervisor('POST', `/switch?build=${build}`, 150000);
+  if (!r || r.status !== 200 || !r.body.ok) {
+    const why = (r && r.body && r.body.error) || 'the supervisor did not answer';
+    if (!r || !r.body || !r.body.current || r.body.current.build !== build) rm(dest);
+    throw new StepFailure(`the new backend did not start — the previous build kept serving, nobody was interrupted (${why}). See: pm2 logs garment-erp-api --lines 80`);
+  }
+  log(`backend switched to ${build} (worker ${r.body.current.pid}) — the previous build is finishing its requests`);
+  let st = r.body;
+  for (let i = 0; i < 50 && st.draining && st.draining.length; i++) {
+    await sleep(3000);
+    const s = await supervisor('GET', '/status');
+    if (s && s.status === 200) st = s.body;
+  }
+  if (st.draining && st.draining.length) log(`still draining after 150 s: ${st.draining.map((d) => d.pid).join(', ')} (the supervisor kills it at 130 s)`);
+  pruneBuilds(st);
+  if (!(await waitHttp(API.url, 30000))) {
+    throw new StepFailure('the switch reported success but the API is not answering /health — check pm2 logs garment-erp-api');
+  }
+  log('backend is up on the new build');
+}
+
+/** The pre-supervisor path (PM2 still runs backend/dist/server.js): stop, swap backend/dist, start. */
+async function swapBackendByRestart() {
+  step('putting the new backend live (restart — no supervisor answering)');
   const live = path.join(S.REPO, 'backend', 'dist');
   const next = `${live}.next`;
   const prev = `${live}.prev`;
@@ -370,6 +456,8 @@ async function swapBackend() {
   fs.cpSync(path.join(S.BUILD_DIR, 'backend', 'dist'), next, { recursive: true });
 
   pm2Stop(API.app);
+  // If PM2 runs the supervisor but its control port is down, a restart must come up on backend/dist.
+  rm(path.join(S.REPO, 'backend', '.live-build'));
   rm(prev);
   const aside = !exists(live) || (await renameRetry(live, prev));
   const moved = aside && (await renameRetry(next, live));
@@ -567,7 +655,7 @@ async function deploy(sha) {
     if (!pm2VersionsMatch()) {
       throw new StepFailure('pm2 CLI and daemon versions differ — refusing to touch the shared PM2 daemon (see the fleet skill)');
     }
-    if (sides.backend) await swapBackend();
+    if (sides.backend) await swapBackend(sha);
     if (sides.frontend) await swapFrontend();
     else if (sides.server) await restartWeb();
 
@@ -680,6 +768,13 @@ async function main() {
           save({ failedSha: null, attempts: 0 });
         }
         seenAt = 0; // skip the settle wait
+      }
+      const pause = S.readPause();
+      if (pause && pause.until && Date.now() > Date.parse(pause.until)) {
+        fs.rmSync(S.PAUSE_FILE, { force: true });
+        log(`the pause by ${pause.by}${pause.reason ? ` ("${pause.reason}")` : ''} reached its limit (${pause.until}) — deploys resumed`);
+        announce(`Deploys RESUMED automatically — the pause by ${pause.by}${pause.reason ? ` ("${pause.reason}")` : ''} reached its time limit. ` +
+          'Need longer? npm run ship -- pause "<why>" --for <minutes> (max 120).', { hours: 12 });
       }
       const stuck = (st.state === 'failed' || st.state === 'blocked') && st.failedSha === head;
       if (head && head !== st.liveSha && !stuck && !S.readPause() && Date.now() - seenAt >= SETTLE_MS) {

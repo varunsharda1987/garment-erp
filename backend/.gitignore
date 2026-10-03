@@ -12,6 +12,10 @@ node_modules
 # Build output
 dist/
 build/
+# zero-downtime deploys: one folder per build + the name of the live one (server/api-supervisor.js)
+dist-*/
+dist.*/
+.live-build
 
 # Logs
 logs/

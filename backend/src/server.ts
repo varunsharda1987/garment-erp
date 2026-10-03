@@ -1,6 +1,8 @@
 // Server entry point
 // .env FIRST — ./config/database reads DATABASE_URL the moment it is imported (see load-env.ts)
 import './config/load-env';
+import net from 'net';
+import cluster from 'cluster';
 import prisma from './config/database';
 import app from './app';
 import { logInfo, logError } from './utils/logger';
@@ -77,7 +79,13 @@ async function startServer() {
       logInfo(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
       logInfo('================================');
       logInfo('');
+      // Under server/api-supervisor.js (zero-downtime deploys) this tells the supervisor the new build
+      // serves, so it can retire the old one.
+      if (cluster.isWorker) process.send?.({ type: 'api-ready', pid: process.pid });
     });
+    if (cluster.isWorker) {
+      setInterval(() => process.send?.({ type: 'api-mem', rss: process.memoryUsage().rss }), 60_000).unref();
+    }
 
     // EADDRINUSE self-heal for the Windows PM2 kill-race: the previous fork of this app
     // can survive a pm2 restart and keep port 5000 — reclaim it (portReclaim verifies the
@@ -140,7 +148,39 @@ process.on('SIGTERM', gracefulShutdown);
 // ran under PM2 restarts, which is how headless Chrome instances got orphaned.
 process.on('message', (msg) => {
   if (msg === 'shutdown') void gracefulShutdown();
+  if (msg && typeof msg === 'object' && (msg as { type?: string }).type === 'drain') void drain();
 });
+
+// A newer build is serving (server/api-supervisor.js): take no new connections, let the requests in
+// flight finish (up to the 120 s request timeout), then shut down. WhatsApp goes first so the new
+// build can open the same browser profile.
+let draining = false;
+async function drain(): Promise<void> {
+  if (draining) return;
+  draining = true;
+  logInfo('Draining: a newer build is serving — finishing in-flight requests');
+  await shutdownWhatsapp();
+  const s = server;
+  if (s) {
+    // Keep-alive connections (the web server's proxy holds some open all day) would otherwise keep
+    // being served by this old build: answer each with Connection: close so the client reconnects —
+    // to the new build. Never close an IDLE one ourselves: a client may be sending on it that very
+    // moment (ECONNRESET — 2 in 6,978 requests when tried); the client's own idle timeout closes it
+    // (Node's default agent: 5 s). So net.Server's close (stop listening, wait for the connections),
+    // not http.Server's, which also closes idle ones. prependListener: Express may answer
+    // synchronously, after which the header can no longer be set.
+    s.prependListener('request', (_req, res) => {
+      if (!res.headersSent) res.setHeader('Connection', 'close');
+    });
+    s.keepAliveTimeout = 0;
+    await new Promise<void>((resolve) => {
+      net.Server.prototype.close.call(s, () => resolve());
+      setTimeout(resolve, 120_000).unref();
+    });
+  }
+  server = undefined;
+  await gracefulShutdown();
+}
 
 // Production-grade error handlers
 process.on('unhandledRejection', (reason: unknown, _promise: Promise<unknown>) => {

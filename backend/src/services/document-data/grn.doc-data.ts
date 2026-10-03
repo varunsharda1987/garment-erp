@@ -410,15 +410,18 @@ export function transformGrn(
       }, toCurrency(0));
     }
 
-    // Job charges — one definition shared with the GRN list's Value column (grn-line-value.helper)
-    const { amount: jobCharges } = jobWorkCharges(jwo, acceptedSum);
+    // Job charges — one definition shared with the GRN list's Value column (grn-line-value.helper). A colour billed
+    // at its own rate carries it on the receipt row (2026-10-03).
+    const rowRate = grn.grn_items[0]?.actualRatePerUnit;
+    const billedJob = rowRate != null ? { ...jwo, agreedRatePerMeter: rowRate } : jwo;
+    const { amount: jobCharges } = jobWorkCharges(billedJob, acceptedSum);
     let jobChargesBasis: string;
     if (isKaajButtonJob(jwo)) {
       const bhRate = jwo.buttonholeRatePerUnit != null ? jwo.buttonholeRatePerUnit.toString() : '0';
       const bRate = jwo.buttonRatePerUnit != null ? jwo.buttonRatePerUnit.toString() : '0';
       jobChargesBasis = `${jwo.buttonholeCount ?? 0} kaaj × ₹${fmtMoney(bhRate)} + ${jwo.buttonCount ?? 0} buttons × ₹${fmtMoney(bRate)}`;
     } else {
-      jobChargesBasis = `${fmtQty(acceptedSum.toNumber(), uom)} accepted × ₹${fmtMoney(jwo.agreedRatePerMeter.toString())}`;
+      jobChargesBasis = `${fmtQty(acceptedSum.toNumber(), uom)} accepted × ₹${fmtMoney(billedJob.agreedRatePerMeter.toString())}`;
     }
 
     if (materialValue != null && receiptLine && severalColours && !isZero(jobIssued)) {

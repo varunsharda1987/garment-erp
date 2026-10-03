@@ -35,7 +35,7 @@ import {
   resolveFinishedFabricIdentity,
 } from './fabric-identity.helper';
 import { buyerStyleCode } from '../../utils/style-code';
-import { stampLineFinishedFabric, theOnlyLine } from './jwo-lines.helper';
+import { lineRate, stampLineFinishedFabric, theOnlyLine } from './jwo-lines.helper';
 
 type Tx = Prisma.TransactionClient;
 
@@ -187,6 +187,8 @@ export interface JwoReceiptLine {
   finishedLaceId: string | null;
   sentWidthInches: Prisma.Decimal | null;
   expectedShrinkage: Prisma.Decimal | null;
+  /** The line's own rate — what a receipt of it is billed at on a job with several lines (2026-10-03) */
+  ratePerUnit?: Prisma.Decimal | null;
 }
 
 /**
@@ -198,7 +200,7 @@ export interface JwoReceiptLine {
  */
 export async function jwoLineView(jwo: JwoGrnRow, line: JwoReceiptLine, tx?: Tx): Promise<JwoGrnRow> {
   const client = tx ?? prisma;
-  const [style, colorMaster, link] = await Promise.all([
+  const [style, colorMaster, link, lineCount] = await Promise.all([
     line.styleId
       ? client.styles.findUnique({
           where: { id: line.styleId },
@@ -216,6 +218,7 @@ export async function jwoLineView(jwo: JwoGrnRow, line: JwoReceiptLine, tx?: Tx)
       orderBy: { id: 'asc' },
       select: { material_requirements: { select: REQUIREMENT_LINEAGE_SELECT } },
     }),
+    client.job_work_order_lines.count({ where: { jobWorkOrderId: jwo.id } }),
   ]);
   return {
     ...jwo,
@@ -228,6 +231,8 @@ export async function jwoLineView(jwo: JwoGrnRow, line: JwoReceiptLine, tx?: Tx)
     finishedLaceId: line.finishedLaceId,
     sentWidthInches: line.sentWidthInches,
     expectedShrinkage: line.expectedShrinkage,
+    // A receipt is billed, and its lot costed, at the line's own rate when the job prices its lines apart
+    agreedRatePerMeter: new Prisma.Decimal(lineRate(line, jwo, lineCount)),
     requirementLinks: link ? [link] : [],
   };
 }

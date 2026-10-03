@@ -22,7 +22,15 @@ import { formatDate } from '../utils/date';
 import { isQtyZero } from '../utils/quantity';
 import { logWarn } from '../utils/logger';
 import { closeOutwardChallanForJwo } from './helpers/jwo-challan-lifecycle.helper';
-import { closeOpenLinesShort, jobSentForLoss, lineIsSent, lineLabel } from './helpers/jwo-lines.helper';
+import {
+  closeOpenLinesShort,
+  jobLineMoney,
+  jobLossRate,
+  jobSentForLoss,
+  lineIsSent,
+  lineLabel,
+  linesProcessingValue,
+} from './helpers/jwo-lines.helper';
 import { resettleJobRequirements } from './helpers/jwo-requirement-settle.helper';
 import {
   toCurrency,
@@ -321,7 +329,8 @@ class JobWorkOrderService {
           ? toCurrency(jwo.processTypeMaster?.tolerancePercent)
           : new Decimal(0);
 
-    const ratePerMeter = toCurrency(jwo.agreedRatePerMeter);
+    // Colours priced differently: the loss is valued at the rates of the colours that came back short
+    const ratePerMeter = toCurrency(await jobLossRate(client, jwo.id, jwo.agreedRatePerMeter));
     const received = toCurrency(qtyReceived);
 
     // Ordering contract: runs at RECEIVE, before close's settle-on-actuals overwrites
@@ -420,7 +429,7 @@ class JobWorkOrderService {
         qtyExpected: jwo.qtyBillable,
         expectedShrinkagePercent: jwo.expectedShrinkage,
         tolerancePercent,
-        ratePerMeter: jwo.agreedRatePerMeter,
+        ratePerMeter: await jobLossRate(tx, jwo.id, jwo.agreedRatePerMeter),
       });
       const processorName = jwo.processor?.name ?? 'the processor';
       const uom = jwo.uom;
@@ -487,7 +496,15 @@ class JobWorkOrderService {
    *
    * @throws JobWorkOrderError with GST_RATE_UNRESOLVED if GST rate is NULL (R1)
    */
-  async computeCommercialTotals(jwoId: string, tx?: Prisma.TransactionClient): Promise<job_work_orders> {
+  /**
+   * @param opts.settled The job is being settled on actuals (Close) — a job with several colours then bills each
+   *   colour's received metres, not what it expected. A CLOSED job is always settled.
+   */
+  async computeCommercialTotals(
+    jwoId: string,
+    tx?: Prisma.TransactionClient,
+    opts?: { settled?: boolean }
+  ): Promise<job_work_orders> {
     const client = tx || prisma;
 
     const jwo = await client.job_work_orders.findUnique({
@@ -508,13 +525,17 @@ class JobWorkOrderService {
     // KAAJ_BUTTON is its own basis (qty-rate audit 2026-08-24): two per-UNIT operations,
     // agreedRatePerMeter deliberately 0 — the generic qty × rate here used to overwrite a
     // KAAJ job's correct subtotal with zero whenever totals were recomputed.
+    // A job with several colours is billed colour by colour, each at its own rate (2026-10-03)
+    const lineMoney = jwo.processType === 'KAAJ_BUTTON' ? [] : await jobLineMoney(client, jwoId);
     const subtotal =
       jwo.processType === 'KAAJ_BUTTON'
         ? addCurrency(
             multiplyCurrency(jwo.buttonholeCount ?? 0, toCurrency(jwo.buttonholeRatePerUnit ?? 0)),
             multiplyCurrency(jwo.buttonCount ?? 0, toCurrency(jwo.buttonRatePerUnit ?? 0))
           )
-        : multiplyCurrency(toCurrency(jwo.qtyBillable ?? jwo.qtySentMeters), toCurrency(jwo.agreedRatePerMeter));
+        : lineMoney.length > 1
+          ? linesProcessingValue(lineMoney, jwo, !!opts?.settled || jwo.jwoStatus === 'CLOSED')
+          : multiplyCurrency(toCurrency(jwo.qtyBillable ?? jwo.qtySentMeters), toCurrency(jwo.agreedRatePerMeter));
 
     // R1: Do NOT fall back to a default rate — throw if unresolved
     const gstRate = jwo.gstRate ?? jwo.processTypeMaster?.gstRate ?? null;

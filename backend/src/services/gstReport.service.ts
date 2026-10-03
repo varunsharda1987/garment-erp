@@ -299,6 +299,8 @@ class GSTReportService {
           select: {
             acceptedQuantity: true,
             foldLengthCm: true,
+            // A job-work return row billed at its colour's own rate carries it (2026-10-03)
+            actualRatePerUnit: true,
             purchase_order_items: { select: { unitPrice: true } },
           },
         },
@@ -334,7 +336,7 @@ class GSTReportService {
         const jwoSubtotal = Number(jwo.subtotal || 0);
         if (jwoSubtotal <= 0) continue;
         const receivedValue = grn.grn_items.reduce(
-          (s, it) => s + grnLineActualQty(it).toNumber() * Number(jwo.agreedRatePerMeter || 0),
+          (s, it) => s + grnLineActualQty(it).toNumber() * Number(it.actualRatePerUnit ?? jwo.agreedRatePerMeter ?? 0),
           0
         );
         const fraction = Math.min(1, receivedValue / jwoSubtotal);

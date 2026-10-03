@@ -589,6 +589,16 @@ export const jobWorkOrderService = {
     return response.data.data;
   },
 
+  /** A colour's own rate, before the job is approved */
+  async setLineRate(
+    id: string,
+    lineId: string,
+    payload: { ratePerUnit: number; reason?: string }
+  ): Promise<{ message: string }> {
+    const response = await api.patch(`${BASE_URL}/${id}/lines/${lineId}/rate`, payload);
+    return response.data;
+  },
+
   /** A colour never sent that the job will not do: its orders go back to "needs processing" */
   async dropLine(
     id: string,

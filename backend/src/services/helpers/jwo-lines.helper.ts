@@ -79,7 +79,21 @@ export function effectiveJobTotals(lines: readonly JwoLineShape[]): { sent: numb
   };
 }
 
-export interface JwoLineInput extends JwoLineShape {
+/**
+ * A line's own rate and where it came from (2026-10-03, owner): the rate card at that colour's own metres, unless a
+ * price was typed in the MRP Generate dialog (that wins). Omitted → the job's agreed rate and provenance.
+ */
+export interface JwoLineRate {
+  ratePerUnit?: Num;
+  rateSource?: string | null;
+  rateCardId?: string | null;
+  slabId?: string | null;
+  rateBasisQuantity?: Num;
+  costedRatePerUnit?: Num;
+  rateVarianceReason?: string | null;
+}
+
+export interface JwoLineInput extends JwoLineShape, JwoLineRate {
   /** The requirements this output serves, each with its fabric-basis allocation */
   requirementLinks?: Array<{ requirementId: string; allocatedQuantity: number }>;
 }
@@ -191,6 +205,28 @@ const lineColumns = (line: JwoLineShape) => ({
   qtyExpected: num(line.qtyExpected),
 });
 
+/** A line's rate columns: its own when the creator priced it, else the job's agreed rate and provenance */
+const lineRateColumns = (line: JwoLineRate, job: JwoHeaderInput) =>
+  num(line.ratePerUnit) != null
+    ? {
+        ratePerUnit: num(line.ratePerUnit),
+        rateSource: line.rateSource ?? null,
+        rateCardId: line.rateCardId ?? null,
+        slabId: line.slabId ?? null,
+        rateBasisQuantity: num(line.rateBasisQuantity),
+        costedRatePerUnit: num(line.costedRatePerUnit),
+        rateVarianceReason: line.rateVarianceReason ?? null,
+      }
+    : {
+        ratePerUnit: num(job.agreedRatePerMeter as Num),
+        rateSource: job.rateSource ?? null,
+        rateCardId: job.rateCardId ?? null,
+        slabId: job.slabId ?? null,
+        rateBasisQuantity: num(job.rateBasisQuantity as Num),
+        costedRatePerUnit: num(job.costedRatePerMeter as Num),
+        rateVarianceReason: job.rateVarianceReason ?? null,
+      };
+
 /** Split a one-output job's full data into its own fields and its one line */
 export function splitOneLine(data: Prisma.job_work_ordersUncheckedCreateInput): {
   header: JwoHeaderInput;
@@ -240,7 +276,7 @@ export async function createJobWorkOrderWithLines(tx: Tx, data: JwoHeaderInput, 
   const job = await tx.job_work_orders.create({ data: { ...data, ...headerFromLines(lines) } });
   for (const [index, line] of lines.entries()) {
     const created = await tx.job_work_order_lines.create({
-      data: { jobWorkOrderId: job.id, lineNo: index + 1, ...lineColumns(line) },
+      data: { jobWorkOrderId: job.id, lineNo: index + 1, ...lineColumns(line), ...lineRateColumns(line, data) },
     });
     for (const link of line.requirementLinks ?? []) {
       await tx.requirement_jwo_links.create({
@@ -560,6 +596,120 @@ export async function stampLinesSent(
   data: { outwardChallanId: string | null; statutoryDueDate: Date }
 ) {
   await tx.job_work_order_lines.updateMany({ where: { id: { in: [...lineIds] } }, data });
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// A rate per colour (2026-10-03)
+// ---------------------------------------------------------------------------------------------------------------
+
+/**
+ * The rate a line is billed at. A job with ONE line is billed at the job's agreed rate — the old Dyeing / Printing
+ * edits write it there, so the line's copy may be stale. A job with several lines is billed per line: each line's
+ * own rate (the job's when a line has none).
+ */
+export const lineRate = (line: { ratePerUnit?: Num }, job: { agreedRatePerMeter?: Num }, lineCount: number): number =>
+  (lineCount > 1 ? num(line.ratePerUnit) : null) ?? num(job.agreedRatePerMeter) ?? 0;
+
+/** A line as the money readers see it: what it expects, its rate, how it closed and what came back of it */
+export interface LineMoney {
+  qtyExpected?: Num;
+  ratePerUnit?: Num;
+  closedHow?: string | null;
+  received: number;
+}
+
+/**
+ * What the job charges for processing on a job with several lines: Σ over the lines still worked on of billable ×
+ * that line's rate. Billable is what each line expects, or — once the job is settled on actuals (Close) — what came
+ * back of it. A line out of the job (back unprocessed, dropped) charges nothing.
+ */
+export function linesProcessingValue(lines: readonly LineMoney[], job: { agreedRatePerMeter?: Num }, settled: boolean) {
+  return roundToCent(
+    addCurrency(
+      0,
+      ...lines
+        .filter((l) => !isLineOut(l))
+        .map((l) => toCurrency(settled ? l.received : (num(l.qtyExpected) ?? 0)).times(lineRate(l, job, lines.length)))
+    )
+  );
+}
+
+/**
+ * The rate the job's abnormal loss is valued at when its lines are priced differently: the lines that came back
+ * short, weighted by how short each is (the loss is judged on the whole job, the owner's rule — its money follows
+ * the colours that lost it). Nothing short yet: weighted by what each line expects.
+ */
+export function lossRateOfLines(lines: readonly LineMoney[], job: { agreedRatePerMeter?: Num }): number {
+  const live = lines.filter((l) => !isLineOut(l));
+  const weighted = (weightOf: (l: LineMoney) => number) => {
+    const weights = live.map((l) => Math.max(0, weightOf(l)));
+    const total = weights.reduce((sum, w) => sum + w, 0);
+    if (!(total > 0)) return null;
+    return toNumber(
+      roundToCent(
+        divideCurrency(
+          addCurrency(0, ...live.map((l, i) => toCurrency(weights[i]).times(lineRate(l, job, lines.length)))),
+          total
+        )
+      )
+    );
+  };
+  return (
+    weighted((l) => (num(l.qtyExpected) ?? 0) - l.received) ??
+    weighted((l) => num(l.qtyExpected) ?? 0) ??
+    num(job.agreedRatePerMeter) ??
+    0
+  );
+}
+
+/** A job's lines as the money readers see them (each line's received worked out from its accepted receipts) */
+export async function jobLineMoney(tx: Tx, jobWorkOrderId: string): Promise<LineMoney[]> {
+  const lines = await tx.job_work_order_lines.findMany({
+    where: { jobWorkOrderId },
+    select: { qtyExpected: true, ratePerUnit: true, closedHow: true, receiptItems: LINE_RECEIPTS_SELECT },
+  });
+  return lines.map(({ receiptItems, ...l }) => ({ ...l, received: lineReceivedQty(receiptItems) }));
+}
+
+/** The rate the loss split values abnormal loss at: the job's, or — lines priced differently — lossRateOfLines */
+export async function jobLossRate(tx: Tx, jobWorkOrderId: string, headerRate: Num): Promise<number> {
+  const lines = await jobLineMoney(tx, jobWorkOrderId);
+  return lines.length > 1 ? lossRateOfLines(lines, { agreedRatePerMeter: headerRate }) : (num(headerRate) ?? 0);
+}
+
+/**
+ * Price one line before the job is approved (2026-10-03): typed over the card, with a reason. The job's agreed
+ * rate follows as the expected-weighted rate of its lines — a display figure; money reads each line's own.
+ */
+export async function setLineRate(
+  tx: Tx,
+  line: { id: string; jobWorkOrderId: string; ratePerUnit?: Num; costedRatePerUnit?: Num },
+  ratePerUnit: number,
+  reason: string | null
+) {
+  await tx.job_work_order_lines.update({
+    where: { id: line.id },
+    data: {
+      ratePerUnit,
+      rateSource: 'MANUAL',
+      rateVarianceReason: reason?.trim() || null,
+      // What it was before the FIRST hand edit, kept for the record (the card / MRP price)
+      costedRatePerUnit: num(line.costedRatePerUnit) ?? num(line.ratePerUnit),
+    },
+  });
+  const lines = await jobLineMoney(tx, line.jobWorkOrderId);
+  const live = lines.filter((l) => !isLineOut(l));
+  const expected = live.reduce((sum, l) => sum + (num(l.qtyExpected) ?? 0), 0);
+  if (expected > 0) {
+    const value = addCurrency(
+      0,
+      ...live.map((l) => toCurrency(num(l.qtyExpected) ?? 0).times(num(l.ratePerUnit) ?? 0))
+    );
+    await tx.job_work_orders.update({
+      where: { id: line.jobWorkOrderId },
+      data: { agreedRatePerMeter: toNumber(roundToCent(divideCurrency(value, expected))) },
+    });
+  }
 }
 
 /** Tie a requirement to the line that brings back its fabric */

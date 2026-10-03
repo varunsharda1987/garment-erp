@@ -22,6 +22,7 @@ import { EM_DASH, fmtDate, fmtMoney, fmtPct, fmtQty } from './format';
 import { unitHeader, unitShort, unitWord } from '../../utils/units';
 import { buyerStyleCode, styleCodeIfDifferent, styleCodeLabel } from '../../utils/style-code';
 import { garmentPhotoSrc } from './style-doc-common';
+import { isLineOut, lineRate } from '../helpers/jwo-lines.helper';
 
 /** What §01 says for a field the job's lines do not share — each line prints its own in §03 */
 const SEE_LINES = 'Several — see 03';
@@ -102,6 +103,9 @@ const jwoDocInclude = {
       qtyExpected: true,
       expectedShrinkage: true,
       sentWidthInches: true,
+      // Each colour's own rate (2026-10-03) and whether it is still worked on
+      ratePerUnit: true,
+      closedHow: true,
       style: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
       colorMaster: { select: { colorName: true } },
       finishedFabric: { select: { fabricName: true, colorName: true } },
@@ -521,10 +525,15 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
         amount: chargesValue != null ? fmtMoney(chargesValue) : EM_DASH,
       });
     } else {
-      // One row per fabric coming back. Amounts are each line's fabric × the job's rate; the last row
-      // takes the rounding so the rows add up to the job's taxable value exactly.
+      // One row per fabric coming back. Amounts are each line's fabric × ITS OWN rate (2026-10-03); a colour out of
+      // the job (back unprocessed, dropped) charges nothing; the last charging row takes the rounding so the rows
+      // add up to the job's taxable value exactly.
       let billedSoFar = toCurrency(0);
-      jwo.lines.forEach((line, index) => {
+      const charging = jwo.lines.filter((l) => !isLineOut(l));
+      const lastCharging = charging[charging.length - 1];
+      jwo.lines.forEach((line) => {
+        const out = isLineOut(line);
+        const rate = lineRate(line, jwo, jwo.lines.length);
         const expected =
           line.qtyExpected != null
             ? toCurrency(line.qtyExpected)
@@ -532,10 +541,11 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
         const expectedStr = fmtQty(expected.toNumber(), uomForRate);
         let amount: number | null = null;
         if (!jwo.isRateTbd && chargesValue != null) {
-          amount =
-            index === jwo.lines.length - 1
+          amount = out
+            ? 0
+            : line === lastCharging
               ? roundToCent(subtractCurrency(chargesValue, billedSoFar)).toNumber()
-              : roundToCent(multiplyCurrency(expected, jwo.agreedRatePerMeter)).toNumber();
+              : roundToCent(multiplyCurrency(expected, rate)).toNumber();
           billedSoFar = addCurrency(billedSoFar, amount);
         }
         const style = line.style ? styleCodeLabel(line.style, null, '') || null : null;
@@ -555,7 +565,7 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
           spec: colour ?? style ?? EM_DASH,
           expQty: expectedStr,
           shrinkage: fmtPct(line.expectedShrinkage != null ? Number(line.expectedShrinkage) : null),
-          rate: rateStr,
+          rate: jwo.isRateTbd ? EM_DASH : fmtMoney(rate),
           amount: amount != null ? fmtMoney(amount) : EM_DASH,
         });
       });

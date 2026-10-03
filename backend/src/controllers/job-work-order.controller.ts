@@ -60,14 +60,19 @@ import {
 import {
   closeLine,
   createOneLineJobWorkOrder,
+  jobLineMoney,
+  jobLossRate,
   jobSentForLoss,
   JWO_LINES_BRIEF,
   LINE_RECEIPTS_SELECT,
   lineIsSent,
+  lineLabel,
   lineReceivedQty,
+  linesProcessingValue,
+  setLineRate,
   theOnlyLine,
 } from '../services/helpers/jwo-lines.helper';
-import { ConflictError, UnauthorizedError } from '../errors';
+import { BusinessError, ConflictError, NotFoundError, UnauthorizedError } from '../errors';
 import { buyerStyleCode } from '../utils/style-code';
 import { resolveJwoRate, jwoRateProvenance, type JwoRateResolution } from '../services/helpers/jwo-rate.helper';
 import { resolveJwoExpectedShrinkage } from '../services/helpers/shrinkage-resolver.helper';
@@ -82,6 +87,7 @@ import type {
   CloseShortInput,
   ReturnUnprocessedInput,
   DropJwoLineInput,
+  SetJwoLineRateInput,
   DispatchJwoInput,
 } from '../schemas/jobWorkOrder.schema';
 
@@ -975,6 +981,45 @@ class JobWorkOrderController {
   }
 
   /**
+   * PATCH /api/job-work-orders/:id/lines/:lineId/rate — a colour's own rate, typed before the job is approved
+   * (2026-10-03). Each colour is billed at its own rate on a job with several; the totals follow.
+   */
+  async setLineRate(req: Request, res: Response) {
+    const { id, lineId } = req.params;
+    const body = req.body as SetJwoLineRateInput;
+    const result = await prisma.$transaction(async (tx) => {
+      const jwo = await tx.job_work_orders.findUnique({
+        where: { id },
+        select: { id: true, jobWorkNumber: true, jwoStatus: true },
+      });
+      if (!jwo) throw new NotFoundError('Job work order', id);
+      if (!['DRAFT', 'PENDING_APPROVAL'].includes(jwo.jwoStatus ?? '')) {
+        throw new BusinessError(
+          `${jwo.jobWorkNumber} is ${(jwo.jwoStatus ?? '').toLowerCase().replace(/_/g, ' ')} — a colour's rate is set ` +
+            `before the job is approved.`
+        );
+      }
+      const lines = await tx.job_work_order_lines.findMany({ where: { jobWorkOrderId: id } });
+      const line = lines.find((l) => l.id === lineId);
+      if (!line) throw new BusinessError(`That colour is not on ${jwo.jobWorkNumber} — reload the page.`);
+      if (lines.length < 2) {
+        throw new BusinessError(`${jwo.jobWorkNumber} has one colour — change the job's rate instead.`);
+      }
+      await setLineRate(tx, line, Number(body.ratePerUnit), body.reason ?? null);
+      try {
+        await jobWorkOrderService.computeCommercialTotals(id, tx);
+      } catch (error) {
+        if (!(error instanceof JobWorkOrderError && error.code === JWO_ERROR_CODES.GST_RATE_UNRESOLVED)) throw error;
+      }
+      return { jobWorkNumber: jwo.jobWorkNumber, label: await lineLabel(tx, line) };
+    });
+    res.json({
+      success: true,
+      message: `${result.label} on ${result.jobWorkNumber}: ₹${Number(body.ratePerUnit)} a unit`,
+    });
+  }
+
+  /**
    * POST /api/job-work-orders/:id/lines/:lineId/drop — a colour never sent that the job will not do (2026-10-03):
    * its orders go back to "needs processing"; the last open colour finishes the job on the colours it did.
    */
@@ -1076,7 +1121,8 @@ class JobWorkOrderController {
           // allow-jwo-header-write: Close settles billing on the metres received; the lines keep the contract
           await prisma.job_work_orders.update({ where: { id }, data: { qtyBillable: receivedQty } });
           try {
-            await jobWorkOrderService.computeCommercialTotals(id);
+            // Settled: a job with several colours bills each colour's received metres at its own rate
+            await jobWorkOrderService.computeCommercialTotals(id, undefined, { settled: true });
           } catch (error) {
             if (
               (error instanceof JobWorkOrderError && error.code === JWO_ERROR_CODES.GST_RATE_UNRESOLVED) ||
@@ -1084,9 +1130,15 @@ class JobWorkOrderController {
               // so failing here would leave the settled quantity saved but the subtotal blank.
               error instanceof CompanyProfileNotLoadedError
             ) {
+              const lineMoney = await jobLineMoney(prisma, id);
               await prisma.job_work_orders.update({
                 where: { id },
-                data: { subtotal: roundToCent(multiplyCurrency(receivedQty, jwo.agreedRatePerMeter)).toNumber() },
+                data: {
+                  subtotal: (lineMoney.length > 1
+                    ? linesProcessingValue(lineMoney, jwo, true)
+                    : roundToCent(multiplyCurrency(receivedQty, jwo.agreedRatePerMeter))
+                  ).toNumber(),
+                },
               });
             } else {
               throw error;
@@ -1293,6 +1345,10 @@ class JobWorkOrderController {
               qtyReturned: true,
               sentDate: true,
               outwardChallanId: true,
+              // Each colour's own rate and where it came from (2026-10-03)
+              ratePerUnit: true,
+              rateSource: true,
+              rateVarianceReason: true,
               outwardChallan: { select: { id: true, challanNumber: true } },
               style: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
               colorMaster: { select: { colorName: true, hexCode: true } },
@@ -2549,7 +2605,7 @@ class JobWorkOrderController {
         qtyExpected: jwo.qtyBillable,
         expectedShrinkagePercent: jwo.expectedShrinkage,
         tolerancePercent,
-        ratePerMeter: jwo.agreedRatePerMeter,
+        ratePerMeter: await jobLossRate(prisma, jwo.id, jwo.agreedRatePerMeter),
       });
 
       // The ceiling createGRNFromJWO enforces — surfaced here so the dialog never guesses it. With a line, the

@@ -45,6 +45,7 @@ import { settleLotBack } from '../fabric-lot-pieces.service';
 import { styleCodeLabel } from '../../utils/style-code';
 import {
   isLineOut,
+  jobLossRate,
   jobSentForLoss,
   lineIsSent,
   lineLabel,
@@ -702,7 +703,7 @@ async function finishJobAfterLineOut(
       qtyExpected: after.qtyBillable,
       expectedShrinkagePercent: after.expectedShrinkage,
       tolerancePercent: Number(after.tolerancePercent ?? after.processTypeMaster?.tolerancePercent ?? 0),
-      ratePerMeter: after.agreedRatePerMeter,
+      ratePerMeter: await jobLossRate(tx, job.id, after.agreedRatePerMeter),
     });
     if (split.isOverTolerance && !o.shortCloseConfirmed) {
       const uom = job.uom;

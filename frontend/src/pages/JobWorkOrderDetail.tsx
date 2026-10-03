@@ -200,6 +200,10 @@ export default function JobWorkOrderDetail() {
   // A colour never sent that the job will not do — Drop this colour (2026-10-03)
   const [dropLine, setDropLine] = useState<JobWorkOrderLine | null>(null);
   const [dropShortQuestion, setDropShortQuestion] = useState<string | null>(null);
+  // A colour's own rate, before the job is approved (2026-10-03)
+  const [rateLine, setRateLine] = useState<JobWorkOrderLine | null>(null);
+  const [rateValue, setRateValue] = useState('');
+  const [rateReason, setRateReason] = useState('');
   const [issueRows, setIssueRows] = useState<IssueLotRow[]>([{ lotId: '', qty: '' }]);
   const [issueWidthAcknowledged, setIssueWidthAcknowledged] = useState(false);
   const [issueVehicle, setIssueVehicle] = useState('');
@@ -327,6 +331,25 @@ export default function JobWorkOrderDetail() {
         return;
       }
       toast.error(data?.message ?? 'Could not drop the colour');
+    },
+  });
+
+  const lineRateMutation = useMutation({
+    mutationFn: () =>
+      jobWorkOrderService.setLineRate(id!, rateLine!.id, {
+        ratePerUnit: Number(rateValue),
+        reason: rateReason.trim() || undefined,
+      }),
+    onSuccess: (result) => {
+      toast.success(result.message);
+      setRateLine(null);
+      queryClient.invalidateQueries({ queryKey: ['job-work-order', id] });
+      queryClient.invalidateQueries({ queryKey: ['job-work-orders'] });
+    },
+    onError: (err: unknown) => {
+      toast.error(
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Could not change the rate'
+      );
     },
   });
 
@@ -860,6 +883,10 @@ export default function JobWorkOrderDetail() {
     (jwo.fabricType === 'GREIGE' || jwo.fabricType === 'LACE') &&
     ['APPROVED', 'ISSUED', 'IN_TRANSIT', 'AT_PROCESSOR', 'PARTIALLY_RECEIVED'].includes(jwo.jwoStatus ?? '');
   const canDropLine = severalLines && !['CANCELLED', 'CLOSED'].includes(jwo.jwoStatus ?? '') && !jwo.receivedDate;
+  // Each colour billed at its own rate: shown on a job with several, changeable until the job is approved
+  const lineRates = new Set(jobLines.map((line) => (line.ratePerUnit != null ? Number(line.ratePerUnit) : null)));
+  const ratesDiffer = severalLines && lineRates.size > 1;
+  const canEditLineRate = severalLines && ['DRAFT', 'PENDING_APPROVAL'].includes(jwo.jwoStatus ?? '');
   const openIssueDialog = (lineId = '') => {
     setIssueFabricPickState({ touched: false, picks: [] });
     setIssueRows([{ lotId: '', qty: '' }]);
@@ -1186,7 +1213,9 @@ export default function JobWorkOrderDetail() {
                 <div>
                   <Label className="text-muted-foreground">Rate per {unitPer(jwo.uom)}</Label>
                   <p className="font-medium">
-                    {formatCurrency(jwo.agreedRatePerMeter)}
+                    {ratesDiffer
+                      ? 'Several — each colour at its own (What comes back)'
+                      : formatCurrency(jwo.agreedRatePerMeter)}
                     {jwo.isRateTbd && (
                       <Badge variant="outline" className="ml-2">
                         TBD
@@ -1420,6 +1449,16 @@ export default function JobWorkOrderDetail() {
                   uom={jwo.uom}
                   processType={jwo.processType}
                   showSendState={jobLines.some((line) => line.sentDate)}
+                  showRate={severalLines}
+                  onEditRate={
+                    canEditLineRate
+                      ? (line) => {
+                          setRateLine(line);
+                          setRateValue(line.ratePerUnit != null ? String(Number(line.ratePerUnit)) : '');
+                          setRateReason('');
+                        }
+                      : undefined
+                  }
                   actions={
                     canReturnLine || canSendLine || canDropLine
                       ? (line) => {
@@ -2004,6 +2043,57 @@ export default function JobWorkOrderDetail() {
               disabled={dropMutation.isPending}
             >
               {dropShortQuestion ? 'Yes — nothing more is coming, finish it short' : 'Drop this colour'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* A colour's own rate — before the job is approved (2026-10-03) */}
+      <Dialog open={!!rateLine} onOpenChange={(open) => !open && setRateLine(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Rate for {rateLine ? lineName(rateLine) : 'this colour'}</DialogTitle>
+            <DialogDescription>
+              Each colour of {jwo.jobWorkNumber} is billed at its own rate. This one came from{' '}
+              {rateLine?.rateSource === 'MANUAL'
+                ? 'a typed price'
+                : rateLine?.rateSource === 'RATE_CARD'
+                  ? "the rate card at this colour's metres"
+                  : 'the order costing'}
+              .
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="line-rate">Rate per {unitPer(jwo.uom)} (₹)</Label>
+              <Input
+                id="line-rate"
+                type="number"
+                step="any"
+                min="0"
+                value={rateValue}
+                onChange={(e) => setRateValue(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="line-rate-reason">Why (optional)</Label>
+              <Input
+                id="line-rate-reason"
+                placeholder="e.g. agreed with the processor on the phone"
+                value={rateReason}
+                onChange={(e) => setRateReason(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRateLine(null)} disabled={lineRateMutation.isPending}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => lineRateMutation.mutate()}
+              disabled={lineRateMutation.isPending || !(Number(rateValue) > 0)}
+            >
+              Save rate
             </Button>
           </DialogFooter>
         </DialogContent>

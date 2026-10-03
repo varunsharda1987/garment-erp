@@ -4193,19 +4193,22 @@ export async function generatePOFromRequirements(
     throw new Error(`Cannot generate PO with zero-price items: ${names}. Please set prices for all items.`);
   }
 
-  // One job work order per rate. A JWO holds a single agreed rate, and bundling lines priced
-  // differently used to store a value-weighted average — KMC's White at ₹3 and Burgundy at ₹7 became
-  // one DJ-KMC-001 at ₹5.70, and the per-colour rates were stored nowhere (2026-09-24). Split the
-  // selection by rate and raise each group through this same path, so every job carries its own rate.
-  // And one per greige: a job issues ONE cloth (issuance takes the job's greige from its requirements), so
-  // two greiges on one job left the second with no cloth to issue and no line to come back on (2026-09-30).
+  // One job work order per greige: a job issues ONE cloth (issuance takes the job's greige from its requirements),
+  // so two greiges on one job left the second with no cloth to issue and no line to come back on (2026-09-30).
+  // Colours priced differently share a job (2026-10-03, owner): each LINE carries its own rate — the card at that
+  // colour's own metres, or the price typed in the Generate dialog. Until then a job held one rate, so jobs were
+  // split by rate (KMC's White ₹3 and Burgundy ₹7 once became one DJ-KMC-001 at ₹5.70, 2026-09-24) — lace still is.
   if (requirements.every((req) => req.requirementType === 'PROCESSING')) {
     const greigeOfReq = new Map(
       requirements.map((r) => [r.id, (r as any).orderBomItem?.greigeId ?? (r as any).materials?.greigeId ?? ''])
     );
+    // A LACE job brings back ONE dyed lace — one line, so one rate: lace priced differently still splits by rate.
+    // (Lace mixed with cloth is refused below, not split.)
+    const allLace = requirements.every((r) => !!(r as any).orderBomItem?.greigeLaceId);
     const byRateAndGreige = new Map<string, string[]>();
     for (const item of poItems) {
-      const key = `${item.unitPrice}|${greigeOfReq.get(item.requirementIds[0]) ?? ''}`;
+      const reqId = item.requirementIds[0];
+      const key = `${greigeOfReq.get(reqId) ?? ''}|${allLace ? item.unitPrice : ''}`;
       const ids = byRateAndGreige.get(key) ?? [];
       ids.push(...item.requirementIds);
       byRateAndGreige.set(key, ids);
@@ -4351,12 +4354,10 @@ export async function generatePOFromRequirements(
           )
         : 0;
 
-    // MRP-15: the JWO stores a single qty + a single rate, but a job work order can bundle several
-    // requirements. This used to take `poItems[0].unitPrice` — the FIRST item's rate — and apply it
-    // to the SUMMED quantity, so a bundle of items priced differently was billed entirely at
-    // whichever happened to be first. Lines at different rates are now split into one job each (see
-    // "One job work order per rate" above), so a bundle shares one rate. Still exact on the
-    // line-total sum, and refuse to guess when the units differ.
+    // MRP-15: a job can bundle several requirements priced differently. It once took `poItems[0].unitPrice` — the
+    // FIRST item's rate — for the summed quantity. Each line now carries its own rate (below); the job's agreed rate
+    // is the value-weighted rate of them all, a display figure — money reads each line's (jwo-lines.helper
+    // lineRate). Refuse to guess when the units differ.
     const jwoUnits = [...new Set(poItems.map((item) => toRequirementUnit(item.unit)))];
     if (jwoUnits.length > 1) {
       throw new Error(
@@ -4378,8 +4379,7 @@ export async function generatePOFromRequirements(
       (sum, item) => toNumber(addCurrency(sum, multiplyCurrency(item.quantity, item.unitPrice))),
       0
     );
-    // Every item here carries the same rate — lines at different rates were split into one job each
-    // above — so this is that rate (the division only guards the rounding of the summed total).
+    // The job's agreed rate: the shared rate when every colour has one, else the value-weighted rate (display only)
     const ratePerMeter = totalBillableMeters > 0 ? toNumber(roundToCent(totalJobValue / totalBillableMeters)) : 0;
 
     // Rate provenance for the JWO (qty-rate audit 2026-08-24). Single-item jobs (the norm —
@@ -4492,10 +4492,11 @@ export async function generatePOFromRequirements(
             );
           }
         }
+        // A line has ONE rate (2026-10-03): the same fabric at two prices is two lines, never an average
         const key = isLaceJob
           ? 'lace'
           : identity
-            ? `${finishedFabricOutputKey(identity)}|${askedWidth ?? ''}`
+            ? `${finishedFabricOutputKey(identity)}|${askedWidth ?? ''}|${item.unitPrice}`
             : `requirement:${req.id}`;
         const output = outputs.get(key) ?? { req, identity, askedWidth, items: [] };
         output.items.push(item);
@@ -4528,6 +4529,25 @@ export async function generatePOFromRequirements(
         );
         const qtyExpected = toNumber(roundToCent(addCurrency(...output.items.map((item) => item.quantity))));
         const shrinkages = [...new Set(output.items.map(itemShrinkage))];
+        // The line's rate (2026-10-03): its own item's — the card at that colour's metres, or the typed price —
+        // with that item's provenance; items of one output at different prices give the value-weighted rate
+        const lineValue = output.items.reduce(
+          (sum, item) => toNumber(addCurrency(sum, multiplyCurrency(item.quantity, item.unitPrice))),
+          0
+        );
+        const lineRatePerUnit = qtyExpected > 0 ? toNumber(roundToCent(lineValue / qtyExpected)) : 0;
+        const lineResolution =
+          output.items.length === 1 ? (jwoRateResolutions.get(output.items[0].requirementIds[0]) ?? null) : null;
+        const lineProvenance = lineResolution
+          ? jwoRateProvenance(lineResolution, lineRatePerUnit)
+          : {
+              rateCardId: null,
+              slabId: null,
+              rateSource: 'ORDER_BOM',
+              rateBasisQuantity: qtyExpected,
+              costedRatePerMeter: null,
+              rateVarianceReason: null,
+            };
         lines.push({
           styleId: output.req.order_items?.styleId ?? null,
           colorMasterId: output.identity?.colorMasterId ?? null,
@@ -4538,6 +4558,13 @@ export async function generatePOFromRequirements(
           expectedShrinkage: shrinkages.length === 1 ? shrinkages[0] : impliedShrinkagePercent(qtySent, qtyExpected),
           qtySent,
           qtyExpected,
+          ratePerUnit: lineRatePerUnit,
+          rateSource: lineProvenance.rateSource,
+          rateCardId: lineProvenance.rateCardId,
+          slabId: lineProvenance.slabId,
+          rateBasisQuantity: lineProvenance.rateBasisQuantity,
+          costedRatePerUnit: lineProvenance.costedRatePerMeter,
+          rateVarianceReason: lineProvenance.rateVarianceReason,
           requirementLinks: output.items.flatMap((item) =>
             item.requirementIds.map((requirementId) => ({
               requirementId,

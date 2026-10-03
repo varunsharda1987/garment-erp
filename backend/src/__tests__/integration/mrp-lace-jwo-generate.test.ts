@@ -289,7 +289,8 @@ describe('MRP generates a lace dyeing job work order', () => {
 
 describe('one job work order per rate (2026-09-24)', () => {
   // KMC: White at ₹3 and Burgundy at ₹7 were bundled into one job at a value-weighted ₹5.70/m, and
-  // the per-colour rates were stored nowhere. Lines at different rates now become one job each.
+  // the per-colour rates were stored nowhere. A lace job brings back one dyed lace (one line, one rate), so lace
+  // at different rates still becomes one job each; cloth colours share a job at their own line rates (2026-10-03).
   const mkLine = (suffix: string) =>
     prisma.material_requirements.create({
       data: {

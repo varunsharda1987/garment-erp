@@ -42,6 +42,7 @@ import {
 } from './helpers/jwo-status.helper';
 import {
   closeLine,
+  jobLossRate,
   jobSentForLoss,
   lineReceivedSoFar,
   pickReceiptLine,
@@ -3469,7 +3470,7 @@ class GRNService {
           qtyExpected: jwo.qtyBillable,
           expectedShrinkagePercent: jwo.expectedShrinkage,
           tolerancePercent: Number(jwo.tolerancePercent ?? jwo.processTypeMaster?.tolerancePercent ?? 0),
-          ratePerMeter: jwo.agreedRatePerMeter,
+          ratePerMeter: await jobLossRate(client, jwo.id, jwo.agreedRatePerMeter),
         });
       } catch (splitError) {
         throw new BusinessError(
@@ -3555,6 +3556,9 @@ class GRNService {
               jobWorkOrderLineId: line.id,
               // The colour this delivery is — the line's (a job with several lines has one per line)
               colorName: lineJob.colorMaster?.colorName ?? line.colorName ?? null,
+              // Billed at the line's own rate when the job prices its colours apart (2026-10-03): every reader of a
+              // receipt row's rate (grnLineRate — the receipt list, its page, the GST report) then reads it
+              ...(severalLines ? { actualRatePerUnit: lineJob.agreedRatePerMeter } : {}),
               materialId,
               // Expected fabric due back (billable basis), not the greige sent
               orderedQuantity: expectedFabricMeters,
@@ -4062,7 +4066,7 @@ class GRNService {
     // Cost: processing rate + source cost per meter (greige purchase cost, or the
     // fabric lot's WAC for fabric-roll embroidery — legacy embroidery-receive parity)
     const processingRate = Number(
-      processingQC?.actualRate ?? jobWorkOrder.actualRate ?? jobWorkOrder.agreedRatePerMeter ?? 0
+      processingQC?.actualRate ?? jobWorkOrder.actualRate ?? lineJob.agreedRatePerMeter ?? 0
     );
     // Multi-lot issues record their split on components — source cost is then the
     // qty-weighted average of the component lots' purchase costs

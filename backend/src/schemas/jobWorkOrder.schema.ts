@@ -208,6 +208,14 @@ export const dropJwoLineSchema = z.object({
 
 export type DropJwoLineInput = z.infer<typeof dropJwoLineSchema>;
 
+/** A colour's own rate, typed before the job is approved (2026-10-03) — over the card or the MRP price */
+export const setJwoLineRateSchema = z.object({
+  ratePerUnit: formNumber(z.number().positive('Enter the rate')),
+  reason: z.string().max(500).optional(),
+});
+
+export type SetJwoLineRateInput = z.infer<typeof setJwoLineRateSchema>;
+
 /** GET /:id/issue-preview — the colour to send, when the issue sends one */
 export const issuePreviewQuerySchema = z.object({
   lineId: z.string().uuid().optional(),

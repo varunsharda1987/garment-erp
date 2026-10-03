@@ -324,6 +324,42 @@ describe('MRP gives a job one line per fabric it brings back (DJ-EBEW-002-001)',
     const amount = (s: string) => Number(s.replace(/,/g, ''));
     expect(doc.chargeRows.reduce((total, r) => total + amount(r.amount), 0)).toBeCloseTo(amount(doc.taxableValue), 2);
   });
+
+  it('colours priced differently share ONE job, each line at its own rate (2026-10-03)', async () => {
+    const g5 = await mkGreige('5');
+    const red = await mkRequirement({ greigeId: g5, orderItemId: itemA, colorName: 'Red' });
+    const black = await mkRequirement({ greigeId: g5, orderItemId: itemB, colorName: 'Black' });
+
+    const result = await generatePOFromRequirements(
+      {
+        requirementIds: [red.id, black.id],
+        supplierId: dyerId,
+        expectedDeliveryDate: new Date(Date.now() + 20 * 86400000).toISOString(),
+        itemPrices: { [red.id]: 10, [black.id]: 12 },
+      } as never,
+      userId
+    );
+
+    expect(result.jobWorkOrders ?? [result.jobWorkOrder]).toHaveLength(1);
+    const jobId = result.jobWorkOrder!.id;
+    const lines = await prisma.job_work_order_lines.findMany({ where: { jobWorkOrderId: jobId } });
+    const redLine = lines.find((l) => l.colorName === 'Red')!;
+    const blackLine = lines.find((l) => l.colorName === 'Black')!;
+    expect(Number(redLine.ratePerUnit)).toBe(10);
+    expect(Number(blackLine.ratePerUnit)).toBe(12);
+
+    // The job bills each colour at its own rate; its agreed rate is the value-weighted figure (display only)
+    const job = await prisma.job_work_orders.findUniqueOrThrow({ where: { id: jobId } });
+    const value = Number(redLine.qtyExpected) * 10 + Number(blackLine.qtyExpected) * 12;
+    if (job.subtotal != null) expect(Number(job.subtotal)).toBeCloseTo(value, 2);
+    expect(Number(job.agreedRatePerMeter)).toBeCloseTo(value / Number(job.qtyBillable), 2);
+
+    // The printed job work order prices each row at its colour's rate
+    const doc = await buildJobWorkOrderDocData(jobId);
+    const rateOf = (spec: string) => doc.chargeRows.find((r) => r.spec === spec)!.rate;
+    expect(rateOf('Red')).toMatch(/^10\.00$/);
+    expect(rateOf('Black')).toMatch(/^12\.00$/);
+  });
 });
 
 describe('the Process PO matcher links only requirements of the job’s own style and colour', () => {

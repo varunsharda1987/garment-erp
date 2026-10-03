@@ -83,6 +83,10 @@ export interface JobWorkOrderLine {
   sentDate?: string | null;
   outwardChallanId?: string | null;
   outwardChallan?: { id: string; challanNumber: string } | null;
+  /** This colour's own rate (a job with several colours bills each at its own), and where it came from */
+  ratePerUnit?: number | string | null;
+  rateSource?: string | null;
+  rateVarianceReason?: string | null;
   style?: { id: string; styleCode: string; buyerStyleRef?: string | null; styleName?: string | null } | null;
   colorMaster?: { colorName: string; hexCode?: string | null } | null;
   finishedFabric?: { id: string; fabricCode: string; fabricName: string; colorName?: string | null } | null;

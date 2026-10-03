@@ -19,6 +19,7 @@ import {
   closeShortSchema,
   returnUnprocessedSchema,
   dropJwoLineSchema,
+  setJwoLineRateSchema,
   issuePreviewQuerySchema,
   issueJwoSchema,
   issueWithDetailsSchema,
@@ -86,6 +87,13 @@ router.post(
   '/:id/lines/:lineId/drop',
   validateBody(dropJwoLineSchema),
   asyncHandler(jobWorkOrderController.dropLine.bind(jobWorkOrderController))
+);
+
+// A colour's own rate before the job is approved (2026-10-03)
+router.patch(
+  '/:id/lines/:lineId/rate',
+  validateBody(setJwoLineRateSchema),
+  asyncHandler(jobWorkOrderController.setLineRate.bind(jobWorkOrderController))
 );
 
 // Actions

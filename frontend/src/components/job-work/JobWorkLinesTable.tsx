@@ -6,6 +6,8 @@
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { StyleIdentity } from '@/components/StyleIdentity';
 import { formatQuantity } from '@/lib/formatters';
+import { formatCurrency } from '@/lib/currency';
+import { unitPer } from '@/lib/units';
 import { formatDate } from '@/lib/date';
 import { isQtyZero } from '@/lib/quantity';
 import { lineColour, notProcessedWord } from '@/lib/jwo-lines';
@@ -23,6 +25,9 @@ interface JobWorkLinesTableProps {
   processType?: string | null;
   /** Greige going out colour by colour: say under each colour's greige when (and on which challan) it went */
   showSendState?: boolean;
+  /** Each colour billed at its own rate (2026-10-03): a Rate column, and — before approval — a way to change it */
+  showRate?: boolean;
+  onEditRate?: (line: JobWorkOrderLine) => void;
 }
 
 /** How a finished line reads under its Received figure */
@@ -44,6 +49,8 @@ export function JobWorkLinesTable({
   actions,
   processType,
   showSendState = false,
+  showRate = false,
+  onEditRate,
 }: JobWorkLinesTableProps) {
   const many = lines.length > 1;
   const received = sum(lines, (l) => l.receivedQty);
@@ -57,6 +64,7 @@ export function JobWorkLinesTable({
           {!compact && <TableHead>Fabric expected back</TableHead>}
           <TableHead className="text-right">Greige</TableHead>
           <TableHead className="text-right">Expected back</TableHead>
+          {showRate && !compact && <TableHead className="text-right">Rate</TableHead>}
           {!compact && <TableHead className="text-right">Received</TableHead>}
           {actions && <TableHead className="text-right">Actions</TableHead>}
         </TableRow>
@@ -127,6 +135,23 @@ export function JobWorkLinesTable({
                   <div className="text-xs text-muted-foreground">{Number(line.expectedShrinkage)}% shrinkage</div>
                 )}
               </TableCell>
+              {showRate && !compact && (
+                <TableCell className="text-right whitespace-nowrap">
+                  {line.ratePerUnit != null ? `${formatCurrency(Number(line.ratePerUnit))} / ${unitPer(uom)}` : '-'}
+                  {line.rateSource === 'MANUAL' && (
+                    <div className="text-xs text-muted-foreground" title={line.rateVarianceReason ?? undefined}>
+                      typed
+                    </div>
+                  )}
+                  {onEditRate && (
+                    <div>
+                      <button type="button" className="text-xs text-primary underline" onClick={() => onEditRate(line)}>
+                        Change
+                      </button>
+                    </div>
+                  )}
+                </TableCell>
+              )}
               {!compact && (
                 <TableCell className="text-right whitespace-nowrap">
                   {!isQtyZero(line.receivedQty) ? formatQuantity(line.receivedQty, uom) : '-'}
@@ -163,6 +188,7 @@ export function JobWorkLinesTable({
                 uom
               )}
             </TableCell>
+            {showRate && !compact && <TableCell />}
             {!compact && (
               <TableCell className="text-right font-medium whitespace-nowrap">
                 {isQtyZero(received) ? '-' : formatQuantity(received, uom)}

@@ -42,7 +42,9 @@
  * D31 goods-in-transit challans in an impossible state (direct-supply-challan.helper is the only writer)
  * D32 job work orders out of step with their lines (jwo-lines.helper is the only writer, 30-Sep): no line,
  *     several lines on piece work / lace, a header that is not what its lines imply, a requirement link or
- *     return receipt with no line or another job's line
+ *     return receipt with no line or another job's line; a colour back unprocessed / dropped still serving an
+ *     order or (back) with no inward challan, a colour's challan not a live outward one, a component on another
+ *     job's line, a colour of a several-colour job with no rate (2026-10-03)
  * D33 costings whose processing rate is not their rate card's rate (a batch lookup of another process
  *     wrote its rate onto the row, until 02-Oct)
  * D34 open processing requirements with no recorded process (a blank print type was read as dyeing)
@@ -789,6 +791,64 @@ async function main() {
             job: r.goods_receiving_notes.jobWorkOrder?.jobWorkNumber ?? '?',
             problem: `return ${r.goods_receiving_notes.grnNumber} ${r.jobWorkOrderLine ? "on another job's line" : 'on no line'}`,
           });
+        }
+      }
+
+      // Colours taken out of a job, sent on their own, priced on their own (2026-10-03): a colour back unprocessed has
+      // its inward challan and keeps no order; a dropped one keeps no order; a colour's challan is a live outward one;
+      // a component names a line of its own job; every colour still worked on in a job of several has its rate.
+      const lineFacts = await prisma.job_work_order_lines.findMany({
+        select: {
+          id: true,
+          jobWorkOrderId: true,
+          lineNo: true,
+          closedHow: true,
+          ratePerUnit: true,
+          outwardChallanId: true,
+          outwardChallan: { select: { challanType: true, status: true, challanNumber: true } },
+          jobWorkOrder: { select: { jobWorkNumber: true, jwoStatus: true, _count: { select: { lines: true } } } },
+          _count: { select: { requirementLinks: true } },
+          challanItems: { select: { challan: { select: { challanType: true, status: true } } } },
+        },
+      });
+      for (const l of lineFacts) {
+        const job = l.jobWorkOrder.jobWorkNumber;
+        const out_ = l.closedHow === 'RETURNED' || l.closedHow === 'DROPPED';
+        if (out_ && l._count.requirementLinks > 0) {
+          out.push({ job, problem: `line ${l.lineNo} is ${l.closedHow} but still serves an order` });
+        }
+        if (
+          l.closedHow === 'RETURNED' &&
+          !l.challanItems.some((i) => i.challan.challanType === 'INWARD' && i.challan.status !== 'CANCELLED')
+        ) {
+          out.push({ job, problem: `line ${l.lineNo} came back unprocessed with no inward challan` });
+        }
+        if (
+          l.outwardChallan &&
+          l.jobWorkOrder.jwoStatus !== 'CANCELLED' &&
+          (l.outwardChallan.challanType !== 'OUTWARD' || l.outwardChallan.status === 'CANCELLED')
+        ) {
+          out.push({
+            job,
+            problem: `line ${l.lineNo} names ${l.outwardChallan.challanType} ${l.outwardChallan.challanNumber} (${l.outwardChallan.status}) as the challan it went on`,
+          });
+        }
+        if (l.jobWorkOrder._count.lines > 1 && !out_ && l.ratePerUnit == null) {
+          out.push({ job, problem: `line ${l.lineNo} has no rate — a job of several colours bills each at its own` });
+        }
+      }
+      const strayComponents = await prisma.job_work_order_components.findMany({
+        where: { lineId: { not: null } },
+        select: {
+          jobWorkOrderId: true,
+          componentName: true,
+          line: { select: { jobWorkOrderId: true } },
+          jobWorkOrder: { select: { jobWorkNumber: true } },
+        },
+      });
+      for (const c of strayComponents) {
+        if (c.line?.jobWorkOrderId !== c.jobWorkOrderId) {
+          out.push({ job: c.jobWorkOrder.jobWorkNumber, problem: `component ${c.componentName ?? ''} on another job's line` });
         }
       }
 

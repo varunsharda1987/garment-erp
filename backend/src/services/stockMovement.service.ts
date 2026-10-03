@@ -13,7 +13,8 @@ import { routeToSpecializedStock, routeFromSpecializedStock } from './helpers/st
 import { gateHeldStockOut, type HeldGate } from './helpers/held-stock-gate.helper';
 import type { AdjustmentReason } from '../schemas/stockMovement.schema';
 // BUG-STK8 fix: Use decimal.js helpers for precision-safe arithmetic
-import { addCurrency, subtractCurrency, multiplyCurrency, toCurrency, toNumber } from '../utils/currency';
+import { addCurrency, subtractCurrency, multiplyCurrency, roundToCent, toCurrency, toNumber } from '../utils/currency';
+import { LINE_RECEIPTS_SELECT, lineReceivedQty } from './helpers/jwo-lines.helper';
 import { styleCodeLabel } from '../utils/style-code';
 import { toDateInputValue } from '../utils/date';
 import { foldActual, hasFold } from '../utils/fold-length';
@@ -101,6 +102,28 @@ export interface BulkStockInDTO {
   invoiceDate?: Date;
   // Backdating support (defaults to today if not provided)
   receivedDate?: Date;
+}
+
+/**
+ * Fabric still to come back on a job: per colour (line), what is expected less what came, nothing once the colour is
+ * closed. Ordered = the fabric expected back (sent − agreed shrinkage), not the greige sent.
+ */
+function fabricStillToCome(job: {
+  qtySentMeters: Prisma.Decimal | number;
+  qtyBillable: Prisma.Decimal | number | null;
+  lines: Array<{
+    qtyExpected: Prisma.Decimal | null;
+    closedAt: Date | null;
+    receiptItems: Array<{ acceptedQuantity: Prisma.Decimal; foldLengthCm: Prisma.Decimal | null }>;
+  }>;
+}): { ordered: number; pending: number } {
+  const ordered = toNumber(toCurrency(job.qtyBillable ?? job.qtySentMeters));
+  if (job.lines.length === 0) return { ordered, pending: Math.max(0, ordered) };
+  const pending = job.lines.reduce((sum, line) => {
+    if (line.closedAt || line.qtyExpected == null) return sum;
+    return sum + Math.max(0, Number(line.qtyExpected) - lineReceivedQty(line.receiptItems));
+  }, 0);
+  return { ordered, pending: toNumber(roundToCent(pending)) };
 }
 
 class StockMovementService {
@@ -1554,6 +1577,7 @@ class StockMovementService {
               greige: { select: { greigeName: true } },
             },
           },
+          lines: { select: { qtyExpected: true, closedAt: true, receiptItems: LINE_RECEIPTS_SELECT } },
         },
         orderBy: { sentDate: 'asc' },
         take: 200,
@@ -1569,9 +1593,10 @@ class StockMovementService {
         const greigeName = job.fabric?.greige?.greigeName || job.fabric?.fabricName || 'Greige';
 
         // BUG-STK8 fix: Use decimal.js for precision-safe quantity calculations
-        const dyeingQtyOrdered = toNumber(toCurrency(job.qtySentMeters));
+        // Fabric expected back, not greige sent: "pending" was sent − received, so it counted the shrinkage and
+        // every colour already complete as still to come (audit 2026-10-03)
+        const { ordered: dyeingQtyOrdered, pending: dyeingQtyPending } = fabricStillToCome(job);
         const dyeingQtyCompleted = toNumber(toCurrency(job.qtyReceivedMeters || 0));
-        const dyeingQtyPending = toNumber(subtractCurrency(job.qtySentMeters, job.qtyReceivedMeters || 0));
 
         results.push({
           id: job.id,
@@ -1613,6 +1638,7 @@ class StockMovementService {
               greige: { select: { greigeName: true } },
             },
           },
+          lines: { select: { qtyExpected: true, closedAt: true, receiptItems: LINE_RECEIPTS_SELECT } },
         },
         orderBy: { sentDate: 'asc' },
         take: 200,
@@ -1628,9 +1654,8 @@ class StockMovementService {
         const fabricName = job.fabric?.fabricName || job.fabric?.greige?.greigeName || 'Fabric';
 
         // BUG-STK8 fix: Use decimal.js for precision-safe quantity calculations
-        const printingQtyOrdered = toNumber(toCurrency(job.qtySentMeters));
+        const { ordered: printingQtyOrdered, pending: printingQtyPending } = fabricStillToCome(job);
         const printingQtyCompleted = toNumber(toCurrency(job.qtyReceivedMeters || 0));
-        const printingQtyPending = toNumber(subtractCurrency(job.qtySentMeters, job.qtyReceivedMeters || 0));
 
         results.push({
           id: job.id,

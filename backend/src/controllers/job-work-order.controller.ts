@@ -746,15 +746,17 @@ class JobWorkOrderController {
         const received = lineReceivedQty(l.receiptItems);
         // Greige still out: the share not yet turned into fabric that came back (pro rata on expected); a closed
         // line has nothing more out — what did not come back is its loss
-        const stillOut = !issued || l.closedAt
-          ? 0
-          : expected && expected > 0
-            ? Math.max(0, roundToCent(multiplyCurrency(sent, Math.max(0, 1 - received / expected))).toNumber())
-            : sent;
+        const stillOut =
+          !issued || l.closedAt
+            ? 0
+            : expected && expected > 0
+              ? Math.max(0, roundToCent(multiplyCurrency(sent, Math.max(0, 1 - received / expected))).toNumber())
+              : sent;
         return {
           id: l.id,
           lineNo: l.lineNo,
-          label: [l.style ? buyerStyleCode(l.style) : null, l.colorName].filter(Boolean).join(' · ') || `Line ${l.lineNo}`,
+          label:
+            [l.style ? buyerStyleCode(l.style) : null, l.colorName].filter(Boolean).join(' · ') || `Line ${l.lineNo}`,
           greigeSent: issued ? sent : 0,
           expected,
           received,
@@ -1171,6 +1173,13 @@ class JobWorkOrderController {
         'fabric.fabricName',
         'fabric.fabricCode',
         'colorName',
+        // A job that brings back several fabrics names them on its lines — its header style / colour are blank, so
+        // "ESSKY092LS" or "Teal" found nothing (audit 2026-10-03)
+        'lines[].style.styleCode',
+        'lines[].style.buyerStyleRef',
+        'lines[].colorName',
+        'lines[].finishedFabric.fabricCode',
+        'lines[].finishedFabric.fabricName',
       ]);
 
       if (jwoStatus) where.jwoStatus = jwoStatus;

@@ -52,6 +52,7 @@ import { foldActual } from '../utils/fold-length';
 import { resolveJwoGreige } from './helpers/jwo-greige.helper';
 import { unitToJwoUom, type JwoUom } from '../utils/units';
 import { styleCodeLabel } from '../utils/style-code';
+import { LINE_RECEIPTS_SELECT, lineReceivedQty } from './helpers/jwo-lines.helper';
 import { PENDING_TRANSIT_WHERE, isTransitChallan } from './helpers/transit-challan-state';
 
 // ---------------------------------------------------------------------------
@@ -191,6 +192,11 @@ export interface JobSource {
   lotAtThisProcessor: boolean;
   receipts: StatementReceipt[];
   hasSendOuts: boolean;
+  /**
+   * The finished colours of a job that brings back several (closed lines). Each settles its own shrinkage and
+   * shortfall the day it closes — the job as a whole only settles with its last colour (audit 2026-10-03).
+   */
+  finishedLines?: Array<{ qtySent: number; expectedShrinkage: number | null; received: number; closedAt: Date }>;
 }
 
 export interface SentLineSource {
@@ -565,6 +571,35 @@ export function buildLedgerEvents(sources: StatementSources): {
       }
     }
 
+    // A job still open with some colours finished: each finished colour's shrinkage and shortfall leave the balance
+    // the day it closed (its greige is not with the processor any more)
+    if (!isPieces && !(job.receivedDate != null && SETTLED_STATUSES.has(job.jwoStatus))) {
+      for (const line of job.finishedLines ?? []) {
+        const pct = line.expectedShrinkage ?? agreedShrinkagePercent(job);
+        const lineDue = pct > 0 ? toNumber(applyShrinkageLoss(line.qtySent, pct)) : line.qtySent;
+        const lineShrinkage = toNumber(subtractCurrency(line.qtySent, lineDue));
+        const lineShortfall = toNumber(subtractCurrency(lineDue, line.received));
+        shrinkage = toNumber(addCurrency(shrinkage, lineShrinkage));
+        shortfall = toNumber(addCurrency(shortfall, lineShortfall));
+        for (const [type, qty] of [
+          ['SHRINKAGE', lineShrinkage],
+          ['SHORTFALL', lineShortfall],
+        ] as const) {
+          if (qty === 0) continue;
+          events.push({
+            type,
+            date: line.closedAt,
+            qty,
+            unit,
+            material,
+            jwoId: job.id,
+            ref: job.jobWorkNumber,
+            refKind: 'JOB',
+          });
+        }
+      }
+    }
+
     const sentQty = sentLines.reduce((sum, l) => toNumber(addCurrency(sum, l.quantity)), 0);
 
     jobLines.push({
@@ -879,6 +914,9 @@ export async function loadProcessorStatementSources(processorId: string): Promis
         select: { material_requirements: { select: { materials: { select: { greigeId: true } } } } },
       },
       processTypeMaster: { select: { tolerancePercent: true } },
+      lines: {
+        select: { qtySent: true, expectedShrinkage: true, closedAt: true, receiptItems: LINE_RECEIPTS_SELECT },
+      },
       receivingGRNs: {
         where: { status: 'ACCEPTED' },
         select: {
@@ -1089,6 +1127,17 @@ export async function loadProcessorStatementSources(processorId: string): Promis
             }
           : null,
       lotAtThisProcessor: job.greigeStockLot?.processorId === processorId,
+      finishedLines:
+        job.lines.length > 1
+          ? job.lines
+              .filter((l) => l.closedAt != null)
+              .map((l) => ({
+                qtySent: num(l.qtySent),
+                expectedShrinkage: numOrNull(l.expectedShrinkage),
+                received: lineReceivedQty(l.receiptItems),
+                closedAt: l.closedAt as Date,
+              }))
+          : [],
       receipts: job.receivingGRNs.map((grn) => ({
         grnNumber: grn.grnNumber,
         date: grn.receivingDate,

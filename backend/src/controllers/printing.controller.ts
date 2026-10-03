@@ -1285,6 +1285,12 @@ export const getProcessPOs = async (req: Request, res: Response, _next: NextFunc
       'fabric.fabricName',
       'finishedFabric.fabricCode',
       'finishedFabric.fabricName',
+      // A job bringing back several fabrics names them on its lines (its header style / fabric are blank)
+      'lines[].style.styleCode',
+      'lines[].style.buyerStyleRef',
+      'lines[].colorName',
+      'lines[].finishedFabric.fabricCode',
+      'lines[].finishedFabric.fabricName',
     ]);
   }
 

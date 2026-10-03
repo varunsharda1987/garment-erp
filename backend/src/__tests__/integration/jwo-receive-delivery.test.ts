@@ -423,3 +423,119 @@ describe('one delivery, every colour it brought, in one action', () => {
     expect(receipt.invoiceNumber).toBe('MT/2026/120');
   });
 });
+
+describe('the gaps closed on 2026-10-03', () => {
+  let j6: Job;
+
+  beforeAll(async () => {
+    j6 = await mkJob('J6', [
+      ['Brown', styleA, 300],
+      ['Red', styleB, 300],
+    ]);
+  });
+
+  it('refuses a received date after today', async () => {
+    const j5 = await mkJob('J5', [['Olive', styleA, 300]]);
+    const res = await deliver(j5, {
+      submissionKey: randomUUID(),
+      receivedDate: '2099-01-01',
+      lines: [{ lineId: j5.lineIds[0], qtyReceivedMeters: 100, receivedWidthInches: 54, isFinal: false }],
+    });
+    expect(res.status).toBe(422);
+    expect(res.body.details.reason).toBe('DATE_IN_FUTURE');
+    expect(await prisma.goods_receiving_notes.count({ where: { jobWorkOrderId: j5.id } })).toBe(0);
+  });
+
+  it('names the colour a delivery was refused on, and writes nothing for the others', async () => {
+    const res = await deliver(j6, {
+      submissionKey: randomUUID(),
+      lines: [
+        { lineId: j6.lineIds[0], qtyReceivedMeters: 290, receivedWidthInches: 54, isFinal: false },
+        { lineId: j6.lineIds[1], qtyReceivedMeters: 900, receivedWidthInches: 54, isFinal: false },
+      ],
+    });
+    expect(res.status).toBe(422);
+    expect(res.body.message).toMatch(new RegExp(`^${RUN}B · Red: `));
+    expect(res.body.details.lineId).toBe(j6.lineIds[1]);
+    expect(await prisma.goods_receiving_notes.count({ where: { jobWorkOrderId: j6.id } })).toBe(0);
+  });
+
+  it("keeps the processor's challan on the job; the receipt shows its colour and its inward challan", async () => {
+    const res = await deliver(j6, {
+      submissionKey: randomUUID(),
+      receivedChallan: 'PC-900',
+      lines: [{ lineId: j6.lineIds[1], qtyReceivedMeters: 120, receivedWidthInches: 54, isFinal: false }],
+    });
+    expect(res.status).toBe(201);
+    expect((await prisma.job_work_orders.findUniqueOrThrow({ where: { id: j6.id } })).receivedChallan).toBe('PC-900');
+
+    const [receipt] = await receiptsOf(j6.id);
+    const detail = await request(app).get(`/api/grn/${receipt.id}`).set(authHeader);
+    expect(detail.status).toBe(200);
+    const grn = detail.body.data;
+    expect(grn.inwardChallans.map((c: { challanType: string }) => c.challanType)).toEqual(['INWARD']);
+    expect(grn.items[0].jobWorkOrderLine.lineNo).toBe(2);
+    expect(grn.items[0].jobWorkOrderLine.jobWorkOrder._count.lines).toBe(2);
+
+    const rec = await request(app).get(`/api/job-work-orders/${j6.id}/reconciliation`).set(authHeader);
+    expect(rec.status).toBe(200);
+    const red = rec.body.data.lines.find((l: { lineNo: number }) => l.lineNo === 2);
+    expect(red.received).toBe(120);
+    expect(red.stillWithProcessor).toBeGreaterThan(0);
+  });
+
+  it('a receipt whose fabric has partly gone on cannot be reversed', async () => {
+    const [receipt] = await receiptsOf(j6.id);
+    const lot = await prisma.fabric_stock.findFirstOrThrow({ where: { grnItemId: receipt.grn_items[0].id } });
+    await prisma.fabric_stock.update({
+      where: { id: lot.id },
+      data: { quantityAvailable: Number(lot.quantityAvailable) - 10 },
+    });
+    const res = await request(app).patch(`/api/grn/${receipt.id}/reverse`).set(authHeader).send({ reason: 'test' });
+    await prisma.fabric_stock.update({ where: { id: lot.id }, data: { quantityAvailable: lot.quantityAvailable } });
+    expect(res.status).toBe(422);
+    expect(res.body.details.reason).toBe('GRN_LOT_ALREADY_USED');
+  });
+
+  it("a closed job's receipt cannot be reversed", async () => {
+    const [receipt] = await receiptsOf(j6.id);
+    await prisma.job_work_orders.update({ where: { id: j6.id }, data: { jwoStatus: 'CLOSED' } });
+    const res = await request(app).patch(`/api/grn/${receipt.id}/reverse`).set(authHeader).send({ reason: 'test' });
+    await prisma.job_work_orders.update({ where: { id: j6.id }, data: { jwoStatus: 'PARTIALLY_RECEIVED' } });
+    expect(res.status).toBe(422);
+    expect(res.body.details.code).toBe('GRN_JOB_SETTLED');
+  });
+
+  it("a job's outward challan is not received by hand — what came back is received on the job", async () => {
+    const challan = await prisma.challans.create({
+      data: {
+        challanNumber: `${RUN}-OUT`,
+        challanType: 'OUTWARD',
+        status: 'ISSUED',
+        fromType: 'WAREHOUSE',
+        fromName: `${RUN} Store`,
+        toType: 'VENDOR',
+        toId: printerId,
+        toName: `${RUN} PRN`,
+        totalItems: 1,
+        totalQuantity: 100,
+        unit: 'METER',
+        issuedById: userId,
+        jobWorkOrderId: j6.id,
+        items: {
+          create: [
+            { id: randomUUID(), itemType: 'GREIGE', quantity: 100, unit: 'METER', description: `${RUN} greige` },
+          ],
+        },
+      },
+      include: { items: true },
+    });
+    const res = await request(app)
+      .put(`/api/challans/${challan.id}/receive`)
+      .set(authHeader)
+      .send({ items: [{ challanItemId: challan.items[0].id, receivedQty: 100 }] });
+    expect(res.status).toBe(422);
+    expect(res.body.details.code).toBe('JOB_WORK_CHALLAN_NOT_RECEIVABLE');
+    expect((await prisma.challans.findUniqueOrThrow({ where: { id: challan.id } })).status).toBe('ISSUED');
+  });
+});

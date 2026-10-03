@@ -35,6 +35,9 @@ let labelBaseRow: string;
 let priceTagId: string;
 let priceTagBaseRow: string;
 const priceTagRows: string[] = [];
+let washcareId: string;
+let washcareBaseRow: string;
+const washcareRows: string[] = [];
 let otherRequirementId: string;
 const sizeRow: Record<string, string> = {}; // label size → materials.id
 const sizeIds: Record<string, string> = {}; // style size → size_options.id
@@ -246,8 +249,15 @@ beforeAll(async () => {
 
 afterAll(async () => {
   const orders = onlyAll([orderId, otherOrderId]);
-  const materialIds = onlyAll([labelBaseRow, ...Object.values(sizeRow), priceTagBaseRow, ...priceTagRows]);
-  const labelIds = onlyAll([labelId, priceTagId]);
+  const materialIds = onlyAll([
+    labelBaseRow,
+    ...Object.values(sizeRow),
+    priceTagBaseRow,
+    ...priceTagRows,
+    washcareBaseRow,
+    ...washcareRows,
+  ]);
+  const labelIds = onlyAll([labelId, priceTagId, washcareId]);
   const steps: Array<[string, () => Promise<unknown>]> = [
     ['stitching_issues', () => prisma.stitching_issues.deleteMany({ where: { workOrderId: only(workOrderId) } })],
     ['production_tracking', () => prisma.production_tracking.deleteMany({ where: { workOrderId: only(workOrderId) } })],
@@ -384,5 +394,50 @@ describe('a size cannot go to stitching without its labels', () => {
     const again = await issue([['S', 1]]);
     expect(again.status).toBe(422);
     expect(again.body.message).toMatch(/labels cover 0 more/);
+  });
+});
+
+describe('a washcare label is sewn at stitching too; a price tag is not', () => {
+  it('a washcare label that comes in sizes counts in the stitching cover, the price tag never does', async () => {
+    washcareId = (
+      await prisma.label_master.create({
+        data: { labelCode: `${RUN}-WC`, labelName: `${RUN} Washcare`, labelType: 'Washcare Label', pricePerPiece: 1 },
+      })
+    ).id;
+    for (const size of ['S', 'M']) {
+      const v = await prisma.label_size_variants.create({ data: { labelId: washcareId, size } });
+      washcareRows.push(await ensureLabelSizeMaterialRecord(v.id));
+    }
+    washcareBaseRow = await ensureMaterialRecord(washcareId, 'LABEL');
+    const bom = await prisma.order_bom.findFirstOrThrow({ where: { orderId }, select: { id: true } });
+    await prisma.order_bom_items.create({
+      data: {
+        id: randomUUID(),
+        orderBomId: bom.id,
+        materialType: 'LABEL',
+        materialId: washcareBaseRow,
+        labelId: washcareId,
+        quantityPerGarment: 1,
+        orderQuantity: 18,
+        totalQuantity: 18,
+        wastagePercent: 0,
+        totalWithWastage: 18,
+        unit: 'PIECE',
+        unitPrice: 1,
+        totalCost: 18,
+      },
+    });
+
+    const res = await request(app)
+      .get('/api/stitching/label-availability')
+      .query({ workOrderId })
+      .set(authHeader)
+      .expect(200);
+    const s = (res.body.data.sizes as Array<{ sizeName: string; labels: Array<{ materialCode: string }> }>).find(
+      (x) => x.sizeName === 'S'
+    )!;
+    const codes = s.labels.map((l) => l.materialCode);
+    expect(codes.some((c) => c.startsWith(`${RUN}-WC`))).toBe(true);
+    expect(codes.some((c) => c.startsWith(`${RUN}-TAG`))).toBe(false);
   });
 });

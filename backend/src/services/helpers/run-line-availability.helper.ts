@@ -168,9 +168,13 @@ export interface SizeLabelCover {
   labels: Array<{ materialCode: string; perGarment: number; have: number; inThisSize: boolean }>;
 }
 
+/** Label types sewn into the garment at stitching (label_master.labelType, matched as text, any case) */
+export const STITCHED_LABEL_TYPES = ['size', 'washcare', 'wash care', 'traceability'] as const;
+
 /**
- * How many pieces of each size the order's SIZE labels (label type names "size") cover for stitching — a size label is sewn at
- * stitching, so a size whose label is not there cannot be issued to stitching (owner, 2026-10-03).
+ * How many pieces of each size the order's STITCHED labels (size, washcare, traceability — STITCHED_LABEL_TYPES)
+ * cover for stitching — they are sewn at stitching, so a size whose label is not there cannot be issued to
+ * stitching (owner, 2026-10-03).
  * Covered = for every sized label on the approved Order BOM, what the order can use of that size's label
  * (`usableByMaterial`) ÷ labels per garment; the scarcest label decides. A label that does not come in the
  * size covers nothing. Returns null when nothing is enforced: a stock run (no order), no approved Order BOM,
@@ -207,13 +211,16 @@ export async function labelCoverForStitching(db: Db, workOrderId: string): Promi
     });
   }
   const labelIds = [...new Set([...labelOf.values()].map((l) => l.labelId))];
-  // Only a SIZE label is sewn at stitching (Main Cum Size Label, Size Label). A price tag, hang tag or other
-  // label that also comes in sizes goes on at finishing and never holds pieces back from stitching (owner,
-  // 2026-10-03: "size label is needed in stitching").
+  // Only a label SEWN at stitching holds pieces back: a size label (Main Cum Size Label, Size Label), a washcare
+  // label and a traceability label (owner, 2026-10-03). A price tag, hang tag or other label that also comes in
+  // sizes goes on at finishing and never holds pieces back from stitching.
   const stitchLabels = new Set(
     (
       await db.label_master.findMany({
-        where: { id: { in: labelIds }, labelType: { contains: 'size', mode: 'insensitive' } },
+        where: {
+          id: { in: labelIds },
+          OR: STITCHED_LABEL_TYPES.map((t) => ({ labelType: { contains: t, mode: 'insensitive' as const } })),
+        },
         select: { id: true },
       })
     ).map((l) => l.id)

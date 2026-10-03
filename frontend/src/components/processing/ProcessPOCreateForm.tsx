@@ -304,12 +304,35 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
       name: stock.processor?.name ?? (unit ? (stock.warehouse?.warehouseName ?? null) : null),
     };
   };
+  // The greige the chosen fabric is made from: only ITS lots can go on this job (the server refuses any other —
+  // fabric-greige-lot.helper). Every greige lot in stock used to be offered once a style and fabric were chosen.
+  const fabricIdForGreige =
+    createMode === 'lab-dip' ? selectedLabDip?.fabricId : selectedStyleFabric?.fabricId || selectedFabric?.id;
+  const { data: fabricForGreige } = useQuery({
+    queryKey: ['fabric-greige', fabricIdForGreige],
+    queryFn: () => fabricService.getById(fabricIdForGreige!),
+    enabled: !!fabricIdForGreige,
+  });
+  const fabricGreigeId = fabricForGreige?.greigeId ?? null;
+  const fabricGreigeCode = fabricForGreige?.greige?.greigeCode ?? fabricForGreige?.greigeName ?? null;
+
   const greigeStockItems = (greigeStockData || [])
+    .filter((stock) => !fabricGreigeId || stock.greigeId === fabricGreigeId)
     .filter((stock) => {
       const holder = holderOf(stock).id;
       return !holder || !selectedProcessor?.id || holder === selectedProcessor.id;
     })
     .sort((a, b) => Number(!holderOf(a).id) - Number(!holderOf(b).id));
+
+  // One lot of the fabric's greige: it is the lot — picked for you
+  const onlyLotId = greigeStockItems.length === 1 ? greigeStockItems[0].id : null;
+  useEffect(() => {
+    if (onlyLotId && !selectedGreigeStock) {
+      const lot = greigeStockItems.find((l) => l.id === onlyLotId);
+      if (lot) setSelectedGreigeStock(lot);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onlyLotId]);
 
   // Derive effective process type from selected style fabric or prop
   const effectiveProcessType =
@@ -990,7 +1013,11 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
         <Card>
           <CardHeader>
             <CardTitle>Greige Stock Lot</CardTitle>
-            <CardDescription>Select the greige stock lot to send for processing</CardDescription>
+            <CardDescription>
+              {fabricGreigeId && fabricGreigeCode
+                ? `Lots of ${fabricGreigeCode} — the greige ${fabricForGreige?.fabricCode ?? 'this fabric'} is made from`
+                : 'Select the greige stock lot to send for processing'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Popover open={greigeStockOpen} onOpenChange={setGreigeStockOpen}>
@@ -1021,7 +1048,11 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
                         <Loader2 className="h-4 w-4 animate-spin" />
                       </div>
                     )}
-                    <CommandEmpty>No greige stock found for this fabric</CommandEmpty>
+                    <CommandEmpty>
+                      {fabricGreigeCode
+                        ? `No ${fabricGreigeCode} in stock${selectedProcessor ? ` or at ${selectedProcessor.name}` : ''}`
+                        : 'No greige stock found for this fabric'}
+                    </CommandEmpty>
                     <CommandGroup>
                       {greigeStockItems.map((stock: GreigeStockEntry) => (
                         <CommandItem

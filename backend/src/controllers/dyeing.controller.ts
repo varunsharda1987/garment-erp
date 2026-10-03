@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { assertLotMakesFabric } from '../services/helpers/fabric-greige-lot.helper';
 import { BusinessError, ConflictError, NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 import prisma from '../config/database';
 import { Prisma, Unit } from '@prisma/client';
@@ -1533,6 +1534,8 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
       );
     }
     sourceGreigeId = greigeStock.greigeId;
+    // The lot must be the greige the fabric coming back is made from (fabric-greige-lot.helper)
+    await assertLotMakesFabric(prisma, { fabricId: resolvedFabricId, lotGreigeId: greigeStock.greigeId });
   }
 
   // JWC5 (Consolidation Phase 2): check for MRP PROCESSING requirements covering the same

@@ -295,6 +295,20 @@ describe('greige sent colour by colour, one colour dropped', () => {
     const job = await prisma.job_work_orders.findUniqueOrThrow({ where: { id: jobId } });
     expect(job.jwoStatus).toBe('ISSUED');
     expect(job.sentDate).not.toBeNull();
+
+    // The Reconciliation reads each colour's own send: Red is out, Black and Teal are not
+    const recon = await request(app).get(`/api/job-work-orders/${jobId}/reconciliation`).set(authHeader);
+    expect(recon.status).toBe(200);
+    const byId = new Map(
+      (recon.body.data.lines as Array<{ id: string; greigeSent: number; stillWithProcessor: number }>).map((l) => [
+        l.id,
+        l,
+      ])
+    );
+    expect(byId.get(red.id)?.greigeSent).toBe(1000);
+    expect(byId.get(red.id)?.stillWithProcessor).toBe(1000);
+    expect(byId.get(black.id)?.greigeSent).toBe(0);
+    expect(byId.get(teal.id)?.stillWithProcessor).toBe(0);
   });
 
   it('Red cannot go twice; a colour not sent takes no receipt; the whole job cannot come back as one', async () => {

@@ -63,6 +63,7 @@ import {
   jobSentForLoss,
   JWO_LINES_BRIEF,
   LINE_RECEIPTS_SELECT,
+  lineIsSent,
   lineReceivedQty,
   theOnlyLine,
 } from '../services/helpers/jwo-lines.helper';
@@ -735,6 +736,7 @@ class JobWorkOrderController {
               qtyExpected: true,
               closedAt: true,
               closedHow: true,
+              sentDate: true,
               style: { select: { styleCode: true, buyerStyleRef: true } },
               receiptItems: LINE_RECEIPTS_SELECT,
             },
@@ -746,13 +748,15 @@ class JobWorkOrderController {
       }
       const issued = !!jwo.sentDate && !['DRAFT', 'PENDING_APPROVAL', 'APPROVED'].includes(jwo.jwoStatus ?? '');
       const lines = jwo.lines.map((l) => {
+        // Greige sent colour by colour (2026-10-03): each colour is out from its own send, not the job's first one
+        const lineOut = issued && lineIsSent(l, jwo, jwo.lines);
         const sent = Number(l.qtySent);
         const expected = l.qtyExpected != null ? Number(l.qtyExpected) : null;
         const received = lineReceivedQty(l.receiptItems);
         // Greige still out: the share not yet turned into fabric that came back (pro rata on expected); a closed
         // line has nothing more out — what did not come back is its loss
         const stillOut =
-          !issued || l.closedAt
+          !lineOut || l.closedAt
             ? 0
             : expected && expected > 0
               ? Math.max(0, roundToCent(multiplyCurrency(sent, Math.max(0, 1 - received / expected))).toNumber())
@@ -762,7 +766,7 @@ class JobWorkOrderController {
           lineNo: l.lineNo,
           label:
             [l.style ? buyerStyleCode(l.style) : null, l.colorName].filter(Boolean).join(' · ') || `Line ${l.lineNo}`,
-          greigeSent: issued ? sent : 0,
+          greigeSent: lineOut ? sent : 0,
           expected,
           received,
           closedHow: l.closedHow,

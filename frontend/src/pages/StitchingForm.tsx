@@ -16,7 +16,12 @@ import { PageHeader } from '@/components/PageHeader';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { stitchingIssueService, stitchingSummaryService } from '@/services/stitching.service';
 import { handleApiSuccess } from '@/lib/api-error-handler';
-import type { CreateStitchingIssueRequest, IncomingTransferSlip } from '@/types/stitching.types';
+import type {
+  CreateStitchingIssueRequest,
+  IncomingTransferSlip,
+  StitchingLabelAvailability,
+  StitchingLabelCover,
+} from '@/types/stitching.types';
 import { formatDate, toDateInputValue } from '@/lib/date';
 import { styleCodeLabel } from '@/lib/style-code';
 
@@ -64,6 +69,46 @@ function mergeSkuBreakdowns(slips: IncomingTransferSlip[]): SKUEntry[] {
   );
 }
 
+/** The label cover of one size (matched by name, as the server does), or undefined when nothing is enforced */
+function coverOf(cover: StitchingLabelAvailability | null, sizeName: string): StitchingLabelCover | undefined {
+  if (!cover?.sizes) return undefined;
+  const want = sizeName.trim().toLowerCase();
+  return (
+    cover.sizes.find((c) => c.sizeName.trim().toLowerCase() === want) ?? {
+      sizeName,
+      piecesCovered: 0,
+      piecesIssued: 0,
+      canIssue: 0,
+      labels: [],
+    }
+  );
+}
+
+/** Lower each size's issue quantities to what its labels cover (a size label is sewn at stitching) */
+function capByLabels(rows: SKUEntry[], cover: StitchingLabelAvailability | null): SKUEntry[] {
+  if (!cover?.sizes) return rows;
+  const left = new Map<string, number>();
+  return rows.map((row) => {
+    const key = row.sizeName.trim().toLowerCase();
+    const room = left.get(key) ?? coverOf(cover, row.sizeName)?.canIssue ?? 0;
+    const issuedQty = Math.min(row.issuedQty, room);
+    left.set(key, room - issuedQty);
+    return { ...row, issuedQty };
+  });
+}
+
+/** How many more pieces of a size its labels cover, or which label is missing */
+function LabelCoverCell({ cover }: { cover: StitchingLabelCover | undefined }) {
+  if (!cover) return null;
+  if (cover.canIssue > 0) return <span className="text-sm">{cover.canIssue} pcs</span>;
+  const missing = cover.labels.filter((l) => !l.inThisSize).map((l) => l.materialCode);
+  return (
+    <span className="text-sm font-medium text-destructive">
+      {missing.length > 0 ? `No ${missing.join(', ')} in this size` : 'No labels in store'}
+    </span>
+  );
+}
+
 export default function StitchingForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -83,6 +128,8 @@ export default function StitchingForm() {
   const [expectedCompletionDate, setExpectedCompletionDate] = useState<string>('');
   const [remarks, setRemarks] = useState('');
   const [skuBreakdown, setSkuBreakdown] = useState<SKUEntry[]>([]);
+  // Per size, how many more pieces the run's size labels cover — a size without labels cannot be issued
+  const [labelCover, setLabelCover] = useState<StitchingLabelAvailability | null>(null);
 
   // Reference data
   const [pendingTransferSlips, setPendingTransferSlips] = useState<IncomingTransferSlip[]>([]);
@@ -110,6 +157,28 @@ export default function StitchingForm() {
   useEffect(() => {
     loadInitialData();
   }, []);
+
+  useEffect(() => {
+    if (!workOrderId) {
+      setLabelCover(null);
+      return;
+    }
+    let cancelled = false;
+    stitchingSummaryService
+      .getLabelAvailability(workOrderId)
+      .then((cover) => {
+        if (cancelled) return;
+        setLabelCover(cover);
+        setSkuBreakdown((prev) => capByLabels(prev, cover));
+      })
+      .catch(() => {
+        // The server enforces the same rule on save; without the preview the save explains a refusal
+        if (!cancelled) setLabelCover(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [workOrderId]);
 
   useEffect(() => {
     if (transferSlipIdParam && pendingTransferSlips.length > 0) {
@@ -159,7 +228,7 @@ export default function StitchingForm() {
     const selectedSlips = pendingTransferSlips.filter((s) => newIds.includes(s.id));
     if (selectedSlips.length > 0) {
       setWorkOrderId(selectedSlips[0].workOrderId);
-      setSkuBreakdown(mergeSkuBreakdowns(selectedSlips));
+      setSkuBreakdown(capByLabels(mergeSkuBreakdowns(selectedSlips), labelCover));
 
       // Set default expected completion if not already set
       if (!expectedCompletionDate) {
@@ -182,7 +251,7 @@ export default function StitchingForm() {
       const woSlipIds = woSlips.slips.map((s) => s.id);
       setSelectedSlipIds(woSlipIds);
       setWorkOrderId(woId);
-      setSkuBreakdown(mergeSkuBreakdowns(woSlips.slips));
+      setSkuBreakdown(capByLabels(mergeSkuBreakdowns(woSlips.slips), labelCover));
 
       if (!expectedCompletionDate) {
         const expected = new Date();
@@ -199,9 +268,16 @@ export default function StitchingForm() {
   const updateSKUQuantity = (index: number, value: number) => {
     setSkuBreakdown((prev) => {
       const updated = [...prev];
+      // Never more than the slips have left, nor more than this size's labels cover (other colours included)
+      const row = updated[index];
+      const cover = coverOf(labelCover, row.sizeName);
+      const otherSameSize = updated
+        .filter((r, i) => i !== index && r.sizeName.trim().toLowerCase() === row.sizeName.trim().toLowerCase())
+        .reduce((sum, r) => sum + r.issuedQty, 0);
+      const labelRoom = cover ? Math.max(0, cover.canIssue - otherSameSize) : Infinity;
       updated[index] = {
-        ...updated[index],
-        issuedQty: Math.min(Math.max(0, value), updated[index].availableQty),
+        ...row,
+        issuedQty: Math.min(Math.max(0, value), row.availableQty, labelRoom),
       };
       return updated;
     });
@@ -267,6 +343,13 @@ export default function StitchingForm() {
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
       setError(error.response?.data?.message || 'Failed to create stitching issue');
+      // A refusal for missing size labels: show the latest cover so the rows say what can go
+      if (workOrderId) {
+        stitchingSummaryService
+          .getLabelAvailability(workOrderId)
+          .then(setLabelCover)
+          .catch(() => undefined);
+      }
     } finally {
       setSaving(false);
     }
@@ -482,6 +565,7 @@ export default function StitchingForm() {
                         <TableHead>Color</TableHead>
                         <TableHead>Size</TableHead>
                         <TableHead className="text-right">Left to Issue</TableHead>
+                        {labelCover?.sizes && <TableHead className="text-right">Size labels for</TableHead>}
                         <TableHead className="text-right w-[150px]">Issue Qty</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -498,6 +582,11 @@ export default function StitchingForm() {
                               </span>
                             )}
                           </TableCell>
+                          {labelCover?.sizes && (
+                            <TableCell className="text-right">
+                              <LabelCoverCell cover={coverOf(labelCover, sku.sizeName)} />
+                            </TableCell>
+                          )}
                           <TableCell className="text-right">
                             <Input
                               type="number"
@@ -517,11 +606,23 @@ export default function StitchingForm() {
                           Total
                         </td>
                         <td className="px-4 py-3 text-sm text-right font-bold text-success">{getTotalAvailable()}</td>
+                        {labelCover?.sizes && <td />}
                         <td className="px-4 py-3 text-sm text-right font-bold text-info">{getTotalIssued()}</td>
                       </tr>
                     </tfoot>
                   </Table>
                 </div>
+
+                {labelCover?.sizes &&
+                  skuBreakdown.some((sku) => (coverOf(labelCover, sku.sizeName)?.canIssue ?? 0) < sku.availableQty) && (
+                    <Alert className="mt-3">
+                      <AlertDescription>
+                        A size label is sewn at stitching, so a size can be issued only as far as its labels in store
+                        (or already issued to this run) cover it. Receive or allocate the missing labels and issue them
+                        from the run&apos;s Trim Issuance, then issue the rest of these pieces.
+                      </AlertDescription>
+                    </Alert>
+                  )}
 
                 {getTotalIssued() < getTotalAvailable() && (
                   <p className="text-sm text-warning mt-2">

@@ -547,6 +547,17 @@ function checkFullUserInclude(tsFiles) {
   );
 }
 
+/** Check: a BOM line's stock read from its base materials row (sized labels read 0, WO2609-0278) — BLOCKING new + ratchet. */
+function checkBaseRowStockRead(tsFiles) {
+  console.log(`\n${c.cyan}Checking BOM-line stock is read through run-line-availability.helper...${c.reset}`);
+  return runRatchetedCheck(
+    'BOM line stock read from its base materials row (a sized label / thread pack keeps its lots on other rows)',
+    detectors.baseRowStockRead(tsFiles),
+    'base-row-stock-baseline.json',
+    'Answer "what can this order use of a BOM line" with runLineAvailability (backend/src/services/helpers/run-line-availability.helper.ts) — it reads a sized label per size, nets other orders\' holds and counts goods already issued. A deliberate base-row read carries `// allow-base-row-stock: <why>` on the line or within the 2 lines above. If intentional, add the key to scripts/hooks/base-row-stock-baseline.json.'
+  );
+}
+
 /** Check: a job work order created, or its lines / mirrored header written, outside jwo-lines.helper — BLOCKING new + ratchet. */
 function checkJwoLinesWriter(tsFiles) {
   console.log(`\n${c.cyan}Checking job work order lines are written through jwo-lines.helper...${c.reset}`);
@@ -1414,6 +1425,7 @@ function runAllModeChecks() {
   if (!checkCadMarkerRuleBypass(tsFiles)) ok = false;
   if (!checkRateCardPrintingType(tsFiles)) ok = false;
   if (!checkFullUserInclude(tsFiles)) ok = false;
+  if (!checkBaseRowStockRead(tsFiles)) ok = false;
   if (!checkJwoLinesWriter(tsFiles)) ok = false;
   if (!checkCostingApprovalDrift(tsFiles)) ok = false;
   if (!checkSaleOrderStatusWrite(tsFiles)) ok = false;
@@ -1547,6 +1559,7 @@ function main() {
     if (!checkCadMarkerRuleBypass(categories.typescript)) allPassed = false;
     if (!checkRateCardPrintingType(categories.typescript)) allPassed = false;
     if (!checkFullUserInclude(categories.typescript)) allPassed = false;
+    if (!checkBaseRowStockRead(categories.typescript)) allPassed = false;
     if (!checkJwoLinesWriter(categories.typescript)) allPassed = false;
     if (!checkCostingApprovalDrift(categories.typescript)) allPassed = false;
     if (!checkSaleOrderStatusWrite(categories.typescript)) allPassed = false;

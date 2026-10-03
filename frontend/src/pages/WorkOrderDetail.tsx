@@ -32,10 +32,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { PageHeader } from '@/components/PageHeader';
 import { StatusBadge } from '@/components/StatusBadge';
+import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import ConfirmDialog from '@/components/ConfirmDialog';
-import workOrderService from '@/services/workOrder.service';
+import workOrderService, { type MaterialReadiness } from '@/services/workOrder.service';
 import { cuttingBatchService } from '@/services/cutting.service';
 import { stitchingIssueService } from '@/services/stitching.service';
 import { finishingIssueService } from '@/services/finishing.service';
@@ -58,28 +59,19 @@ import WipSummarySection from '@/components/WipSummarySection';
 import { formatDate } from '@/lib/date';
 import { formatCurrency } from '@/lib/currency';
 import { qtyExceeds } from '@/lib/quantity';
-import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, buyerStyleCode, ourStyleCode, styleCodeLabel } from '@/lib/style-code';
+import {
+  BUYER_STYLE_CODE_LABEL,
+  STYLE_CODE_LABEL,
+  buyerStyleCode,
+  ourStyleCode,
+  styleCodeLabel,
+} from '@/lib/style-code';
 import { StyleThumbnail } from '@/components/StyleThumbnail';
 
 interface ManufacturingProgress {
   cutting: { batches: number; totalCut: number; pending: boolean };
   stitching: { issues: number; totalStitched: number; pending: boolean };
   finishing: { issues: number; totalFinished: number; pending: boolean };
-}
-
-interface MaterialReadiness {
-  isReady: boolean;
-  totalMaterials: number;
-  availableMaterials: number;
-  hasApprovedBom: boolean;
-  missingMaterials: Array<{
-    materialName: string;
-    materialCode: string;
-    required: number;
-    available: number;
-    shortfall: number;
-    unit: string;
-  }>;
 }
 
 export default function WorkOrderDetail() {
@@ -236,7 +228,7 @@ export default function WorkOrderDetail() {
         setOverrideModalOpen(true);
       } else {
         notify.error(
-          'Materials are short for this run — see Material Readiness above. Only an administrator can override this.'
+          'Fabric is short for this run — see Material Readiness above. Only an administrator can override this.'
         );
       }
     } else {
@@ -255,13 +247,12 @@ export default function WorkOrderDetail() {
     } catch (err: unknown) {
       const responseData = isAxiosError(err) ? err.response?.data : undefined;
       const errorMsg = responseData?.message || (err instanceof Error ? err.message : 'Failed to push to cutting');
-      const blockers = responseData?.blockers as
-        | Array<{ type: string; message: string; severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' }>
-        | undefined;
+      // The API refuses a blocked push with a 422 whose message lists every blocker (it sends no blockers array)
+      const isStageRefusal = isAxiosError(err) && err.response?.status === 422;
 
-      if (blockers && blockers.length > 0 && canOverride) {
-        // Show override modal with server-returned blockers so an admin can override
-        setServerBlockers(blockers);
+      if (isStageRefusal && canOverride) {
+        // Show the override modal with the server's refusal so an admin can override
+        setServerBlockers([{ type: 'STAGE_BLOCKED', message: errorMsg, severity: 'CRITICAL' }]);
         setOverrideModalOpen(true);
       } else {
         notify.error(errorMsg);
@@ -504,7 +495,10 @@ export default function WorkOrderDetail() {
                 <Package className="h-5 w-5" />
                 Material Readiness
               </CardTitle>
-              <CardDescription>Fabric availability status for cutting stage</CardDescription>
+              <CardDescription>
+                Fabric decides cutting. Labels and trims are needed at stitching — a size whose labels are not in store
+                cannot be issued to stitching.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {isLoadingMaterials ? (
@@ -517,16 +511,20 @@ export default function WorkOrderDetail() {
                   <div className="flex items-center gap-4">
                     <div
                       className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-                        materialReadiness.isReady ? 'bg-success-muted text-success' : 'bg-warning/10 text-warning'
+                        materialReadiness.allAvailable ? 'bg-success-muted text-success' : 'bg-warning/10 text-warning'
                       }`}
                     >
-                      {materialReadiness.isReady ? (
+                      {materialReadiness.allAvailable ? (
                         <CheckSquare className="h-5 w-5" />
                       ) : (
                         <AlertCircle className="h-5 w-5" />
                       )}
                       <span className="font-semibold">
-                        {materialReadiness.isReady ? 'All Materials Available' : 'Materials Missing'}
+                        {materialReadiness.allAvailable
+                          ? 'All Materials Available'
+                          : materialReadiness.isReady
+                            ? 'Fabric Ready — Some Materials Still to Come'
+                            : 'Fabric Missing'}
                       </span>
                     </div>
                     <div className="text-sm text-muted-foreground">
@@ -543,38 +541,64 @@ export default function WorkOrderDetail() {
                         {materialReadiness.missingMaterials
                           .filter((m) => qtyExceeds(m.shortfall, 0))
                           .map((material, idx) => (
-                            <div key={idx} className="flex justify-between items-center text-sm">
-                              <div>
-                                <span className="font-medium text-foreground">{material.materialName}</span>
-                                <span className="text-muted-foreground ml-2">({material.materialCode})</span>
-                              </div>
-                              <div className="text-right">
-                                <div className="text-destructive font-medium">
-                                  Short: {material.shortfall.toFixed(2)} {unitShort(material.unit)}
+                            <div key={idx} className="text-sm">
+                              <div className="flex justify-between items-center">
+                                <div>
+                                  <span className="font-medium text-foreground">{material.materialName}</span>
+                                  {material.materialCode && (
+                                    <span className="text-muted-foreground ml-2">({material.materialCode})</span>
+                                  )}
+                                  <Badge variant="outline" className="ml-2 text-xs">
+                                    {material.blocksCutting
+                                      ? 'Holds up cutting'
+                                      : material.sizedLabel
+                                        ? 'Needed at stitching, per size'
+                                        : 'Needed later'}
+                                  </Badge>
                                 </div>
-                                <div className="text-xs text-muted-foreground">
-                                  Need: {material.required.toFixed(2)}, Have: {material.available.toFixed(2)}
+                                <div className="text-right">
+                                  <div className="text-destructive font-medium">
+                                    {material.unlinked
+                                      ? 'Not linked to a material'
+                                      : `Short: ${material.shortfall.toFixed(2)} ${unitShort(material.unit)}`}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    Need: {material.required.toFixed(2)}, Have: {material.available.toFixed(2)}
+                                  </div>
                                 </div>
                               </div>
+                              {material.sizes && material.sizes.length > 0 && (
+                                <div className="mt-1 ml-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                                  {material.sizes.map((s) => (
+                                    <span key={s.sizeName}>
+                                      <span className="font-medium text-foreground">{s.sizeName}</span>:{' '}
+                                      {s.materialCode
+                                        ? `need ${s.need}, have ${s.have}, short ${s.short}`
+                                        : 'no label made in this size'}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           ))}
                       </div>
                       <Alert className="mt-4 bg-info-muted border-info/30">
                         <AlertCircle className="h-4 w-4 text-info" />
                         <AlertDescription className="text-info">
-                          Some fabrics are short. You can still push to cutting for a partial quantity based on
-                          available stock. The cutting chart will show the maximum cuttable pieces.
+                          {materialReadiness.isReady
+                            ? 'Fabric is ready, so this run can go to cutting. The materials above are needed later: a size whose labels are not in store cannot be issued to stitching.'
+                            : 'Some fabric is short. You can still push to cutting for a partial quantity based on available stock. The cutting chart will show the maximum cuttable pieces.'}
                         </AlertDescription>
                       </Alert>
                     </div>
                   )}
 
                   {/* Ready State */}
-                  {materialReadiness.isReady && materialReadiness.totalMaterials > 0 && (
+                  {materialReadiness.allAvailable && materialReadiness.totalMaterials > 0 && (
                     <Alert className="bg-success-muted border-success/25">
                       <CheckSquare className="h-4 w-4 text-success" />
                       <AlertDescription className="text-success">
-                        All required fabrics are in stock. You can push this production run to cutting.
+                        All required materials are in stock. You can push this production run to cutting.
                       </AlertDescription>
                     </Alert>
                   )}
@@ -595,7 +619,7 @@ export default function WorkOrderDetail() {
                     <Alert className="bg-info-muted border-info/30">
                       <AlertCircle className="h-4 w-4 text-info" />
                       <AlertDescription className="text-info">
-                        No fabric items found in the Order BOM. You can proceed to cutting without material validation.
+                        No items found in the Order BOM. You can proceed to cutting without material validation.
                       </AlertDescription>
                     </Alert>
                   )}
@@ -1192,7 +1216,13 @@ export default function WorkOrderDetail() {
         open={pushToCuttingDialogOpen}
         onOpenChange={setPushToCuttingDialogOpen}
         title="Push to Cutting"
-        description="Are you sure you want to push this production run to cutting? This will validate material availability and start production."
+        description={
+          materialReadiness && !materialReadiness.allAvailable && materialReadiness.isReady
+            ? `Push this production run to cutting? Fabric is ready. Still to come: ${materialReadiness.missingMaterials
+                .map((m) => m.materialCode || m.materialName)
+                .join(', ')} — a size whose labels are not in store cannot be issued to stitching.`
+            : 'Are you sure you want to push this production run to cutting? This will validate material availability and start production.'
+        }
         confirmText="Push to Cutting"
         cancelText="Cancel"
         onConfirm={confirmPushToCutting}
@@ -1211,11 +1241,13 @@ export default function WorkOrderDetail() {
         blockers={
           serverBlockers.length > 0
             ? serverBlockers
-            : (materialReadiness?.missingMaterials.map((m) => ({
-                type: 'MATERIAL_SHORTAGE',
-                message: `${m.materialName} (${m.materialCode}): Need ${m.required.toFixed(2)} ${unitShort(m.unit)}, Have ${m.available.toFixed(2)} ${unitShort(m.unit)}, Short ${m.shortfall.toFixed(2)} ${unitShort(m.unit)}`,
-                severity: 'CRITICAL' as const,
-              })) ?? [])
+            : (materialReadiness?.missingMaterials
+                .filter((m) => m.blocksCutting)
+                .map((m) => ({
+                  type: 'MATERIAL_SHORTAGE',
+                  message: `${m.materialName} (${m.materialCode}): Need ${m.required.toFixed(2)} ${unitShort(m.unit)}, Have ${m.available.toFixed(2)} ${unitShort(m.unit)}, Short ${m.shortfall.toFixed(2)} ${unitShort(m.unit)}`,
+                  severity: 'CRITICAL' as const,
+                })) ?? [])
         }
       />
 

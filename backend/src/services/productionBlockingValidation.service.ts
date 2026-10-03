@@ -2,7 +2,13 @@ import { Prisma, ProductionStage, SampleType, SampleStatus, TestResult } from '@
 import { getRunFabricPosition, runIdsForOrderStyle } from './helpers/run-fabric.helper';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
-import { getDerivedOnHand } from './helpers/derived-stock.helper';
+import {
+  describeShortSizes,
+  lineIsShort,
+  runLineAvailability,
+  type SizeAvailability,
+} from './helpers/run-line-availability.helper';
+import { qtyExceeds } from '../utils/quantity';
 import { latestSampleRoundForStyle } from './helpers/lab-round.helper';
 import { notInProcessorUnitWhere } from './helpers/lot-location.helper';
 import { styleCodeLabel } from '../utils/style-code';
@@ -47,6 +53,27 @@ interface BlockerInfo {
 interface ValidationResult {
   isBlocked: boolean;
   blockers: BlockerInfo[];
+  /** Shown, never blocking — e.g. labels or trims still to come when a run goes to cutting */
+  warnings?: BlockerInfo[];
+}
+
+/** One Order BOM line the order cannot fully cover (see `orderBomMaterialPosition`). */
+interface MaterialShortLine {
+  materialType: string;
+  materialName: string;
+  materialCode: string;
+  required: number;
+  available: number;
+  shortfall: number;
+  unit: string;
+  /** Fabric: cutting cannot go ahead without it. Everything else only warns at cutting. */
+  blocksCutting: boolean;
+  /** A label that comes in sizes — each size is enforced when its pieces go to stitching */
+  sizedLabel?: boolean;
+  unlinked?: boolean;
+  /** The short sizes of a sized label */
+  sizes?: SizeAvailability[];
+  message: string;
 }
 
 interface CreationValidationResult {
@@ -661,14 +688,16 @@ class ProductionBlockingValidationService {
     run: RunIdentity,
     targetStage: ProductionStage
   ): Promise<ValidationResult> {
-    // Determine which material types to validate at this stage
-    let materialTypesToCheck: string[];
+    // Which materials hold up this stage. Cutting needs its fabric; the trims and labels a run will need later
+    // are only a WARNING at cutting (owner, 2026-10-03). A label that comes in sizes never holds up a whole
+    // stage: each size is enforced when its pieces go to stitching (`labelCoverForStitching`).
+    let blockingTypes: string[];
     if (targetStage === 'IN_CUTTING') {
-      materialTypesToCheck = FABRIC_MATERIAL_TYPES;
+      blockingTypes = FABRIC_MATERIAL_TYPES;
     } else if (['IN_STITCHING', 'IN_EMBROIDERY', 'IN_HANDWORK'].includes(targetStage as string)) {
-      materialTypesToCheck = TRIM_MATERIAL_TYPES;
+      blockingTypes = TRIM_MATERIAL_TYPES;
     } else if (targetStage === 'IN_FINISHING') {
-      materialTypesToCheck = FINISHING_MATERIAL_TYPES;
+      blockingTypes = FINISHING_MATERIAL_TYPES;
     } else {
       return { isBlocked: false, blockers: [] };
     }
@@ -677,39 +706,11 @@ class ProductionBlockingValidationService {
       return { isBlocked: false, blockers: [] };
     }
 
-    // Find the active approved/locked Order BOM
-    const orderBom = await prisma.order_bom.findFirst({
-      where: {
-        orderId: run.orderId,
-        styleId: run.styleId,
-        isActive: true,
-        status: { in: ['APPROVED', 'LOCKED'] },
-      },
-      include: {
-        items: {
-          where: {
-            materialType: { in: materialTypesToCheck },
-          },
-          include: {
-            fabric_master: {
-              select: { id: true, fabricCode: true, fabricName: true },
-            },
-            greige: {
-              select: { id: true, greigeCode: true, greigeName: true },
-            },
-            material: {
-              select: { id: true, code: true, name: true },
-            },
-          },
-        },
-      },
-    });
-
-    const blockers: BlockerInfo[] = [];
+    const position = await this.orderBomMaterialPosition({ styleId: run.styleId, orderId: run.orderId });
 
     // P6.1: Close the gate escape — require APPROVED/LOCKED BOM for orders
     // Previously this returned isBlocked: false, allowing cutting without a BOM
-    if (!orderBom) {
+    if (!position.hasApprovedBom) {
       return {
         isBlocked: true,
         blockers: [
@@ -722,43 +723,97 @@ class ProductionBlockingValidationService {
       };
     }
 
-    for (const bom of orderBom.items || []) {
-      const totalRequired = Number(bom.totalWithWastage || bom.totalQuantity || 0);
-      const isFabricType = FABRIC_MATERIAL_TYPES.includes(bom.materialType);
-
-      let availableStock: number;
-      if (isFabricType) {
-        availableStock = await availableFabricForBomLine(bom, run);
-      } else {
-        if (!bom.materialId) continue;
-        // T2-1 Stage B3: derived on-hand (per-lot truth) instead of hand-maintained stock_levels.quantity.
-        availableStock = await getDerivedOnHand(bom.materialId);
-      }
-
-      const shortfall = totalRequired - availableStock;
-      const toleranceQty = totalRequired * SHORTFALL_TOLERANCE_PERCENT;
-
-      if (shortfall > toleranceQty) {
-        const materialName = isFabricType
-          ? bom.fabric_master?.fabricName || bom.greige?.greigeName || bom.componentName || 'Unknown Material'
-          : bom.material?.name || bom.componentName || 'Unknown Material';
-        const materialCode = isFabricType
-          ? bom.fabric_master?.fabricCode || bom.greige?.greigeCode || ''
-          : bom.material?.code || '';
-        const hint = isFabricType ? fabricLineageHint(bom, availableStock) : '';
-
-        blockers.push({
-          type: 'MATERIAL_SHORTAGE',
-          message: `Insufficient stock for ${materialName} (${materialCode}). Required: ${totalRequired.toFixed(2)} ${bom.unit}, Available: ${availableStock.toFixed(2)} ${bom.unit}, Short: ${shortfall.toFixed(2)} ${bom.unit}${hint}`,
-          severity: 'CRITICAL',
-        });
-      }
+    const blockers: BlockerInfo[] = [];
+    const warnings: BlockerInfo[] = [];
+    for (const line of position.shortLines) {
+      const entry: BlockerInfo = { type: 'MATERIAL_SHORTAGE', message: line.message, severity: 'CRITICAL' };
+      const blocks = blockingTypes.includes(line.materialType) && !line.sizedLabel;
+      if (blocks) blockers.push(entry);
+      else if (targetStage === 'IN_CUTTING' || line.sizedLabel) warnings.push({ ...entry, severity: 'MEDIUM' });
     }
 
-    return {
-      isBlocked: blockers.length > 0,
-      blockers,
-    };
+    return { isBlocked: blockers.length > 0, blockers, warnings };
+  }
+
+  /**
+   * Every Order BOM line of an order + style with what the order can use of it, and the lines that are short.
+   * THE material position the stage gate and the run page's Material Readiness both read — they were two
+   * copies of one loop until 2026-10-03. Fabric is answered by greige lineage (`availableFabricForBomLine`),
+   * everything else by `runLineAvailability` (size-aware labels, other orders' holds, goods already issued).
+   */
+  private async orderBomMaterialPosition(run: { styleId: string; orderId: string }): Promise<{
+    hasApprovedBom: boolean;
+    totalLines: number;
+    shortLines: MaterialShortLine[];
+  }> {
+    const orderBom = await prisma.order_bom.findFirst({
+      where: {
+        orderId: run.orderId,
+        styleId: run.styleId,
+        isActive: true,
+        status: { in: ['APPROVED', 'LOCKED'] },
+      },
+      include: {
+        items: {
+          include: {
+            fabric_master: { select: { id: true, fabricCode: true, fabricName: true } },
+            greige: { select: { id: true, greigeCode: true, greigeName: true } },
+          },
+        },
+      },
+    });
+    if (!orderBom) return { hasApprovedBom: false, totalLines: 0, shortLines: [] };
+
+    const items = orderBom.items || [];
+    const shortLines: MaterialShortLine[] = [];
+
+    for (const bom of items.filter((b) => FABRIC_MATERIAL_TYPES.includes(b.materialType))) {
+      const required = Number(bom.totalWithWastage || bom.totalQuantity || 0);
+      const available = await availableFabricForBomLine(bom, run);
+      const shortfall = required - available;
+      if (shortfall <= required * SHORTFALL_TOLERANCE_PERCENT) continue;
+      const materialName =
+        bom.fabric_master?.fabricName || bom.greige?.greigeName || bom.componentName || 'Unknown Material';
+      const materialCode = bom.fabric_master?.fabricCode || bom.greige?.greigeCode || '';
+      shortLines.push({
+        materialType: bom.materialType,
+        materialName,
+        materialCode,
+        required,
+        available,
+        shortfall,
+        unit: bom.unit,
+        blocksCutting: true,
+        message: `Insufficient stock for ${materialName} (${materialCode}). Required: ${required.toFixed(2)} ${bom.unit}, Available: ${available.toFixed(2)} ${bom.unit}, Short: ${shortfall.toFixed(2)} ${bom.unit}${fabricLineageHint(bom, available)}`,
+      });
+    }
+
+    const others = items.filter((b) => !FABRIC_MATERIAL_TYPES.includes(b.materialType));
+    const availability = await runLineAvailability({ orderId: run.orderId, styleId: run.styleId }, others);
+    for (const line of availability) {
+      if (!lineIsShort(line, SHORTFALL_TOLERANCE_PERCENT)) continue;
+      const unit = line.unit;
+      const sizes = describeShortSizes(line);
+      const message = line.unlinked
+        ? `${line.materialName} on the Order BOM is not linked to a material, so its stock cannot be checked — fix the BOM line`
+        : `Insufficient stock for ${line.materialName} (${line.materialCode}). Required: ${line.need.toFixed(2)} ${unit}, Available: ${line.have.toFixed(2)} ${unit}, Short: ${line.short.toFixed(2)} ${unit}${sizes ? ` — ${sizes}` : ''}`;
+      shortLines.push({
+        materialType: line.materialType,
+        materialName: line.materialName,
+        materialCode: line.materialCode,
+        required: line.need,
+        available: line.have,
+        shortfall: line.short,
+        unit,
+        blocksCutting: false,
+        sizedLabel: line.sizedLabel,
+        unlinked: line.unlinked,
+        sizes: line.sizes?.filter((s) => qtyExceeds(s.short, 0)),
+        message,
+      });
+    }
+
+    return { hasApprovedBom: true, totalLines: items.length, shortLines };
   }
 
   /**
@@ -881,6 +936,7 @@ class ProductionBlockingValidationService {
     return {
       isBlocked: allBlockers.length > 0,
       blockers: allBlockers,
+      warnings: materialResult.warnings ?? [],
     };
   }
 
@@ -956,36 +1012,30 @@ class ProductionBlockingValidationService {
   }
 
   /**
-   * Check material readiness status for a work order
-   * Returns detailed material availability information for UI display
+   * The run page's Material Readiness: every Order BOM line the order cannot fully cover.
+   *
+   * `isReady` answers "can this run go to cutting" — fabric only. Labels, trims and packaging still to come
+   * are listed (`blocksCutting: false`) and only warn at cutting (owner, 2026-10-03); a sized label lists its
+   * short sizes, and a size with no labels cannot be issued to stitching (`labelCoverForStitching`).
+   * `allAvailable` = nothing at all is short.
    */
   async checkMaterialReadiness(workOrderId: string): Promise<{
     isReady: boolean;
+    allAvailable: boolean;
     totalMaterials: number;
     availableMaterials: number;
     hasApprovedBom: boolean;
-    missingMaterials: Array<{
-      materialName: string;
-      materialCode: string;
-      required: number;
-      available: number;
-      shortfall: number;
-      unit: string;
-    }>;
+    missingMaterials: Array<Omit<MaterialShortLine, 'message'>>;
   }> {
-    // Get work order's orderId and styleId to find the Order BOM
     const workOrder = await prisma.work_orders.findUnique({
       where: { id: workOrderId },
-      select: {
-        orderId: true,
-        styleId: true,
-        totalQuantity: true,
-      },
+      select: { orderId: true, styleId: true },
     });
 
     if (!workOrder) {
       return {
         isReady: false,
+        allAvailable: false,
         totalMaterials: 0,
         availableMaterials: 0,
         hasApprovedBom: false,
@@ -997,6 +1047,7 @@ class ProductionBlockingValidationService {
     if (!workOrder.orderId) {
       return {
         isReady: true,
+        allAvailable: true,
         totalMaterials: 0,
         availableMaterials: 0,
         hasApprovedBom: false,
@@ -1004,35 +1055,11 @@ class ProductionBlockingValidationService {
       };
     }
 
-    // Find the active approved/locked Order BOM for this order + style
-    // Fetch ALL material types to give a complete readiness picture
-    const orderBom = await prisma.order_bom.findFirst({
-      where: {
-        orderId: workOrder.orderId!,
-        styleId: workOrder.styleId,
-        isActive: true,
-        status: { in: ['APPROVED', 'LOCKED'] },
-      },
-      include: {
-        items: {
-          include: {
-            fabric_master: {
-              select: { id: true, fabricCode: true, fabricName: true },
-            },
-            greige: {
-              select: { id: true, greigeCode: true, greigeName: true },
-            },
-            material: {
-              select: { id: true, code: true, name: true },
-            },
-          },
-        },
-      },
-    });
-
-    if (!orderBom) {
+    const position = await this.orderBomMaterialPosition({ styleId: workOrder.styleId, orderId: workOrder.orderId });
+    if (!position.hasApprovedBom) {
       return {
         isReady: false,
+        allAvailable: false,
         totalMaterials: 0,
         availableMaterials: 0,
         hasApprovedBom: false,
@@ -1040,61 +1067,12 @@ class ProductionBlockingValidationService {
       };
     }
 
-    const allBOMs = orderBom.items || [];
-    const missingMaterials: Array<{
-      materialName: string;
-      materialCode: string;
-      required: number;
-      available: number;
-      shortfall: number;
-      unit: string;
-    }> = [];
-
-    let availableCount = 0;
-
-    for (const bom of allBOMs) {
-      const totalRequired = Number(bom.totalWithWastage || bom.totalQuantity || 0);
-      const isFabricType = FABRIC_MATERIAL_TYPES.includes(bom.materialType);
-
-      let availableStock: number;
-      if (isFabricType) {
-        availableStock = await availableFabricForBomLine(bom, workOrder);
-      } else {
-        if (!bom.materialId) {
-          availableCount++; // No materialId means no stock check possible — skip
-          continue;
-        }
-        // T2-1 Stage B3: derived on-hand (per-lot truth) instead of hand-maintained stock_levels.quantity.
-        availableStock = await getDerivedOnHand(bom.materialId);
-      }
-
-      const shortfall = totalRequired - availableStock;
-      const toleranceQty = totalRequired * SHORTFALL_TOLERANCE_PERCENT;
-
-      if (shortfall > toleranceQty) {
-        const materialName = isFabricType
-          ? bom.fabric_master?.fabricName || bom.greige?.greigeName || bom.componentName || 'Unknown'
-          : bom.material?.name || bom.componentName || 'Unknown';
-        const materialCode = isFabricType
-          ? bom.fabric_master?.fabricCode || bom.greige?.greigeCode || ''
-          : bom.material?.code || '';
-        missingMaterials.push({
-          materialName,
-          materialCode,
-          required: totalRequired,
-          available: availableStock,
-          shortfall,
-          unit: bom.unit,
-        });
-      } else {
-        availableCount++;
-      }
-    }
-
+    const missingMaterials = position.shortLines.map(({ message: _message, ...line }) => line);
     return {
-      isReady: missingMaterials.length === 0,
-      totalMaterials: allBOMs.length,
-      availableMaterials: availableCount,
+      isReady: !missingMaterials.some((m) => m.blocksCutting),
+      allAvailable: missingMaterials.length === 0,
+      totalMaterials: position.totalLines,
+      availableMaterials: position.totalLines - missingMaterials.length,
       hasApprovedBom: true,
       missingMaterials,
     };

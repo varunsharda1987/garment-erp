@@ -14,6 +14,7 @@ import { NotFoundError, UnauthorizedError, ValidationError, BusinessError } from
 import { resolveAdminOverride } from '../utils/admin-override';
 import { ChallanType, Unit } from '@prisma/client';
 import { getDerivedOnHandMap } from '../services/helpers/derived-stock.helper';
+import { runLineAvailability } from '../services/helpers/run-line-availability.helper';
 import { untrackedHeldByMaterial } from '../services/helpers/stock-reservation.helper';
 import { buildCuttingChartData } from './cutting.controller';
 import {
@@ -424,6 +425,8 @@ export const pushToCutting = async (req: Request, res: Response) => {
     success: true,
     data: updatedWorkOrder,
     message: 'Work order successfully pushed to cutting',
+    // Labels / trims still to come — they do not stop cutting, but a size without labels cannot go to stitching
+    warnings: (validation.warnings ?? []).map((w) => w.message),
   });
 };
 
@@ -818,10 +821,56 @@ async function getMaterialIssuanceData(workOrderId: string, materialTypes: strin
     },
   });
 
-  const bomItems = (orderBom?.items || []).filter((item) => item.materialId);
+  // A line saved without materialId is matched to its master's base row, and a label that comes in sizes is
+  // issued SIZE BY SIZE: its stock is on the size rows (run-line-availability.helper). Until 2026-10-03 the
+  // base label row was offered, read "No stock", and could not be issued at all.
+  const bomLines = orderBom?.items || [];
+  const availability =
+    workOrder.orderId && workOrder.styleId
+      ? await runLineAvailability({ orderId: workOrder.orderId, styleId: workOrder.styleId }, bomLines)
+      : [];
+  const availabilityOf = new Map(availability.map((a) => [a.bomItemId, a]));
 
-  // Get unique material IDs from BOM
-  const materialIds = [...new Set(bomItems.map((item) => item.materialId).filter(Boolean))] as string[];
+  type IssueRow = {
+    item: (typeof bomLines)[number];
+    materialId: string | null;
+    materialCode: string;
+    materialName: string;
+    sizeName: string | null;
+    requiredQty: number;
+  };
+  const rows: IssueRow[] = [];
+  for (const item of bomLines) {
+    const qtyPerPiece = Number(item.quantityPerGarment);
+    const wastagePercent = Number(item.wastagePercent || 0);
+    const a = availabilityOf.get(item.id);
+    const materialId = a?.materialId ?? item.materialId;
+    if (!materialId) continue;
+    if (a?.sizes && a.sizes.length > 0) {
+      for (const s of a.sizes) {
+        rows.push({
+          item,
+          materialId: s.materialId,
+          materialCode: s.materialCode ?? a.materialCode,
+          materialName: s.materialId ? a.materialName : `${a.materialName} — not made in this size`,
+          sizeName: s.sizeName,
+          requiredQty: s.need,
+        });
+      }
+      continue;
+    }
+    rows.push({
+      item,
+      materialId,
+      materialCode: a?.materialCode || item.material?.code || '',
+      materialName: a?.materialName || item.material?.name || '',
+      sizeName: null,
+      requiredQty: qtyPerPiece * item.orderQuantity * (1 + wastagePercent / 100),
+    });
+  }
+
+  // Get unique material IDs to check
+  const materialIds = [...new Set(rows.map((r) => r.materialId).filter(Boolean))] as string[];
 
   // T2-1: derived on-hand (per-lot truth) instead of hand-maintained stock_levels.quantity.
   // Returns materialId → total available qty across warehouses.
@@ -833,20 +882,21 @@ async function getMaterialIssuanceData(workOrderId: string, materialTypes: strin
   });
 
   // Build BOM items with stock info and calculated required qty
-  const items = bomItems.map((item) => {
+  const items = rows.map(({ item, materialId, materialCode, materialName, sizeName, requiredQty }) => {
     const qtyPerPiece = Number(item.quantityPerGarment);
     const orderQty = item.orderQuantity;
     const wastagePercent = Number(item.wastagePercent || 0);
-    const requiredQty = qtyPerPiece * orderQty * (1 + wastagePercent / 100);
-    const onHand = item.materialId ? stockMap.get(item.materialId) || 0 : 0;
-    const heldForOthers = Math.min(onHand, item.materialId ? heldMap.get(item.materialId) || 0 : 0);
+    const onHand = materialId ? stockMap.get(materialId) || 0 : 0;
+    const heldForOthers = Math.min(onHand, materialId ? heldMap.get(materialId) || 0 : 0);
     const availableStock = Math.max(0, onHand - heldForOthers);
 
     return {
       bomItemId: item.id,
-      materialId: item.materialId,
-      materialCode: item.material?.code || '',
-      materialName: item.material?.name || '',
+      materialId,
+      materialCode,
+      materialName,
+      /** The size of a label issued size by size; null for everything else */
+      sizeName,
       materialType: item.materialType,
       componentName: item.componentName || '',
       unit: item.unit || item.material?.unit || Unit.PIECE,
@@ -885,6 +935,7 @@ async function getMaterialIssuanceData(workOrderId: string, materialTypes: strin
   // Calculate already-issued qty per material
   const issuedQtyMap = new Map<string, number>();
   for (const c of issuedChallans) {
+    if (c.status === 'CANCELLED') continue; // a cancelled challan gave nothing
     for (const ci of c.items) {
       if (ci.materialId) {
         issuedQtyMap.set(ci.materialId, (issuedQtyMap.get(ci.materialId) || 0) + Number(ci.quantity));

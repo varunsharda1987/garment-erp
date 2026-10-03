@@ -83,7 +83,7 @@ export default function PackagingIssuanceSection({ workOrderId }: PackagingIssua
         materialId: item.materialId!,
         quantity: parseFloat(quantities[item.materialId!] || '0'),
         unit: item.unit,
-        description: `${item.materialCode} - ${item.materialName}`,
+        description: `${item.materialCode} - ${item.materialName}${item.sizeName ? ` (size ${item.sizeName})` : ''}`,
       }))
       .filter((i) => i.quantity > 0);
 
@@ -176,7 +176,7 @@ export default function PackagingIssuanceSection({ workOrderId }: PackagingIssua
                 const heldForOthers = item.heldForOthers ?? 0;
                 return (
                   <TableRow
-                    key={item.bomItemId}
+                    key={`${item.bomItemId}:${item.materialId ?? item.sizeName ?? ''}`}
                     className={isSelected ? 'bg-accent/10' : hasStock ? 'cursor-pointer hover:bg-muted' : 'opacity-50'}
                     onClick={() => {
                       if (item.materialId && hasStock && remaining > 0) {
@@ -197,6 +197,9 @@ export default function PackagingIssuanceSection({ workOrderId }: PackagingIssua
                     <TableCell className="font-medium max-w-[200px] truncate" title={item.materialName}>
                       {item.materialCode ? `${item.materialCode} - ` : ''}
                       {item.materialName}
+                      {item.sizeName && (
+                        <span className="ml-1 text-xs text-muted-foreground">· Size {item.sizeName}</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-xs">

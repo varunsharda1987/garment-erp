@@ -2199,6 +2199,53 @@ function rateCardPrintingTypeDrift(relFiles) {
   return out;
 }
 
+// Base-row stock read (2026-10-03). A BOM / order-BOM line's materialId is its master's BASE materials row,
+// but a sized label's lots sit on its SIZE rows (and a thread's on its PACK rows) — derived_stock_view puts each
+// lot on exactly one row. getDerivedOnHand(bom.materialId) therefore read 0: WO2609-0278 showed LBL-0004
+// "missing" with 2,150 pcs in store, held for its order, and the stage gate refused stitching on it. What an
+// order can use of a BOM line is answered ONLY by services/helpers/run-line-availability.helper.ts (size rows,
+// other orders' holds, goods already issued). Flags getDerivedOnHand / getDerivedOnHandMap whose argument names
+// a BOM line, in backend code outside that helper and derived-stock.helper. Escape:
+// `// allow-base-row-stock: <why>` on the line or within the 2 lines above.
+function baseRowStockRead(relFiles) {
+  const out = [];
+  const re = /\bgetDerivedOnHand(Map)?\s*\(/g;
+  for (const rel of relFiles) {
+    const norm = rel.replace(/\\/g, '/');
+    if (!/^backend\/src\/.*\.ts$/.test(norm)) continue;
+    if (/\.test\.ts$|__tests__/.test(norm)) continue;
+    if (/helpers\/(run-line-availability|derived-stock)\.helper\.ts$/.test(norm)) continue;
+    const content = readCode(rel);
+    if (!content) continue;
+    const rawLines = (readRel(rel) || '').split('\n');
+    let seen = 0;
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(content))) {
+      // The call's arguments, up to the matching parenthesis
+      let depth = 0;
+      let end = m.index + m[0].length - 1;
+      for (; end < content.length; end++) {
+        if (content[end] === '(') depth++;
+        else if (content[end] === ')' && --depth === 0) break;
+      }
+      const args = content.slice(m.index + m[0].length, end);
+      if (!/\b(bom|bomItem|bomLine|orderBomItem|bomItems|orderBomItems)\b|\bbom[A-Z]\w*\b/.test(args)) continue;
+      const lineNo = lineOf(content, m.index);
+      const context = rawLines.slice(Math.max(0, lineNo - 3), lineNo).join('\n');
+      if (/allow-base-row-stock/.test(context)) continue;
+      seen++;
+      out.push({
+        key: `${rel} :: getDerivedOnHand(BOM line) #${seen}`,
+        file: rel,
+        line: lineNo,
+        detail: 'stock of a BOM line read from its base materials row — a sized label (or thread pack) keeps its lots on other rows, so this reads 0',
+      });
+    }
+  }
+  return out;
+}
+
 // A full `users` row in an include/select (2026-09-30). `createdBy: true` — or any relation that
 // points at `users` set to `true` — loads the whole row, password hash and tokenVersion included,
 // and a transform that spreads or passes it through sends it to the browser: the stitching and
@@ -2972,6 +3019,7 @@ module.exports = {
   cadMarkerRuleBypass,
   rateCardPrintingTypeDrift,
   fullUserInclude,
+  baseRowStockRead,
   jwoLinesWriter,
   costingCadApprovalDrift,
   saleOrderStatusWrite,

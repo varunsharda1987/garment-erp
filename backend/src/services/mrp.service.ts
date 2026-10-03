@@ -77,6 +77,7 @@ import { PO_LINK_REQUIREMENT_STATUSES, requirementDyers } from './helpers/receip
 import { NOT_ORDERED, reconcileRequirementLineage } from './helpers/requirement-reconcile.helper';
 import { createAuditLog } from './audit.service';
 import { BASE_MATERIAL_ROW, MASTER_CONFIG } from './helpers/master-config';
+import { matchLabelSize } from './helpers/run-line-availability.helper';
 import { ensureMaterialRecord } from './helpers/material-sync.helper';
 import { defaultDeliveryLocationId } from './helpers/po-default-delivery.helper';
 import { fillMaterialHsnIfBlank } from './helpers/material-hsn.helper';
@@ -563,7 +564,8 @@ async function ensureMaterialForElastic(elasticId: string): Promise<{ id: string
  */
 async function ensureMaterialForLabel(labelId: string): Promise<{ id: string } | null> {
   try {
-    const existing = await prisma.materials.findFirst({ where: { labelId } });
+    // The label's BASE row — its size rows share labelId
+    const existing = await prisma.materials.findFirst({ where: { labelId, ...BASE_MATERIAL_ROW } });
     if (existing) return existing;
 
     const label = await prisma.label_master.findUnique({
@@ -604,7 +606,7 @@ async function ensureMaterialForLabel(labelId: string): Promise<{ id: string } |
     return material;
   } catch (err: any) {
     if (err?.code === 'P2002') {
-      const justCreated = await prisma.materials.findFirst({ where: { labelId } });
+      const justCreated = await prisma.materials.findFirst({ where: { labelId, ...BASE_MATERIAL_ROW } });
       if (justCreated) return justCreated;
     }
     logger.error(`[MRP] Failed to auto-create materials record for labelId ${labelId}:`, err);
@@ -1830,7 +1832,7 @@ export async function calculateRequirementsFromOrder(
               const sizeName = breakup.size_options?.sizeName || breakup.sizeId;
 
               // Find matching size variant (case-insensitive)
-              const variant = labelSizeVariants.find((v) => v.size.toLowerCase() === sizeName.toLowerCase());
+              const variant = matchLabelSize(labelSizeVariants, sizeName);
 
               if (!variant) {
                 logWarn(`[MRP] No size variant for label ${bomItem.labelId} size "${sizeName}" - skipping this size`);
@@ -1866,7 +1868,8 @@ export async function calculateRequirementsFromOrder(
                 wastagePercent,
                 totalRequired: sizeRequired,
                 unit: toRequirementUnit(bomItem.unit),
-                availableStock: 0, // Label stock not tracked per-size currently
+                // What is free of this size's label (its lots are on the size row), as every other trim line records
+                availableStock: (await trimStockOf([sizeVariantMaterial.id])).get(sizeVariantMaterial.id)?.free ?? 0,
                 allocatedFromStock: 0,
                 shortfall: sizeRequired,
                 preferredSupplierId: labelSupplierId,

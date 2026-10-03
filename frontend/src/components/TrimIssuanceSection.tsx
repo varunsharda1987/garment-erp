@@ -76,7 +76,7 @@ export default function TrimIssuanceSection({ workOrderId }: TrimIssuanceSection
         materialId: item.materialId!,
         quantity: parseFloat(quantities[item.materialId!] || '0'),
         unit: item.unit,
-        description: `${item.materialCode} - ${item.materialName}`,
+        description: `${item.materialCode} - ${item.materialName}${item.sizeName ? ` (size ${item.sizeName})` : ''}`,
       }))
       .filter((i) => i.quantity > 0);
 
@@ -170,7 +170,7 @@ export default function TrimIssuanceSection({ workOrderId }: TrimIssuanceSection
                 const heldForOthers = item.heldForOthers ?? 0;
                 return (
                   <TableRow
-                    key={item.bomItemId}
+                    key={`${item.bomItemId}:${item.materialId ?? item.sizeName ?? ''}`}
                     className={isSelected ? 'bg-info-muted' : hasStock ? 'cursor-pointer hover:bg-muted' : 'opacity-50'}
                     onClick={() => {
                       if (item.materialId && hasStock && remaining > 0) {
@@ -191,6 +191,9 @@ export default function TrimIssuanceSection({ workOrderId }: TrimIssuanceSection
                     <TableCell className="font-medium max-w-[160px] truncate" title={item.materialName}>
                       {item.materialCode ? `${item.materialCode} - ` : ''}
                       {item.materialName}
+                      {item.sizeName && (
+                        <span className="ml-1 text-xs text-muted-foreground">· Size {item.sizeName}</span>
+                      )}
                     </TableCell>
                     <TableCell>{item.componentName || '-'}</TableCell>
                     <TableCell>

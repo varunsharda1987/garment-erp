@@ -486,6 +486,8 @@ export interface MaterialIssuanceItem {
   materialId: string | null;
   materialCode: string;
   materialName: string;
+  /** The size of a label issued size by size (its stock is on the size row); null otherwise */
+  sizeName?: string | null;
   materialType: string;
   componentName: string;
   unit: string;

@@ -10,6 +10,7 @@ import { toCurrency, multiplyCurrency, toNumber } from '../utils/currency';
 import { systemSettingsService } from '../services/system-settings.service';
 import { lineUnit, loadLineUnits, loadMaterialUnits } from '../services/helpers/material-unit.helper';
 import { getStyleLabelSet } from '../services/label-set.service';
+import { BASE_MATERIAL_ROW } from '../services/helpers/master-config';
 
 /**
  * Search materials by type and query string
@@ -248,7 +249,7 @@ export const searchMaterials = async (req: Request, res: Response): Promise<void
         },
         include: {
           suppliers: { select: { name: true } },
-          materials: { select: { id: true, code: true } },
+          materials: { where: BASE_MATERIAL_ROW, select: { id: true, code: true } }, // the base row, not a size row
         },
         take: limitNum,
         orderBy: { labelName: 'asc' },
@@ -499,7 +500,7 @@ export const getMaterialByCode = async (req: Request, res: Response): Promise<vo
       where: { labelCode: materialCode, isActive: true },
       include: {
         suppliers: { select: { name: true } },
-        materials: { select: { id: true, code: true } },
+        materials: { where: BASE_MATERIAL_ROW, select: { id: true, code: true } }, // the base row, not a size row
       },
     });
 
@@ -827,7 +828,7 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
   } else if (materialCode.startsWith('LBL-')) {
     const label = await prisma.label_master.findFirst({
       where: { labelCode: materialCode, isActive: true },
-      include: { materials: true },
+      include: { materials: { where: BASE_MATERIAL_ROW } }, // the base row, not a size row
     });
 
     if (!label) {

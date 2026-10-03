@@ -20,6 +20,7 @@ import {
   takeFromSlips,
   waitingBySize,
 } from '../services/helpers/stitching-slip-balance.helper';
+import { labelCoverForStitching, refuseSizesWithoutLabels } from '../services/helpers/run-line-availability.helper';
 
 // ============================================
 // Helper Functions
@@ -336,6 +337,9 @@ export const createStitchingIssue = async (req: Request, res: Response) => {
   // was marked RECEIVED however few pieces were issued, and the rest were lost. The helper also
   // refuses a slip of another run and more than a slip has left (bug-hunt production-23).
   const issue = await prisma.$transaction(async (tx) => {
+    // A size label is sewn at stitching: a size whose labels are not there cannot be issued (owner, 2026-10-03)
+    await refuseSizesWithoutLabels(tx, workOrderId, skuRows);
+
     const created = await tx.stitching_issues.create({
       data: {
         issueNumber,
@@ -1280,6 +1284,30 @@ export const getStyleSizeSummary = async (req: Request, res: Response) => {
     .sort((a, b) => a.workOrderNumber.localeCompare(b.workOrderNumber));
 
   res.json({ data });
+};
+
+/**
+ * GET /api/stitching/label-availability?workOrderId=
+ * Per size, how many more pieces the run's size labels cover for stitching — the form shows it and caps the
+ * issue; createStitchingIssue enforces the same rule. `sizes: null` = no size label to enforce.
+ */
+export const getLabelAvailability = async (req: Request, res: Response) => {
+  const workOrderId = String(req.query.workOrderId || '');
+  if (!workOrderId) throw new ValidationError('workOrderId is required');
+  const cover = await labelCoverForStitching(prisma, workOrderId);
+  res.json({
+    data: {
+      sizes: cover
+        ? [...cover.values()].map((c) => ({
+            sizeName: c.sizeName,
+            piecesCovered: c.piecesCovered,
+            piecesIssued: c.piecesIssued,
+            canIssue: Math.max(0, c.piecesCovered - c.piecesIssued),
+            labels: c.labels,
+          }))
+        : null,
+    },
+  });
 };
 
 // Cutting slips with pieces still to issue to stitching — each showing what is LEFT on it

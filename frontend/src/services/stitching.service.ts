@@ -1,5 +1,6 @@
 import api from '../lib/api';
 import type {
+  StitchingLabelAvailability,
   StitchingIssue,
   StitchingIssueListResponse,
   StitchingIssueResponse,
@@ -114,6 +115,14 @@ export const stitchingSummaryService = {
   // Get summary by manager
   getSummaryByManager: async (managerId: string): Promise<StitchingSummary> => {
     const response = await api.get<{ data: StitchingSummary }>(`${BASE_URL}/summary/manager/${managerId}`);
+    return response.data.data;
+  },
+
+  // Per size, how many more pieces the run's size labels cover (a size without labels cannot be issued)
+  getLabelAvailability: async (workOrderId: string): Promise<StitchingLabelAvailability> => {
+    const response = await api.get<{ data: StitchingLabelAvailability }>(`${BASE_URL}/label-availability`, {
+      params: { workOrderId },
+    });
     return response.data.data;
   },
 

@@ -302,6 +302,21 @@ export interface StyleSizeSummaryItem {
 // Incoming Transfer Slip (from Cutting)
 // ============================================
 
+/** GET /stitching/label-availability — per size, how many more pieces the size labels cover for stitching */
+export interface StitchingLabelCover {
+  sizeName: string;
+  piecesCovered: number;
+  piecesIssued: number;
+  /** Pieces of this size that may still be issued to stitching */
+  canIssue: number;
+  labels: Array<{ materialCode: string; perGarment: number; have: number; inThisSize: boolean }>;
+}
+
+export interface StitchingLabelAvailability {
+  /** null = the run has no size label to enforce */
+  sizes: StitchingLabelCover[] | null;
+}
+
 export interface IncomingTransferSlip {
   id: string;
   slipNumber: string;

@@ -24,6 +24,31 @@ import type {
 
 const BASE_URL = '/work-orders';
 
+/** The run page's Material Readiness (GET /work-orders/:id/material-readiness) */
+export interface MaterialReadiness {
+  /** Cutting can go ahead — fabric only; labels and trims still to come only warn */
+  isReady: boolean;
+  /** Nothing at all is short */
+  allAvailable: boolean;
+  totalMaterials: number;
+  availableMaterials: number;
+  hasApprovedBom: boolean;
+  missingMaterials: Array<{
+    materialName: string;
+    materialCode: string;
+    required: number;
+    available: number;
+    shortfall: number;
+    unit: string;
+    /** Fabric: holds up cutting. Everything else is needed later (stitching / finishing). */
+    blocksCutting: boolean;
+    /** A label that comes in sizes — a size without labels cannot be issued to stitching */
+    sizedLabel?: boolean;
+    unlinked?: boolean;
+    sizes?: Array<{ sizeName: string; materialCode: string | null; need: number; have: number; short: number }>;
+  }>;
+}
+
 export const workOrderService = {
   /**
    * Get all work orders with optional filters
@@ -127,20 +152,7 @@ export const workOrderService = {
   /**
    * Check material readiness for a work order
    */
-  async checkMaterialReadiness(id: string): Promise<{
-    isReady: boolean;
-    totalMaterials: number;
-    availableMaterials: number;
-    hasApprovedBom: boolean;
-    missingMaterials: Array<{
-      materialName: string;
-      materialCode: string;
-      required: number;
-      available: number;
-      shortfall: number;
-      unit: string;
-    }>;
-  }> {
+  async checkMaterialReadiness(id: string): Promise<MaterialReadiness> {
     const response = await api.get(`${BASE_URL}/${id}/material-readiness`);
     if (!response.data.data) throw new Error('Failed to check material readiness');
     return response.data.data;

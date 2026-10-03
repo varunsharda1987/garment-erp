@@ -32,6 +32,7 @@ import {
   getSummaryByManager,
   getStyleSizeSummary,
   getAvailableTransferSlips,
+  getLabelAvailability,
   getAvailableManagers,
   disposeDefects,
 } from '../controllers/stitching.controller';
@@ -54,6 +55,7 @@ router.get(
 router.get('/summary/manager/:managerId', validateParams(managerIdParamSchema), asyncHandler(getSummaryByManager));
 router.get('/style-size-summary', asyncHandler(getStyleSizeSummary));
 router.get('/pending-transfer-slips', asyncHandler(getAvailableTransferSlips));
+router.get('/label-availability', asyncHandler(getLabelAvailability));
 router.get('/available-managers', asyncHandler(getAvailableManagers));
 
 // ============================================

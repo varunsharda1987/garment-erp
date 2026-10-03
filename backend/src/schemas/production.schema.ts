@@ -12,6 +12,7 @@ import {
   StitchingIssueStatusEnum as PrismaStitchingIssueStatusEnum,
   FinishingStatusEnum as PrismaFinishingStatusEnum,
 } from './generated/prisma-enums';
+import { formNumber, formNumberRequired } from './common.schema';
 
 // Helper for validating IDs that can be UUID or CUID (color_master uses CUID)
 const isValidIdFormat = (val: string) =>
@@ -283,6 +284,10 @@ export const createStitchingIssueSchema = z.object({
   transferSlipIds: z.array(z.string().uuid('Invalid transfer slip ID')).optional(), // Changed from transferSlipId (string) to transferSlipIds (array)
   managerId: z.string().uuid('Invalid manager ID').optional(),
   contractorId: z.string().uuid('Invalid contractor ID').optional(), // Added - contractor assignment
+  // What the operators get per piece — the contractor's commission is added on top (stitching-rate.helper)
+  operatorRatePerPiece: formNumberRequired(
+    z.number({ message: 'Enter the stitching rate given per piece' }).positive('The stitching rate must be more than 0')
+  ),
   issueDate: z.string().or(z.date()).optional(), // Renamed from startDate
   expectedCompletionDate: z.string().or(z.date()).optional(), // Added - expected completion
   remarks: z.string().max(1000).optional(),
@@ -307,11 +312,37 @@ export const updateStitchingIssueSchema = z.object({
   managerId: z.string().uuid().optional().nullable(),
   // The issue page's Edit can change the contractor while the issue is open
   contractorId: z.string().uuid('Invalid contractor ID').optional().nullable(),
+  // A wrong stitching rate can be corrected while the issue is open (blank = no change)
+  operatorRatePerPiece: formNumber(z.number().positive('The stitching rate must be more than 0')),
   remarks: z.string().max(1000).optional(),
   // Same as the finishing equivalent: real columns the controller converts and writes, previously
   // stripped so the dates could never be edited.
   issueDate: z.coerce.date().optional(),
   expectedCompletionDate: z.coerce.date().optional().nullable(),
+});
+
+/**
+ * The rates the stitching issue form shows for a run
+ * GET /api/stitching/rate-guide
+ */
+export const stitchingRateGuideQuerySchema = z.object({
+  workOrderId: z.string().uuid('Invalid work order ID'),
+});
+
+/**
+ * What stitching contractors are owed for their good pieces
+ * GET /api/stitching/contractor-statement — the dates bound the day the pieces were recorded
+ */
+export const stitchingContractorStatementQuerySchema = z.object({
+  contractorId: z.string().uuid('Invalid contractor ID').optional(),
+  fromDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
+    .optional(),
+  toDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
+    .optional(),
 });
 
 /**

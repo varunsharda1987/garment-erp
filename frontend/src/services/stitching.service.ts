@@ -14,6 +14,8 @@ import type {
   StitchingDailyOutput,
   StyleSizeSummaryItem,
   IncomingTransferSlip,
+  StitchingRateGuide,
+  StitchingContractorStatement,
 } from '../types/stitching.types';
 
 const BASE_URL = '/stitching';
@@ -135,6 +137,26 @@ export const stitchingSummaryService = {
   // Get style/size-wise summary across all active issues
   getStyleSizeSummary: async (): Promise<StyleSizeSummaryItem[]> => {
     const response = await api.get<{ data: StyleSizeSummaryItem[] }>(`${BASE_URL}/style-size-summary`);
+    return response.data.data;
+  },
+
+  // The rates the issue form shows for a run: last given for the style, as per costing, the commission %
+  getRateGuide: async (workOrderId: string): Promise<StitchingRateGuide> => {
+    const response = await api.get<{ data: StitchingRateGuide }>(`${BASE_URL}/rate-guide`, {
+      params: { workOrderId },
+    });
+    return response.data.data;
+  },
+
+  // What stitching contractors are owed for their good pieces; dates bound the day pieces were recorded
+  getContractorStatement: async (params: {
+    contractorId?: string;
+    fromDate?: string;
+    toDate?: string;
+  }): Promise<StitchingContractorStatement> => {
+    const response = await api.get<{ data: StitchingContractorStatement }>(`${BASE_URL}/contractor-statement`, {
+      params,
+    });
     return response.data.data;
   },
 

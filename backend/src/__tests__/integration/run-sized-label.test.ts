@@ -358,6 +358,7 @@ describe('a size cannot go to stitching without its labels', () => {
       .send({
         workOrderId,
         issueDate: '2026-10-03',
+        operatorRatePerPiece: 20,
         skuBreakdown: rows.map(([size, qty]) => ({ colorId: null, sizeId: sizeIds[size], issuedQty: qty })),
       });
 

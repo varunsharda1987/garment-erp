@@ -228,6 +228,7 @@ import {
   StitchingList,
   StitchingForm,
   StitchingDetail,
+  StitchingContractorStatement,
   FinishingList,
   FinishingForm,
   FinishingDetail,
@@ -739,6 +740,7 @@ function App() {
               {/* Stitching (Manufacturing - Production) */}
               <Route path="/manufacturing/stitching" element={<StitchingList />} />
               <Route path="/manufacturing/stitching/new" element={<StitchingForm />} />
+              <Route path="/manufacturing/stitching/contractor-statement" element={<StitchingContractorStatement />} />
               <Route path="/manufacturing/stitching/:id" element={<StitchingDetail />} />
 
               {/* Finishing (Manufacturing - Production) */}

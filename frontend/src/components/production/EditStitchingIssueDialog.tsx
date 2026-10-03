@@ -1,4 +1,4 @@
-// Edit an open stitching issue — its dates, contractor and remarks. The page had no way to change any
+// Edit an open stitching issue — its dates, contractor, stitching rate and remarks. The page had no way to change any
 // of them, so an issue given to the wrong contractor stayed wrong. A Completed issue cannot be edited
 // (the server refuses it).
 import { useState } from 'react';
@@ -39,7 +39,13 @@ function EditStitchingIssueBody({ issue, onOpenChange, onSaved }: Props & { issu
     issue.expectedCompletionDate ? toDateInputValue(issue.expectedCompletionDate) : ''
   );
   const [remarks, setRemarks] = useState(issue.remarks ?? '');
+  // The rate given to the operators per piece; the commission % stays the one of the issue's day
+  const [operatorRate, setOperatorRate] = useState(
+    issue.operatorRatePerPiece != null ? String(issue.operatorRatePerPiece) : ''
+  );
   const [saving, setSaving] = useState(false);
+  const rate = Number(operatorRate);
+  const rateValid = operatorRate.trim() === '' || (Number.isFinite(rate) && rate > 0);
 
   const save = async () => {
     try {
@@ -47,6 +53,7 @@ function EditStitchingIssueBody({ issue, onOpenChange, onSaved }: Props & { issu
       await stitchingIssueService.update(issue.id, {
         issueDate,
         contractorId: contractorId || null,
+        ...(operatorRate.trim() !== '' ? { operatorRatePerPiece: rate } : {}),
         expectedCompletionDate: expectedCompletionDate || null,
         remarks,
       });
@@ -65,7 +72,9 @@ function EditStitchingIssueBody({ issue, onOpenChange, onSaved }: Props & { issu
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Edit {issue.issueNumber}</DialogTitle>
-          <DialogDescription>Change the dates, the stitching contractor or the remarks.</DialogDescription>
+          <DialogDescription>
+            Change the dates, the stitching contractor, the stitching rate or the remarks.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4">
@@ -102,6 +111,24 @@ function EditStitchingIssueBody({ issue, onOpenChange, onSaved }: Props & { issu
             />
           </div>
           <div>
+            <Label htmlFor="editOperatorRate">Stitching rate to operators (₹ / pc)</Label>
+            <Input
+              id="editOperatorRate"
+              type="number"
+              inputMode="decimal"
+              min={0}
+              step="any"
+              value={operatorRate}
+              onChange={(e) => setOperatorRate(e.target.value)}
+              className="w-40"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              {issue.commissionPercent != null
+                ? `The contractor's ${issue.commissionPercent}% commission of this issue is added on top.`
+                : "The contractor's commission (Settings) is added on top."}
+            </p>
+          </div>
+          <div>
             <Label htmlFor="editRemarks">Remarks</Label>
             <Textarea
               id="editRemarks"
@@ -117,7 +144,7 @@ function EditStitchingIssueBody({ issue, onOpenChange, onSaved }: Props & { issu
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>
-          <Button onClick={save} disabled={saving || !issueDate || !contractorId}>
+          <Button onClick={save} disabled={saving || !issueDate || !contractorId || !rateValid}>
             {saving ? 'Saving…' : 'Save'}
           </Button>
         </DialogFooter>

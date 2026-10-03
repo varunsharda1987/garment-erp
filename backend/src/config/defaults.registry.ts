@@ -368,6 +368,20 @@ export const SYSTEM_DEFAULTS = {
     unit: '₹',
   },
 
+  STITCHING_CONTRACTOR_COMMISSION_PERCENT: {
+    value: '10',
+    dataType: 'NUMBER',
+    category: 'PROCESSING_RATES',
+    group: 'Processing rates',
+    label: 'Stitching contractor commission',
+    description:
+      'What a stitching contractor earns on top of the rate the operators get per piece. Each new stitching ' +
+      'issue keeps the % of its day, so a change here does not change issues already made.',
+    min: 0,
+    max: 100,
+    unit: '%',
+  },
+
   // ──────────────────────────────────────────────────────────────────────────
   // AI assistant
   // ──────────────────────────────────────────────────────────────────────────

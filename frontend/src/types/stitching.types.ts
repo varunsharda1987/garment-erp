@@ -159,6 +159,78 @@ export interface StitchingIssue {
     slipNumber: string;
     status: string;
   } | null;
+  /** What the operators get per piece — null on issues made before 2026-10-03 */
+  operatorRatePerPiece?: number | null;
+  /** The contractor commission % of the issue's day */
+  commissionPercent?: number | null;
+  /** The cost sheet's stitching cost per piece of the issue's day (it includes the commission) */
+  costingRatePerPiece?: number | null;
+  costingSheet?: { id: string; label: string } | null;
+  payment?: StitchingPayment;
+}
+
+/** An issue's rates and what the contractor is owed for its GOOD pieces (stitching-rate.helper) */
+export interface StitchingPayment {
+  goodPieces: number;
+  defectPieces: number;
+  operatorRatePerPiece: number | null;
+  commissionPercent: number | null;
+  commissionPerPiece: number | null;
+  totalPerPiece: number | null;
+  costingRatePerPiece: number | null;
+  /** Total per piece − costing per piece; positive = paying more than costed */
+  differencePerPiece: number | null;
+  owed: { operatorAmount: number; commissionAmount: number; totalAmount: number } | null;
+}
+
+/** GET /stitching/rate-guide — the rates the issue form shows */
+export interface StitchingRateGuide {
+  commissionPercent: number;
+  costing: {
+    costSheetId: string;
+    label: string;
+    totalPerPiece: number;
+    operatorRatePerPiece: number;
+  } | null;
+  lastGiven: {
+    issueId: string;
+    issueNumber: string;
+    issueDate: string;
+    contractorName: string | null;
+    operatorRatePerPiece: number;
+    commissionPercent: number;
+    commissionPerPiece: number;
+    totalPerPiece: number;
+  } | null;
+}
+
+/** GET /stitching/contractor-statement */
+export interface StitchingStatementRow extends StitchingPayment {
+  id: string;
+  issueNumber: string;
+  issueDate: string;
+  status: StitchingIssueStatus;
+  contractor: { id: string; code: string; name: string } | null;
+  workOrder: {
+    id: string;
+    workOrderNumber: string;
+    style: { id: string; styleCode: string; buyerStyleRef: string | null; styleName: string } | null;
+  } | null;
+  issuedPieces: number;
+}
+
+export interface StitchingContractorStatement {
+  rows: StitchingStatementRow[];
+  totals: {
+    issuedPieces: number;
+    goodPieces: number;
+    defectPieces: number;
+    operatorAmount: number;
+    commissionAmount: number;
+    totalAmount: number;
+    /** Good pieces on issues with no rate (made before rates were kept) — not in the amounts */
+    unpricedGoodPieces: number;
+  };
 }
 
 // ============================================
@@ -170,6 +242,8 @@ export interface CreateStitchingIssueRequest {
   issueDate: string;
   managerId?: string;
   contractorId?: string;
+  /** What the operators get per piece; the contractor's commission is added on top */
+  operatorRatePerPiece: number;
   expectedCompletionDate?: string;
   remarks?: string;
   transferSlipIds?: string[];
@@ -187,6 +261,8 @@ export interface CreateStitchingIssueRequest {
 export interface UpdateStitchingIssueRequest {
   managerId?: string | null;
   contractorId?: string | null;
+  /** A corrected rate given per piece; omitted = no change */
+  operatorRatePerPiece?: number;
   remarks?: string;
   issueDate?: string;
   /** null clears it */

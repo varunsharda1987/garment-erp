@@ -8,6 +8,7 @@ import { dedupeSkuRows, generateTransferSlipNumber } from './cutting.utils';
 import { nextSeededSequence } from '../utils/seeded-sequence';
 import { applySearch } from '../utils/search-filter';
 import { toDateInputValue } from '../utils/date';
+import { addCurrency, toNumber } from '../utils/currency';
 import { skuKey } from '../services/helpers/sku-colour.helper';
 import { USER_NAME_SELECT, userName } from '../types/prisma.types';
 import {
@@ -21,6 +22,13 @@ import {
   waitingBySize,
 } from '../services/helpers/stitching-slip-balance.helper';
 import { labelCoverForStitching, refuseSizesWithoutLabels } from '../services/helpers/run-line-availability.helper';
+import {
+  contractorCommissionPercent,
+  costSheetLabel,
+  stitchingCostingRate,
+  stitchingIssuePayment,
+  stitchingRateGuide,
+} from '../services/helpers/stitching-rate.helper';
 
 // ============================================
 // Helper Functions
@@ -96,6 +104,15 @@ const transformStitchingIssue = (issue: any) => ({
       : null,
   })),
   dailyOutputs: (issue.dailyOutputs || []).map((output: any) => ({ ...output, createdBy: userName(output.createdBy) })),
+  // The rate given, the costing rate of the issue's day and what the contractor is owed (stitching-rate.helper)
+  operatorRatePerPiece: issue.operatorRatePerPiece == null ? null : Number(issue.operatorRatePerPiece),
+  commissionPercent: issue.commissionPercent == null ? null : Number(issue.commissionPercent),
+  costingRatePerPiece: issue.costingRatePerPiece == null ? null : Number(issue.costingRatePerPiece),
+  costingSheet: issue.costingSheet ? { id: issue.costingSheet.id, label: costSheetLabel(issue.costingSheet) } : null,
+  payment: stitchingIssuePayment(
+    issue,
+    (issue.dailyOutputs || []).flatMap((output: any) => output.skuOutputs || [])
+  ),
 });
 
 const generateIssueNumber = async (workOrderNumber: string): Promise<string> => {
@@ -133,6 +150,7 @@ const issueIncludeOptions = {
   contractor: {
     select: { id: true, code: true, name: true, contactPerson: true, phone: true },
   },
+  costingSheet: { select: { id: true, purpose: true, version: true } },
   createdBy: USER_NAME_SELECT,
   skuBreakdown: {
     include: {
@@ -289,6 +307,7 @@ export const createStitchingIssue = async (req: Request, res: Response) => {
     issueDate,
     managerId,
     contractorId,
+    operatorRatePerPiece,
     expectedCompletionDate,
     remarks,
     components,
@@ -305,6 +324,23 @@ export const createStitchingIssue = async (req: Request, res: Response) => {
   if (!workOrder) {
     throw new ValidationError('Work order not found');
   }
+
+  if (contractorId) {
+    const contractor = await prisma.suppliers.findFirst({
+      where: { id: contractorId, isActive: true, supplierCategories: { has: 'STITCHING_CONTRACTOR' } },
+      select: { id: true },
+    });
+    if (!contractor) {
+      throw new ValidationError('Pick an active stitching contractor');
+    }
+  }
+
+  // The rate given is typed; the commission % and the costing rate of today are kept beside it, so a later
+  // change of the setting or a new cost sheet does not change what this issue owes or was compared with
+  const [commissionPercent, costing] = await Promise.all([
+    contractorCommissionPercent(),
+    stitchingCostingRate(prisma, workOrderId),
+  ]);
 
   const issueNumber = await generateIssueNumber(workOrder.workOrderNumber);
 
@@ -347,6 +383,10 @@ export const createStitchingIssue = async (req: Request, res: Response) => {
         issueDate: new Date(issueDate),
         managerId: managerId || null,
         contractorId: contractorId || null,
+        operatorRatePerPiece,
+        commissionPercent,
+        costingRatePerPiece: costing?.totalPerPiece ?? null,
+        costingSheetId: costing?.costSheetId ?? null,
         expectedCompletionDate: expectedCompletionDate ? new Date(expectedCompletionDate) : null,
         status: 'PENDING_RECEIPT',
         remarks,
@@ -407,9 +447,11 @@ export const createStitchingIssue = async (req: Request, res: Response) => {
 
 export const updateStitchingIssue = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { managerId, contractorId, remarks, issueDate, expectedCompletionDate } = req.body as {
+  const { managerId, contractorId, operatorRatePerPiece, remarks, issueDate, expectedCompletionDate } = req.body as {
     managerId?: string | null;
     contractorId?: string | null;
+    /** A correction of the rate given; blank = no change. The commission % stays the one of the issue's day. */
+    operatorRatePerPiece?: number | null;
     remarks?: string;
     issueDate?: Date;
     expectedCompletionDate?: Date | null;
@@ -417,7 +459,7 @@ export const updateStitchingIssue = async (req: Request, res: Response) => {
 
   const existing = await prisma.stitching_issues.findUnique({
     where: { id },
-    select: { status: true },
+    select: { status: true, commissionPercent: true },
   });
 
   if (!existing) {
@@ -427,6 +469,12 @@ export const updateStitchingIssue = async (req: Request, res: Response) => {
   if (existing.status === 'COMPLETED') {
     throw new ValidationError('Cannot update completed issue');
   }
+
+  // An issue made before rates were kept takes today's commission % with its first rate
+  const firstCommission =
+    operatorRatePerPiece != null && existing.commissionPercent == null
+      ? { commissionPercent: await contractorCommissionPercent() }
+      : {};
 
   // The issue's contractor can be corrected while it is open (the page had no way to change it)
   if (contractorId) {
@@ -444,6 +492,7 @@ export const updateStitchingIssue = async (req: Request, res: Response) => {
     data: {
       managerId,
       contractorId,
+      ...(operatorRatePerPiece != null ? { operatorRatePerPiece, ...firstCommission } : {}),
       remarks,
       issueDate,
       // null clears the date (it used to be turned into "no change")
@@ -1391,6 +1440,112 @@ export const getAvailableManagers = async (req: Request, res: Response) => {
   });
 
   res.json({ data: contractors });
+};
+
+// The three rates the issue form shows for a run: last given for the style, as per costing, and the
+// commission in force (stitching-rate.helper)
+export const getRateGuide = async (req: Request, res: Response) => {
+  const workOrderId = String(req.query.workOrderId);
+  const guide = await stitchingRateGuide(prisma, workOrderId);
+  if (!guide) throw new NotFoundError('Work order', workOrderId);
+  res.json({ data: guide });
+};
+
+// What stitching contractors are owed: per issue, its GOOD pieces × the rate given + the commission.
+// fromDate / toDate (YYYY-MM-DD) bound the day the pieces were recorded — an output's date is stored as
+// the typed day at 00:00 UTC, so whole-day UTC bounds select exactly those days.
+export const getContractorStatement = async (req: Request, res: Response) => {
+  const { contractorId, fromDate, toDate } = req.query as { contractorId?: string; fromDate?: string; toDate?: string };
+
+  const outputDate: Prisma.DateTimeFilter = {};
+  if (fromDate) outputDate.gte = new Date(`${fromDate}T00:00:00.000Z`);
+  if (toDate) {
+    const end = new Date(`${toDate}T00:00:00.000Z`);
+    end.setUTCDate(end.getUTCDate() + 1);
+    outputDate.lt = end;
+  }
+  const dated = Boolean(fromDate || toDate);
+
+  const issues = await prisma.stitching_issues.findMany({
+    where: {
+      contractorId: contractorId ? contractorId : { not: null },
+      // With dates, only the issues that stitched something in them
+      ...(dated ? { dailyOutputs: { some: { outputDate } } } : {}),
+    },
+    orderBy: [{ issueDate: 'asc' }, { createdAt: 'asc' }],
+    select: {
+      id: true,
+      issueNumber: true,
+      issueDate: true,
+      status: true,
+      operatorRatePerPiece: true,
+      commissionPercent: true,
+      costingRatePerPiece: true,
+      contractor: { select: { id: true, code: true, name: true } },
+      workOrder: {
+        select: {
+          id: true,
+          workOrderNumber: true,
+          styles: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
+        },
+      },
+      skuBreakdown: { select: { issuedQty: true } },
+      dailyOutputs: {
+        where: dated ? { outputDate } : undefined,
+        select: { skuOutputs: { select: { goodQty: true, defectQty: true } } },
+      },
+    },
+  });
+
+  const rows = issues.map((issue) => ({
+    id: issue.id,
+    issueNumber: issue.issueNumber,
+    issueDate: issue.issueDate,
+    status: issue.status,
+    contractor: issue.contractor,
+    workOrder: issue.workOrder
+      ? { id: issue.workOrder.id, workOrderNumber: issue.workOrder.workOrderNumber, style: issue.workOrder.styles }
+      : null,
+    issuedPieces: issue.skuBreakdown.reduce((sum, sku) => sum + sku.issuedQty, 0),
+    ...stitchingIssuePayment(
+      issue,
+      issue.dailyOutputs.flatMap((output) => output.skuOutputs)
+    ),
+  }));
+
+  const totals = rows.reduce(
+    (sum, row) => ({
+      issuedPieces: sum.issuedPieces + row.issuedPieces,
+      goodPieces: sum.goodPieces + row.goodPieces,
+      defectPieces: sum.defectPieces + row.defectPieces,
+      operatorAmount: addCurrency(sum.operatorAmount, row.owed?.operatorAmount ?? 0),
+      commissionAmount: addCurrency(sum.commissionAmount, row.owed?.commissionAmount ?? 0),
+      totalAmount: addCurrency(sum.totalAmount, row.owed?.totalAmount ?? 0),
+      // Good pieces on issues with no rate (made before rates were kept): not in the amounts
+      unpricedGoodPieces: sum.unpricedGoodPieces + (row.owed ? 0 : row.goodPieces),
+    }),
+    {
+      issuedPieces: 0,
+      goodPieces: 0,
+      defectPieces: 0,
+      operatorAmount: addCurrency(0),
+      commissionAmount: addCurrency(0),
+      totalAmount: addCurrency(0),
+      unpricedGoodPieces: 0,
+    }
+  );
+
+  res.json({
+    data: {
+      rows,
+      totals: {
+        ...totals,
+        operatorAmount: toNumber(totals.operatorAmount),
+        commissionAmount: toNumber(totals.commissionAmount),
+        totalAmount: toNumber(totals.totalAmount),
+      },
+    },
+  });
 };
 
 /**

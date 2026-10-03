@@ -198,7 +198,13 @@ describe('a style with no colour goes from stitching to dispatch', () => {
     const issue = await request(app)
       .post('/api/stitching/issues')
       .set(authHeader)
-      .send({ workOrderId, issueDate: '2026-09-28', transferSlipIds: [stitchSlipId], skuBreakdown: skus('issuedQty') });
+      .send({
+        workOrderId,
+        issueDate: '2026-09-28',
+        operatorRatePerPiece: 20,
+        transferSlipIds: [stitchSlipId],
+        skuBreakdown: skus('issuedQty'),
+      });
     // The body is in the assertion so a refusal shows the API's message
     expect({ status: issue.status, body: issue.body }).toMatchObject({ status: 201 });
     stitchingIssueId = issue.body.data.id;

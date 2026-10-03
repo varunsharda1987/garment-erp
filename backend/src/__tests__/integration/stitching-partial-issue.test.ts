@@ -149,6 +149,7 @@ describe('no stitching or finishing response carries a password hash', () => {
       .send({
         workOrderId,
         issueDate: '2026-09-30',
+        operatorRatePerPiece: 20,
         transferSlipIds: [slip.id],
         skuBreakdown: [
           { colorId: null, sizeId: sizeIds.S, issuedQty: 3 },
@@ -240,6 +241,7 @@ describe('a cutting slip keeps what an issue did not take', () => {
       .send({
         workOrderId: splitWorkOrderId,
         issueDate: '2026-09-30',
+        operatorRatePerPiece: 20,
         transferSlipIds: slipIds,
         skuBreakdown: skuBreakdown.map(({ size, qty }) => ({ colorId: null, sizeId: sizeIds[size], issuedQty: qty })),
       });
@@ -419,6 +421,7 @@ describe('an open issue can be corrected, and an all-defect issue can be finishe
       .send({
         workOrderId,
         issueDate: '2026-09-30',
+        operatorRatePerPiece: 20,
         expectedCompletionDate: '2026-10-07',
         transferSlipIds: [slip.id],
         skuBreakdown: [{ colorId: null, sizeId: sizeIds.S, issuedQty: 2 }],
@@ -598,6 +601,7 @@ describe('a finishing issue uses up its stitching slip', () => {
       .send({
         workOrderId,
         issueDate: '2026-09-30',
+        operatorRatePerPiece: 20,
         transferSlipIds: [slipId],
         skuBreakdown: rows.map(([size, qty]) => ({ colorId: null, sizeId: sizeIds[size], issuedQty: qty })),
       });

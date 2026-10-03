@@ -10,6 +10,8 @@ import {
   completeStitchingIssueSchema,
   disposeDefectsSchema,
   stitchingIssueQuerySchema,
+  stitchingRateGuideQuerySchema,
+  stitchingContractorStatementQuerySchema,
 } from '../schemas/production.schema';
 import { idParamSchema, workOrderIdParamSchema, managerIdParamSchema } from '../schemas/common.schema';
 import {
@@ -34,6 +36,8 @@ import {
   getAvailableTransferSlips,
   getLabelAvailability,
   getAvailableManagers,
+  getRateGuide,
+  getContractorStatement,
   disposeDefects,
 } from '../controllers/stitching.controller';
 
@@ -57,6 +61,12 @@ router.get('/style-size-summary', asyncHandler(getStyleSizeSummary));
 router.get('/pending-transfer-slips', asyncHandler(getAvailableTransferSlips));
 router.get('/label-availability', asyncHandler(getLabelAvailability));
 router.get('/available-managers', asyncHandler(getAvailableManagers));
+router.get('/rate-guide', validateQuery(stitchingRateGuideQuerySchema), asyncHandler(getRateGuide));
+router.get(
+  '/contractor-statement',
+  validateQuery(stitchingContractorStatementQuerySchema),
+  asyncHandler(getContractorStatement)
+);
 
 // ============================================
 // STITCHING ISSUE ROUTES

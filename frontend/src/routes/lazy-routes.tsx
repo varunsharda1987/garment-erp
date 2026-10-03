@@ -426,6 +426,7 @@ export const CuttingDetail = lazy(() => import('../pages/CuttingDetail'));
 export const StitchingList = lazy(() => import('../pages/StitchingList'));
 export const StitchingForm = lazy(() => import('../pages/StitchingForm'));
 export const StitchingDetail = lazy(() => import('../pages/StitchingDetail'));
+export const StitchingContractorStatement = lazy(() => import('../pages/StitchingContractorStatement'));
 
 // ============================================================================
 // Finishing (Manufacturing - Production)

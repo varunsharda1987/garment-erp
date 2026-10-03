@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/PageHeader';
+import { StitchingPaymentCard } from '@/components/production/StitchingPaymentCard';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -56,7 +57,13 @@ import { CompleteStitchingDialog } from '@/components/production/CompleteStitchi
 import { EditStitchingIssueDialog } from '@/components/production/EditStitchingIssueDialog';
 
 import { formatDate, toDateInputValue } from '@/lib/date';
-import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, buyerStyleCode, ourStyleCode, styleCodeLabel } from '@/lib/style-code';
+import {
+  BUYER_STYLE_CODE_LABEL,
+  STYLE_CODE_LABEL,
+  buyerStyleCode,
+  ourStyleCode,
+  styleCodeLabel,
+} from '@/lib/style-code';
 import { StyleThumbnail } from '@/components/StyleThumbnail';
 
 interface OutputEntry {
@@ -658,7 +665,11 @@ export default function StitchingDetail() {
               </div>
               {issue.workOrder?.style?.imageUrl && (
                 <div className="flex justify-center pb-2">
-                  <StyleThumbnail imageUrl={issue.workOrder?.style.imageUrl} alt={styleCodeLabel(issue.workOrder?.style)} size="lg" />
+                  <StyleThumbnail
+                    imageUrl={issue.workOrder?.style.imageUrl}
+                    alt={styleCodeLabel(issue.workOrder?.style)}
+                    size="lg"
+                  />
                 </div>
               )}
               <div className="flex justify-between">
@@ -717,6 +728,9 @@ export default function StitchingDetail() {
             </CardContent>
           </Card>
         </div>
+
+        {/* What the contractor is paid — rate given, costing rate, owed for the good pieces */}
+        <StitchingPaymentCard issue={issue} canEdit={issue.status !== 'COMPLETED'} />
 
         {/* SKU Breakdown */}
         {issue.skuBreakdown && issue.skuBreakdown.length > 0 && (

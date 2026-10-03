@@ -21,7 +21,9 @@ import type {
   IncomingTransferSlip,
   StitchingLabelAvailability,
   StitchingLabelCover,
+  StitchingRateGuide,
 } from '@/types/stitching.types';
+import { StitchingRateCard } from '@/components/production/StitchingRateCard';
 import { formatDate, toDateInputValue } from '@/lib/date';
 import { styleCodeLabel } from '@/lib/style-code';
 
@@ -130,6 +132,10 @@ export default function StitchingForm() {
   const [skuBreakdown, setSkuBreakdown] = useState<SKUEntry[]>([]);
   // Per size, how many more pieces the run's size labels cover — a size without labels cannot be issued
   const [labelCover, setLabelCover] = useState<StitchingLabelAvailability | null>(null);
+  // The rate given to the operators (typed), beside the last rate given and the costing rate
+  const [operatorRate, setOperatorRate] = useState('');
+  const [rateGuide, setRateGuide] = useState<StitchingRateGuide | null>(null);
+  const [rateGuideLoading, setRateGuideLoading] = useState(false);
 
   // Reference data
   const [pendingTransferSlips, setPendingTransferSlips] = useState<IncomingTransferSlip[]>([]);
@@ -179,6 +185,33 @@ export default function StitchingForm() {
       cancelled = true;
     };
   }, [workOrderId]);
+
+  useEffect(() => {
+    if (!workOrderId) {
+      setRateGuide(null);
+      return;
+    }
+    let cancelled = false;
+    setRateGuideLoading(true);
+    stitchingSummaryService
+      .getRateGuide(workOrderId)
+      .then((guide) => {
+        if (!cancelled) setRateGuide(guide);
+      })
+      .catch(() => {
+        // Only the reference rates are missing; the rate given is still typed and saved
+        if (!cancelled) setRateGuide(null);
+      })
+      .finally(() => {
+        if (!cancelled) setRateGuideLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [workOrderId]);
+
+  const rateValue = Number(operatorRate);
+  const rateEntered = operatorRate.trim() !== '' && Number.isFinite(rateValue) && rateValue > 0;
 
   useEffect(() => {
     if (transferSlipIdParam && pendingTransferSlips.length > 0) {
@@ -305,6 +338,11 @@ export default function StitchingForm() {
       return;
     }
 
+    if (!rateEntered) {
+      setError('Enter the stitching rate given to the operators per piece');
+      return;
+    }
+
     if (skuBreakdown.length === 0) {
       setError('No SKU breakdown available');
       return;
@@ -323,6 +361,7 @@ export default function StitchingForm() {
         workOrderId,
         issueDate,
         contractorId,
+        operatorRatePerPiece: rateValue,
         expectedCompletionDate: expectedCompletionDate || undefined,
         remarks: remarks || undefined,
         transferSlipIds: selectedSlipIds,
@@ -545,6 +584,17 @@ export default function StitchingForm() {
             </CardContent>
           </Card>
 
+          {/* Stitching Rate — last given, as per costing, given now */}
+          {workOrderId && (
+            <StitchingRateCard
+              guide={rateGuide}
+              loading={rateGuideLoading}
+              value={operatorRate}
+              onChange={setOperatorRate}
+              pieces={getTotalIssued()}
+            />
+          )}
+
           {/* SKU Breakdown */}
           {skuBreakdown.length > 0 && (
             <Card>
@@ -650,7 +700,9 @@ export default function StitchingForm() {
                   </Button>
                   <Button
                     type="submit"
-                    disabled={saving || selectedSlipIds.length === 0 || !contractorId || getTotalIssued() <= 0}
+                    disabled={
+                      saving || selectedSlipIds.length === 0 || !contractorId || !rateEntered || getTotalIssued() <= 0
+                    }
                   >
                     <Save className="mr-2 h-4 w-4" />
                     {saving ? 'Creating...' : 'Create Stitching Issue'}

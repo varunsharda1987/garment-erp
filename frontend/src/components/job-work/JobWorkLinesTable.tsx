@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { StyleIdentity } from '@/components/StyleIdentity';
 import { formatQuantity } from '@/lib/formatters';
 import { isQtyZero } from '@/lib/quantity';
-import { lineColour } from '@/lib/jwo-lines';
+import { lineColour, notProcessedWord } from '@/lib/jwo-lines';
 import type { ReactNode } from 'react';
 import type { JobWorkOrderLine } from '@/types/jobWorkOrder.types';
 
@@ -18,20 +18,23 @@ interface JobWorkLinesTableProps {
   compact?: boolean;
   /** Per-colour actions (Return undyed, Drop…) — a last column when given */
   actions?: (line: JobWorkOrderLine) => ReactNode;
+  /** The job's process — a colour back untouched reads "back undyed" / "back unprinted" */
+  processType?: string | null;
 }
 
 /** How a finished line reads under its Received figure */
-const CLOSED_LABEL: Record<string, string> = {
-  FINAL: 'complete',
-  SHORT: 'closed short',
-  RETURNED: 'back undyed — order back to needs processing',
-  DROPPED: 'dropped — order back to needs processing',
-};
+const closedLabel = (closedHow: string | null | undefined, processType: string | null | undefined) =>
+  ({
+    FINAL: 'complete',
+    SHORT: 'closed short',
+    RETURNED: `back ${notProcessedWord(processType)} — order back to needs processing`,
+    DROPPED: 'dropped — order back to needs processing',
+  })[closedHow ?? 'FINAL'];
 
 const sum = (lines: JobWorkOrderLine[], pick: (l: JobWorkOrderLine) => number | string | null | undefined) =>
   lines.reduce((total, l) => total + Number(pick(l) ?? 0), 0);
 
-export function JobWorkLinesTable({ lines, uom, compact = false, actions }: JobWorkLinesTableProps) {
+export function JobWorkLinesTable({ lines, uom, compact = false, actions, processType }: JobWorkLinesTableProps) {
   const many = lines.length > 1;
   const received = sum(lines, (l) => l.receivedQty);
   return (
@@ -110,7 +113,7 @@ export function JobWorkLinesTable({ lines, uom, compact = false, actions }: JobW
                   {!isQtyZero(line.receivedQty) ? formatQuantity(line.receivedQty, uom) : '-'}
                   {(many || line.closedHow === 'RETURNED' || line.closedHow === 'DROPPED') && line.closedAt && (
                     <div className="text-xs text-muted-foreground">
-                      {CLOSED_LABEL[line.closedHow ?? 'FINAL']}
+                      {closedLabel(line.closedHow, processType)}
                       {line.closedHow === 'RETURNED' && line.qtyReturned != null
                         ? ` (${formatQuantity(line.qtyReturned, uom)})`
                         : ''}

@@ -6,6 +6,17 @@ import type { JobWorkOrderLineBrief } from '@/types/jobWorkOrder.types';
 export const lineColour = (line: JobWorkOrderLineBrief) =>
   line.colorMaster?.colorName ?? line.colorName ?? line.finishedLace?.color ?? line.finishedFabric?.colorName ?? null;
 
+/**
+ * What a colour that came back untouched is called on this job: a dyeing job's comes back "undyed", a
+ * printing job's "unprinted" (PJ-ESSKY090LS-002 said "undyed" on a printing job, 3-Oct).
+ */
+export const notProcessedWord = (processType: string | null | undefined) =>
+  processType === 'DYEING' ? 'undyed' : processType === 'PRINTING' ? 'unprinted' : 'unprocessed';
+
+/** The verb for the same: "without dyeing it" / "without printing it" */
+export const processingVerb = (processType: string | null | undefined) =>
+  processType === 'DYEING' ? 'dyeing' : processType === 'PRINTING' ? 'printing' : 'processing';
+
 /** A line as the person receiving it names it: "ESSKY092LS · Red" (Line 2 when it has neither) */
 export const lineName = (line: JobWorkOrderLineBrief) =>
   [line.style ? buyerStyleCode(line.style) : null, lineColour(line)].filter(Boolean).join(' · ') ||

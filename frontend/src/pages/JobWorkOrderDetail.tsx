@@ -6,7 +6,7 @@
 import { unitPer, unitShort } from '@/lib/units';
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { lineName } from '@/lib/jwo-lines';
+import { lineName, notProcessedWord } from '@/lib/jwo-lines';
 import type { JobWorkOrderLine } from '@/types/jobWorkOrder.types';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -1348,12 +1348,13 @@ export default function JobWorkOrderDetail() {
                 <JobWorkLinesTable
                   lines={jobLines}
                   uom={jwo.uom}
+                  processType={jwo.processType}
                   actions={
                     canReturnLine
                       ? (line) =>
                           !line.closedAt && isQtyZero(line.receivedQty) ? (
                             <Button variant="outline" size="sm" onClick={() => setReturnLine(line)}>
-                              Return undyed
+                              Return {notProcessedWord(jwo.processType)}
                             </Button>
                           ) : null
                       : undefined
@@ -1762,12 +1763,14 @@ export default function JobWorkOrderDetail() {
           qtySent={Number(returnLine.qtySent)}
           uom={jwo.uom}
           drewWhereItLay={!jwo.outwardChallanId && !!jwo.sentDate}
+          processType={jwo.processType}
           line={{ id: returnLine.id, label: lineName(returnLine) }}
           lots={(jwo.components ?? [])
             .filter((c) => c.materialType === 'GREIGE' && c.greigeStockId)
-            .map((c) => ({
+            // The name the Components card shows ("Greige lot 1 — GRG-0042"): two lots of one greige otherwise read the same
+            .map((c, i) => ({
               greigeStockLotId: c.greigeStockId as string,
-              label: c.greige?.greigeCode ? `${c.greige.greigeCode} lot` : 'Greige lot',
+              label: c.componentName ?? `Greige lot ${i + 1}${c.greige?.greigeCode ? ` — ${c.greige.greigeCode}` : ''}`,
               qtyOut: Number(c.qtySent),
             }))}
         />

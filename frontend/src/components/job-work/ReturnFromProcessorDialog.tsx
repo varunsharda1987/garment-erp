@@ -25,6 +25,8 @@ import { invalidateControlCenter } from '@/lib/control-center-keys';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { toDateInputValue } from '@/lib/date';
 import { qtyExceeds, snapToLimit } from '@/lib/quantity';
+import { unitShort } from '@/lib/units';
+import { notProcessedWord, processingVerb } from '@/lib/jwo-lines';
 
 /** A greige lot the job's greige went out on — offered when the greige went out on several */
 export interface ReturnLotOption {
@@ -47,7 +49,9 @@ interface ReturnFromProcessorDialogProps {
    * into a store the user names, as a new lot (Phase 4b).
    */
   drewWhereItLay?: boolean;
-  /** One colour of the job (its line) — only this colour's greige comes back undyed */
+  /** The job's process — a colour back untouched is "undyed" on a dyeing job, "unprinted" on a printing one */
+  processType?: string | null;
+  /** One colour of the job (its line) — only this colour's greige comes back unprocessed */
   line?: { id: string; label: string } | null;
   /** The lots the job's greige went out on; with more than one, the user says how much came back on each */
   lots?: ReturnLotOption[];
@@ -63,13 +67,16 @@ export default function ReturnFromProcessorDialog({
   jobWorkNumber,
   processorName,
   qtySent,
-  uom,
+  uom: rawUom,
+  processType = null,
   drewWhereItLay = false,
   line = null,
   lots = [],
   onSuccess,
 }: ReturnFromProcessorDialogProps) {
   const queryClient = useQueryClient();
+  const uom = unitShort(rawUom);
+  const untouched = notProcessedWord(processType);
   // Numbers as numbers, rendered as '' when zero — `||` on a quantity turns a real 0 into a blank.
   const [qty, setQty] = useState<number>(qtySent);
   const [returnDate, setReturnDate] = useState(today());
@@ -114,7 +121,7 @@ export default function ReturnFromProcessorDialog({
     onSuccess: (result) => {
       handleApiSuccess(
         line
-          ? `${result.lineLabel ?? line.label}: ${result.returnedQty} ${uom} back undyed on challan ${result.inwardChallanNumber}` +
+          ? `${result.lineLabel ?? line.label}: ${result.returnedQty} ${uom} back ${untouched} on challan ${result.inwardChallanNumber}` +
               (result.jobClosed ? ` — ${result.jobWorkNumber} is finished` : '')
           : `${result.jobWorkNumber}: ${result.returnedQty} ${uom} back on challan ${result.inwardChallanNumber}`
       );
@@ -141,10 +148,10 @@ export default function ReturnFromProcessorDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{line ? `${line.label} came back undyed` : 'Returned unprocessed'}</DialogTitle>
+          <DialogTitle>{line ? `${line.label} came back ${untouched}` : 'Returned unprocessed'}</DialogTitle>
           <DialogDescription>
             {line
-              ? `${processorName} sent ${line.label}'s greige back without dyeing it. The greige goes back on the shelf, ` +
+              ? `${processorName} sent ${line.label}'s greige back without ${processingVerb(processType)} it. The greige goes back on the shelf, ` +
                 `an inward challan is filed, and ${line.label} leaves ${jobWorkNumber}: its order goes back to "needs ` +
                 `processing" so a new job can be raised. The other colours carry on.`
               : `${processorName} sent ${jobWorkNumber} back without working on it. The material goes back on the shelf, an ` +
@@ -278,7 +285,7 @@ export default function ReturnFromProcessorDialog({
             ) : (
               <Undo2 className="mr-2 h-4 w-4" />
             )}
-            {line ? `Record ${line.label} back undyed` : 'Record the return & close the job'}
+            {line ? `Record ${line.label} back ${untouched}` : 'Record the return & close the job'}
           </Button>
         </DialogFooter>
       </DialogContent>

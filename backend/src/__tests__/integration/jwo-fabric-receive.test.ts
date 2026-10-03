@@ -25,7 +25,7 @@ import app from '../../app';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
 import { grnService } from '../../services/grn.service';
 import { ensureMaterialRecord, syncStockLevelQuantity } from '../../services/helpers/material-sync.helper';
-import { linkRequirementToLine, theOnlyLine } from '../../services/helpers/jwo-lines.helper';
+import { createOneLineJobWorkOrder, linkRequirementToLine, theOnlyLine } from '../../services/helpers/jwo-lines.helper';
 
 /** The fabric's measured width on arrival — every fabric job-work receipt needs one (lot-width.helper) */
 const MEASURED_WIDTH = 58;
@@ -645,6 +645,30 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     expect(detail.body.data.lines).toHaveLength(1);
     expect(detail.body.data.lines[0].requirementLinks).toHaveLength(2);
     expect(Number(detail.body.data.lines[0].receivedQty)).toBe(495);
+  });
+
+  it('piece work received on the job closes its one line (it comes back whole)', async () => {
+    const piece = await createOneLineJobWorkOrder(prisma, {
+      jobWorkNumber: `${RUN}-PCS`,
+      processType: 'EMBROIDERY',
+      processorId: dyerId,
+      uom: 'PCS',
+      qtySentMeters: 100,
+      agreedRatePerMeter: 5,
+      jwoStatus: 'AT_PROCESSOR',
+      sentDate: new Date('2026-09-01T00:00:00Z'),
+      createdById: userId,
+    });
+
+    const res = await request(app)
+      .post(`/api/job-work-orders/${piece.id}/receive`)
+      .set(authHeader)
+      .send({ qtyReceived: 98, receivedDate: '2026-09-10' });
+
+    expect(res.status).toBe(200);
+    const [line] = await prisma.job_work_order_lines.findMany({ where: { jobWorkOrderId: piece.id } });
+    expect(line.closedHow).toBe('FINAL');
+    expect(line.closedAt!.toISOString().slice(0, 10)).toBe('2026-09-10');
   });
 
   it('the create-only door is closed: POST /api/grn/jwo answers 410 and points at the job', async () => {

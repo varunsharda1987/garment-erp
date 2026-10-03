@@ -54,10 +54,12 @@ import { toDateInputValue } from '../utils/date';
 import { echoShadowPoStatus } from '../services/helpers/shadow-po.helper';
 import { returnJobWorkUnprocessed } from '../services/helpers/jwo-return-unprocessed.helper';
 import {
+  closeLine,
   createOneLineJobWorkOrder,
   JWO_LINES_BRIEF,
   LINE_RECEIPTS_SELECT,
   lineReceivedQty,
+  theOnlyLine,
 } from '../services/helpers/jwo-lines.helper';
 import { ConflictError, UnauthorizedError } from '../errors';
 import { resolveJwoRate, jwoRateProvenance, type JwoRateResolution } from '../services/helpers/jwo-rate.helper';
@@ -1963,9 +1965,10 @@ class JobWorkOrderController {
         }
         const lossSplit = await jobWorkOrderService.applyLossSplit(id, qtyReceived, txClient);
 
-        await setJwoStatus(txClient, id, 'RECEIVED', {
-          receivedDate: receivedDate ? new Date(receivedDate) : new Date(),
-        });
+        const receivedAt = receivedDate ? new Date(receivedDate) : new Date();
+        await setJwoStatus(txClient, id, 'RECEIVED', { receivedDate: receivedAt });
+        // Piece work brings back one thing and comes back whole: its one line is done (jwo-lines.helper)
+        await closeLine(txClient, await theOnlyLine(txClient, id, 'Receiving piece work'), 'FINAL', receivedAt, null);
 
         await updateWosrReceivedQuantity(id, Number(qtyReceived), txClient);
 

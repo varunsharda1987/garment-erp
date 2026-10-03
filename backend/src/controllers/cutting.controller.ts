@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
-import { NotFoundError, ValidationError } from '../errors';
+import { ForbiddenError, NotFoundError, ValidationError } from '../errors';
 import prisma from '../config/database';
 import { loadBatchSlipBalance, piecesLeftByBatch } from '../services/helpers/cutting-slip.helper';
 import { lockOrder, syncOrderStatus } from '../services/helpers/order-status.helper';
-import { Prisma, CuttingReturnShortReason } from '@prisma/client';
+import { Prisma, CuttingReturnShortReason, UserRole } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import {
   transformCuttingBatch,
@@ -213,6 +213,7 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
     remarks,
     skuOutputs,
     fabricStocks, // array of { fabricStockId, cadAvgUsed, cadWidthUsed, actualWidth }
+    materialShortageOverrideReason,
   } = req.body;
 
   // Get work order to generate batch number and check status
@@ -232,9 +233,22 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
     false // Not admin override
   );
 
-  if (stageValidation.isBlocked) {
+  // A fabric shortage alone may be cut past by an ADMIN with a reason (owner, 03-Oct-2026) — what was
+  // short-closed at source is already taken off the requirement, so this is for what is left. Anything
+  // else (samples, tests, the Production CAD) still refuses.
+  const onlyShortage =
+    stageValidation.isBlocked && stageValidation.blockers.every((b) => b.type === 'MATERIAL_SHORTAGE');
+  const overridingShortage = onlyShortage && !!materialShortageOverrideReason;
+  if (overridingShortage && req.user?.role !== UserRole.ADMIN) {
+    throw new ForbiddenError('Only an administrator can cut past a fabric shortage.');
+  }
+  if (stageValidation.isBlocked && !overridingShortage) {
     const blockerMessages = stageValidation.blockers.map((b) => b.message).join('; ');
-    throw new ValidationError(`Cannot create cutting batch: ${blockerMessages}`);
+    throw new ValidationError(
+      `Cannot create cutting batch: ${blockerMessages}` +
+        (onlyShortage ? '. An administrator can override a fabric shortage with a reason.' : ''),
+      { reason: 'CUTTING_STAGE_BLOCKED', blockers: stageValidation.blockers, shortageOverridable: onlyShortage }
+    );
   }
 
   // Validate SKU outputs
@@ -387,52 +401,71 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
 
   const batchNumber = await generateBatchNumber(workOrder.workOrderNumber, componentName);
 
-  const batch = await prisma.cutting_batches.create({
-    data: {
-      batchNumber,
-      workOrderId,
-      componentId,
-      cuttingDate: new Date(cuttingDate),
-      fabricStockId,
-      actualFabricWidth: resolvedWidth,
-      cadAverageUsed: resolvedCadAvg,
-      cadWidthUsed: resolvedCadWidth || resolvedWidth,
-      layersPerLay: layersPerLay ?? 0,
-      numberOfLays: numberOfLays ?? 0,
-      fabricConsumed: 0, // Will be updated when recording output
-      cuttingTableId,
-      cuttingOperatorId,
-      status: 'PENDING',
-      remarks,
-      createdById: userId,
-      skuOutputs: {
-        // Deduped by (colorId, sizeId) — NULL-color duplicates double-count totals (bug-hunt production-18)
-        create: dedupeSkuRows(
-          // as any[]: req.body is untyped, and a bare `any` receiver makes the generic collapse to its
-          // constraint, losing the quantity fields at the Prisma boundary
-          // The order and the extra on top of it are kept apart: a caller that sent only the total
-          // (plannedQty) had its Extra % recorded as ORDER quantity with extra 0 (2026-09-24).
-          ((skuOutputs || []) as any[]).map((sku: any) => {
-            const toCut = sku.toCut || sku.plannedQty;
-            const orderQty = sku.orderQty || toCut;
-            return {
-              colorId: sku.colorId || null,
-              sizeId: sku.sizeId,
-              orderQty,
-              extraAllowed: sku.extraAllowed ?? Math.max(0, toCut - orderQty),
-              // Never below what is planned — a max under the plan would read as over-cutting
-              maxCuttable: Math.max(sku.maxCuttable || 0, toCut),
-              toCut,
-              cutQty: 0,
-              rejectedQty: 0,
-              goodPcs: 0,
-            };
-          }),
-          ['orderQty', 'extraAllowed', 'maxCuttable', 'toCut']
-        ),
+  // The batch and the record of the shortage it was cut past commit together or not at all
+  const batch = await prisma.$transaction(async (tx) => {
+    const created = await tx.cutting_batches.create({
+      data: {
+        batchNumber,
+        workOrderId,
+        componentId,
+        cuttingDate: new Date(cuttingDate),
+        fabricStockId,
+        actualFabricWidth: resolvedWidth,
+        cadAverageUsed: resolvedCadAvg,
+        cadWidthUsed: resolvedCadWidth || resolvedWidth,
+        layersPerLay: layersPerLay ?? 0,
+        numberOfLays: numberOfLays ?? 0,
+        fabricConsumed: 0, // Will be updated when recording output
+        cuttingTableId,
+        cuttingOperatorId,
+        status: 'PENDING',
+        remarks,
+        createdById: userId,
+        skuOutputs: {
+          // Deduped by (colorId, sizeId) — NULL-color duplicates double-count totals (bug-hunt production-18)
+          create: dedupeSkuRows(
+            // as any[]: req.body is untyped, and a bare `any` receiver makes the generic collapse to its
+            // constraint, losing the quantity fields at the Prisma boundary
+            // The order and the extra on top of it are kept apart: a caller that sent only the total
+            // (plannedQty) had its Extra % recorded as ORDER quantity with extra 0 (2026-09-24).
+            ((skuOutputs || []) as any[]).map((sku: any) => {
+              const toCut = sku.toCut || sku.plannedQty;
+              const orderQty = sku.orderQty || toCut;
+              return {
+                colorId: sku.colorId || null,
+                sizeId: sku.sizeId,
+                orderQty,
+                extraAllowed: sku.extraAllowed ?? Math.max(0, toCut - orderQty),
+                // Never below what is planned — a max under the plan would read as over-cutting
+                maxCuttable: Math.max(sku.maxCuttable || 0, toCut),
+                toCut,
+                cutQty: 0,
+                rejectedQty: 0,
+                goodPcs: 0,
+              };
+            }),
+            ['orderQty', 'extraAllowed', 'maxCuttable', 'toCut']
+          ),
+        },
       },
-    },
-    include: batchIncludeOptions,
+      include: batchIncludeOptions,
+    });
+    if (overridingShortage) {
+      await productionBlockingValidationService.logOverride(
+        {
+          blockType: 'MATERIAL_SHORTAGE',
+          workOrderId,
+          toStage: 'IN_CUTTING',
+          overrideReason:
+            `${materialShortageOverrideReason} — cutting batch ${batchNumber} created past: ` +
+            stageValidation.blockers.map((b) => b.message).join('; '),
+          overriddenById: userId,
+        },
+        tx
+      );
+      logWarn(`Cutting batch ${batchNumber} created past a fabric shortage by admin ${userId}`);
+    }
+    return created;
   });
 
   // Record every fabric lot this batch will consume — the PRIMARY one included.

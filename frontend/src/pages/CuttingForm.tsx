@@ -20,6 +20,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import api from '@/lib/api';
 import { toDateInputValue } from '@/lib/date';
+import { useShortageOverride } from '@/components/cutting/useShortageOverride';
 
 interface AvailableWorkOrder {
   id: string;
@@ -78,6 +79,7 @@ export default function CuttingForm() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const { offerOverride, overrideDialog } = useShortageOverride();
 
   // Lookup data
   const [availableWorkOrders, setAvailableWorkOrders] = useState<AvailableWorkOrder[]>([]);
@@ -333,7 +335,11 @@ export default function CuttingForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    await saveBatch();
+  };
 
+  // materialShortageOverrideReason: an admin cutting past a fabric shortage (useShortageOverride)
+  const saveBatch = async (materialShortageOverrideReason?: string) => {
     // Validation
     if (!formData.workOrderId) {
       handleApiError(null, 'Please select a work order');
@@ -382,6 +388,7 @@ export default function CuttingForm() {
             sizeId: s.sizeId,
             plannedQty: s.toCut,
           })),
+        ...(materialShortageOverrideReason ? { materialShortageOverrideReason } : {}),
       };
 
       if (isEditing) {
@@ -395,6 +402,7 @@ export default function CuttingForm() {
         navigate(`/manufacturing/cutting/${batch.id}`);
       }
     } catch (err) {
+      if (!isEditing && offerOverride(err, (reason) => void saveBatch(reason))) return;
       handleApiError(err, 'Failed to save cutting batch');
     } finally {
       setIsSaving(false);
@@ -793,6 +801,7 @@ export default function CuttingForm() {
           </div>
         </div>
       </form>
+      {overrideDialog}
     </div>
   );
 }

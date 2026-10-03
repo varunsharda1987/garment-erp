@@ -693,7 +693,13 @@ export const deleteFabricMaster = async (req: Request, res: Response) => {
           materials: true,
           processing_batch: true,
           lab_dips: true,
+          // A job work order names a fabric in three places: the fabric SENT (job_work_orders, reprocessing only),
+          // the result expected BACK on the job (blank when its colours differ) and on each colour (line). Counting
+          // only the first let a job's finished fabric be deleted from under it (audit 2026-10-03).
           job_work_orders: true,
+          finishedFromJobWork: true,
+          finishedFromJwoLines: true,
+          jwoComponents: true,
         },
       },
     },
@@ -717,7 +723,15 @@ export const deleteFabricMaster = async (req: Request, res: Response) => {
     blockingDeps.push(`${dependencies._count.processing_batch} processing batch(es)`);
   if (dependencies?._count.lab_dips) blockingDeps.push(`${dependencies._count.lab_dips} lab dip(s)`);
   if (dependencies?._count.job_work_orders)
-    blockingDeps.push(`${dependencies._count.job_work_orders} job work order(s)`);
+    blockingDeps.push(`${dependencies._count.job_work_orders} job work order(s) sending it`);
+  // A one-colour job names it on its header and its line — count the lines, else the headers (older jobs)
+  const bringingItBack = Math.max(
+    dependencies?._count.finishedFromJobWork ?? 0,
+    dependencies?._count.finishedFromJwoLines ?? 0
+  );
+  if (bringingItBack) blockingDeps.push(`${bringingItBack} job work order(s) bringing it back`);
+  if (dependencies?._count.jwoComponents)
+    blockingDeps.push(`${dependencies._count.jwoComponents} job work component(s)`);
   if (orderBomItemCount) blockingDeps.push(`${orderBomItemCount} order BOM item(s)`);
   if (styleMaterialBomCount) blockingDeps.push(`${styleMaterialBomCount} style material BOM row(s)`);
 

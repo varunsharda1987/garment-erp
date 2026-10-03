@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -47,6 +48,7 @@ import {
   rowCounted,
   rowEntered,
   rowIsFinal,
+  type DeliveryPayload,
   type QualityGrade,
   type ReceiveRow,
 } from '@/lib/jwo-receive';
@@ -87,6 +89,7 @@ export default function JobWorkReceive() {
   const [toProcessor, setToProcessor] = useState(false);
   const [warehouseId, setWarehouseId] = useState('');
   const [vehicle, setVehicle] = useState('');
+  const [remarks, setRemarks] = useState('');
 
   // ---- Each colour --------------------------------------------------------------------------------------------
   const [rows, setRows] = useState<Record<string, ReceiveRow>>({});
@@ -95,8 +98,10 @@ export default function JobWorkReceive() {
   // is simply not part of this delivery and stays open for a later one. The only open colour is ticked for you.
   const [onTruck, setOnTruck] = useState<Record<string, boolean>>({});
   const rowOf = (lineId: string) => rows[lineId] ?? emptyReceiveRow(lineId);
-  const updateRow = (lineId: string, patch: Partial<ReceiveRow>) =>
+  const updateRow = (lineId: string, patch: Partial<ReceiveRow>) => {
     setRows((prev) => ({ ...prev, [lineId]: { ...(prev[lineId] ?? emptyReceiveRow(lineId)), ...patch } }));
+    setRowErrors((prev) => (prev[lineId] ? { ...prev, [lineId]: '' } : prev));
+  };
 
   // One delivery, one set of receipts — however many times it is sent (a slow server once made six receipts of
   // one delivery). One key per page opening; the server answers a repeat with the receipts it already filed.
@@ -104,11 +109,19 @@ export default function JobWorkReceive() {
   const [inFlight, setInFlight] = useState(false);
   const [shortCloseOpen, setShortCloseOpen] = useState(false);
   const [serverShort, setServerShort] = useState<ShortCloseFigures | null>(null);
+  // A press that got no answer (timed out): the delivery may be in. The next press re-sends exactly that payload
+  // with its key, so the server answers with what it filed — the page is not re-read meanwhile, or a colour the
+  // first press closed would drop off the page and leave nothing to press.
+  const [unanswered, setUnanswered] = useState<DeliveryPayload | null>(null);
+  // A colour the server refused on the last press, with its reason — shown on that colour's row
+  const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
 
   const { data: jwo, isLoading } = useQuery({
     queryKey: ['job-work-order', id],
     queryFn: () => jobWorkOrderService.getById(id),
     enabled: !!id,
+    // The rows are typed against these figures; a refetch on returning to the tab must not move them underneath
+    refetchOnWindowFocus: false,
   });
 
   // Physical stores only — one store is pre-selected, a choice is never overwritten
@@ -133,7 +146,7 @@ export default function JobWorkReceive() {
   const truckRows = lines.filter((l) => isOnTruck(l.id)).map((l) => rowOf(l.id));
   const entered = truckRows.filter(rowEntered);
   const tickedEmpty = lines.filter((l) => isOnTruck(l.id) && !rowEntered(rowOf(l.id)));
-  const dirty = entered.length > 0 || !!challanRef.trim() || !!invoiceNumber.trim();
+  const dirty = entered.length > 0 || !!challanRef.trim() || !!invoiceNumber.trim() || !!remarks.trim();
   const { setIsDirty, promptUnsaved, UnsavedDialog } = useUnsavedChanges({
     enabled: dirty,
     onDiscard: () => navigate(backTo),
@@ -155,7 +168,9 @@ export default function JobWorkReceive() {
     queryFn: () => jobWorkOrderService.getReceivePreview(id, Math.max(previewQty, 0.01)),
     enabled: !!jwo,
   });
-  const tolerancePercent = preview?.tolerancePercent ?? jwo?.tolerancePercent ?? 0;
+  // The job's own allowance, else its process type's (the server falls back the same way)
+  const tolerancePercent =
+    preview?.tolerancePercent ?? jwo?.tolerancePercent ?? jwo?.processTypeMaster?.tolerancePercent ?? 0;
   const maxOf = (lineId: string) => preview?.lines?.find((l) => l.lineId === lineId)?.maxReceivable ?? null;
 
   const checks = Object.fromEntries(
@@ -167,41 +182,49 @@ export default function JobWorkReceive() {
   // ---- What blocks the press ----------------------------------------------------------------------------------
   const sentDay = jwo?.sentDate ? jwo.sentDate.slice(0, 10) : undefined;
   const dateBeforeSend = !!sentDay && !!receivedDate && receivedDate < sentDay;
-  const invoiceReady = invoiceToFollow || (!!invoiceNumber.trim() && !!invoiceDate);
+  // A date can be typed past the picker's max — the server refuses a future date, so say it here first
+  const dateInFuture = !!receivedDate && receivedDate > today;
+  const invoiceInFuture = !invoiceToFollow && !!invoiceDate && invoiceDate > today;
+  const invoiceReady = invoiceToFollow || (!!invoiceNumber.trim() && !!invoiceDate && !invoiceInFuture);
   const rowsReady =
     entered.length > 0 && tickedEmpty.length === 0 && entered.every((row) => checks[row.lineId]?.problems.length === 0);
-  const canSubmit = rowsReady && !!storeId && !!receivedDate && !dateBeforeSend && invoiceReady && !inFlight;
+  const canSubmit =
+    (rowsReady && !!storeId && !!receivedDate && !dateBeforeSend && !dateInFuture && invoiceReady && !inFlight) ||
+    (!!unanswered && !inFlight);
   const waitingFor = [
     truckRows.length === 0 && 'tick the colour(s) that came on this truck',
     tickedEmpty.length > 0 && `the metres of ${tickedEmpty.map(lineName).join(', ')}`,
     entered.length > 0 && entered.some((row) => checks[row.lineId]?.problems.length) && 'the colours marked in red',
     !storeId && (toProcessor ? "the next processor's unit" : 'the warehouse'),
     dateBeforeSend && 'a date on or after the day the greige was sent',
+    dateInFuture && 'a received date that is not in the future',
+    invoiceInFuture && 'an invoice date that is not in the future',
     !invoiceReady && "the processor's invoice (or tick Invoice not received yet)",
   ].filter(Boolean);
 
+  const buildPayload = (shortCloseConfirmed: boolean) =>
+    deliveryPayload(
+      {
+        jobWorkOrderId: id,
+        receivedDate,
+        receivedChallan: challanRef,
+        invoiceNumber,
+        invoiceDate,
+        invoiceToFollow,
+        toProcessor,
+        warehouseId: storeId,
+        vehicle,
+        remarks,
+      },
+      truckRows,
+      lines,
+      { tolerancePercent, submissionKey, shortCloseConfirmed }
+    );
   const receiveMutation = useMutation({
-    mutationFn: (shortCloseConfirmed: boolean) =>
-      jobWorkOrderService.receiveDelivery(
-        deliveryPayload(
-          {
-            jobWorkOrderId: id,
-            receivedDate,
-            receivedChallan: challanRef,
-            invoiceNumber,
-            invoiceDate,
-            invoiceToFollow,
-            toProcessor,
-            warehouseId: storeId,
-            vehicle,
-          },
-          truckRows,
-          lines,
-          { tolerancePercent, submissionKey, shortCloseConfirmed }
-        )
-      ),
+    mutationFn: (payload: DeliveryPayload) => jobWorkOrderService.receiveDelivery(payload),
     onSettled: () => setInFlight(false),
     onSuccess: (result) => {
+      setUnanswered(null);
       const { receipts, onwardChallans, lossSplit, jobClosed } = result.data;
       const abnormal = Number(lossSplit?.qtyAbnormalLoss ?? 0);
       const filed = receipts
@@ -227,16 +250,26 @@ export default function JobWorkReceive() {
       queryClient.invalidateQueries({ queryKey: ['job-work-order', id] });
       queryClient.invalidateQueries({ queryKey: ['job-work-orders'] });
       queryClient.invalidateQueries({ queryKey: ['process-pos'] });
+      queryClient.invalidateQueries({ queryKey: ['process-po'] });
+      queryClient.invalidateQueries({ queryKey: ['job-work-order-reconciliation', id] });
+      // Each colour's orders are credited — MRP and the requirement pages move
+      queryClient.invalidateQueries({ queryKey: ['mrp'] });
       queryClient.invalidateQueries({ queryKey: ['grns'] });
       // Receiving closes the outward challan and puts fabric in stock: both halves of the Control Center change
       invalidateControlCenter(queryClient);
       setIsDirty(false);
       navigate(backTo);
     },
-    onError: (err) => {
+    onError: (err, payload) => {
       // The server is the authority on a short close: when it refused an unconfirmed one, ask here
-      const d = (err as { response?: { data?: { details?: Partial<ShortCloseFigures> & { reason?: string } } } })
-        ?.response?.data?.details;
+      const body = (
+        err as {
+          response?: {
+            data?: { message?: string; details?: Partial<ShortCloseFigures> & { reason?: string; lineId?: string } };
+          };
+        }
+      )?.response?.data;
+      const d = body?.details;
       if (d?.reason === 'SHORT_CLOSE_UNCONFIRMED') {
         setServerShort({
           cumulative: Number(d.cumulative ?? 0),
@@ -252,15 +285,19 @@ export default function JobWorkReceive() {
       // Timed out / no answer: the server may still be saving — never call that a failure. Pressing again is safe:
       // this page's key makes the server answer with the receipts it already filed.
       if (isOutcomeUnknown(err)) {
+        setUnanswered(payload);
         notify.warning('The server is slow — this delivery may still be saving', {
           description:
             'Wait a moment and press Receive into stock again. It is safe: if the first press went in, you are ' +
             'shown those receipts — nothing is filed twice.',
           duration: 15000,
         });
-        queryClient.invalidateQueries({ queryKey: ['job-work-order', id] });
         return;
       }
+      setUnanswered(null);
+      // One colour refused: mark its row
+      const refusedLine = d?.lineId;
+      if (refusedLine && body?.message) setRowErrors((prev) => ({ ...prev, [refusedLine]: body.message as string }));
       handleApiError(err, 'Could not receive the delivery');
     },
   });
@@ -268,10 +305,16 @@ export default function JobWorkReceive() {
   const send = (shortCloseConfirmed: boolean) => {
     if (inFlight) return;
     setInFlight(true);
-    receiveMutation.mutate(shortCloseConfirmed);
+    receiveMutation.mutate(buildPayload(shortCloseConfirmed));
   };
   const handleSubmit = () => {
     if (inFlight) return;
+    // The earlier press got no answer: send exactly that again (same key) — the server answers with what it filed
+    if (unanswered) {
+      setInFlight(true);
+      receiveMutation.mutate(unanswered);
+      return;
+    }
     if (jobShort) {
       setServerShort(null);
       setShortCloseOpen(true);
@@ -363,7 +406,8 @@ export default function JobWorkReceive() {
     const row = rowOf(l.id);
     return !(rowEntered(row) && rowIsFinal(row, l, tolerancePercent));
   });
-  const jobExpected = Number(jwo.qtyBillable ?? 0);
+  // What the job expects back: its billable figure, else the sum of its colours' (0 on old jobs → not shown)
+  const jobExpected = Number(jwo.qtyBillable ?? lines.reduce((sum, l) => sum + Number(l.qtyExpected ?? 0), 0));
 
   return (
     <div className="space-y-6 pb-28">
@@ -389,6 +433,7 @@ export default function JobWorkReceive() {
               value={receivedDate}
               onChange={(e) => setReceivedDate(e.target.value)}
             />
+            {dateInFuture && <p className="text-xs text-destructive">{formatDate(receivedDate)} is in the future.</p>}
             {dateBeforeSend && sentDay && (
               <p className="text-xs text-destructive">
                 {formatDate(receivedDate)} is before the day the {isLace ? 'lace' : 'greige'} was sent (
@@ -425,6 +470,7 @@ export default function JobWorkReceive() {
               disabled={invoiceToFollow}
               onChange={(e) => setInvoiceDate(e.target.value)}
             />
+            {invoiceInFuture && <p className="text-xs text-destructive">{formatDate(invoiceDate)} is in the future.</p>}
           </div>
           <label className="flex items-center gap-2 text-sm md:col-span-2 md:col-start-3">
             <Checkbox
@@ -489,9 +535,20 @@ export default function JobWorkReceive() {
           {toProcessor && (
             <div className="space-y-2">
               <Label htmlFor="rcv-vehicle">Vehicle (for the challan)</Label>
-              <Input id="rcv-vehicle" value={vehicle} onChange={(e) => setVehicle(e.target.value)} />
+              <Input id="rcv-vehicle" value={vehicle} maxLength={30} onChange={(e) => setVehicle(e.target.value)} />
             </div>
           )}
+          <div className="space-y-2 md:col-span-4">
+            <Label htmlFor="rcv-remarks">Remarks</Label>
+            <Textarea
+              id="rcv-remarks"
+              rows={2}
+              maxLength={1000}
+              value={remarks}
+              placeholder="Anything worth keeping about this delivery — kept on each colour's receipt"
+              onChange={(e) => setRemarks(e.target.value)}
+            />
+          </div>
         </CardContent>
       </Card>
 
@@ -626,6 +683,11 @@ export default function JobWorkReceive() {
                             </div>
                           </div>
                         )}
+                        {here && maxOf(line.id) != null && (
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            Up to {formatQuantity(Math.max((maxOf(line.id) ?? 0) - received, 0), uom)}
+                          </div>
+                        )}
                         {here && row.foldLengthCm > 0 && rowCounted(row) > 0 && (
                           <div className="mt-1 text-xs text-muted-foreground">
                             = {formatQuantity(rowActual(row), uom)} at L {row.foldLengthCm}
@@ -676,13 +738,14 @@ export default function JobWorkReceive() {
                       </TableCell>
                     </TableRow>
 
-                    {here && (check.problems.length > 0 || check.shortBy != null) && (
+                    {here && (check.problems.length > 0 || check.shortBy != null || !!rowErrors[line.id]) && (
                       <TableRow className="hover:bg-transparent">
                         <TableCell />
                         <TableCell colSpan={cols - 1} className="pt-0">
                           {check.problems.length > 0 && (
                             <p className="text-xs text-destructive">{check.problems.join(' · ')}</p>
                           )}
+                          {!!rowErrors[line.id] && <p className="text-xs text-destructive">{rowErrors[line.id]}</p>}
                           {check.shortBy != null && check.problems.length === 0 && (
                             <p className="text-xs text-amber-700">
                               Final but {fmt(check.shortBy)} {unit} short of this colour&apos;s {fmt(expected)} {unit}.
@@ -724,6 +787,17 @@ export default function JobWorkReceive() {
         </Alert>
       )}
 
+      {unanswered && (
+        <Alert className="border-warning/40 bg-warning/10">
+          <AlertTriangle className="h-4 w-4 text-warning" />
+          <AlertTitle>The last press got no answer</AlertTitle>
+          <AlertDescription>
+            The delivery may already be in. Press Receive into stock again — it sends exactly what you pressed before,
+            and if it went in you are shown those receipts. Nothing is filed twice.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* What one press will book */}
       <div className="sticky bottom-0 z-10 -mx-4 border-t bg-background/95 px-4 py-3 backdrop-blur md:-mx-6 md:px-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -735,8 +809,8 @@ export default function JobWorkReceive() {
                   {severalLines ? ` — ${entered.length} receipt${entered.length === 1 ? '' : 's'}` : ''}
                 </div>
                 <div className="text-muted-foreground">
-                  The job after this: {formatQuantity(jobReceivedSoFar + deliveryTotal, uom)} of{' '}
-                  {formatQuantity(jobExpected, uom)} —{' '}
+                  The job after this: {formatQuantity(jobReceivedSoFar + deliveryTotal, uom)}
+                  {jobExpected > 0 ? ` of ${formatQuantity(jobExpected, uom)}` : ''} —{' '}
                   {closesJob
                     ? 'this closes it'
                     : `stays open${severalLines && stillOpenAfter.length ? ` (${stillOpenAfter.map(lineName).join(', ')} still to come)` : ' for the next delivery'}`}

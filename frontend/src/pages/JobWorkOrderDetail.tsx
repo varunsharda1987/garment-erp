@@ -1393,7 +1393,9 @@ export default function JobWorkOrderDetail() {
             <Card>
               <CardHeader>
                 <CardTitle>Components</CardTitle>
-                <CardDescription>Materials included in this job work order</CardDescription>
+                {/* What went out. What came back is per colour (lines) and in the Reconciliation — a component's own
+                    "received" is never written, so its column always read "-" (audit 2026-10-03) */}
+                <CardDescription>Materials sent on this job work order</CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -1402,7 +1404,6 @@ export default function JobWorkOrderDetail() {
                       <TableHead>Component</TableHead>
                       <TableHead>Material</TableHead>
                       <TableHead className="text-right">Qty Sent</TableHead>
-                      <TableHead className="text-right">Qty Received</TableHead>
                       <TableHead className="text-right">Rate</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1415,9 +1416,6 @@ export default function JobWorkOrderDetail() {
                         </TableCell>
                         <TableCell className="text-right">
                           {comp.qtySent.toFixed(2)} {unitShort(comp.unit)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {comp.qtyReceived ? `${comp.qtyReceived.toFixed(2)} ${unitShort(comp.unit)}` : '-'}
                         </TableCell>
                         <TableCell className="text-right">{formatCurrency(comp.rate)}</TableCell>
                       </TableRow>

@@ -56,6 +56,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { differenceInCalendarDays } from 'date-fns';
 import { formatDate } from '@/lib/date';
 import { StyleIdentity } from '@/components/StyleIdentity';
+import { JobLinesCell } from '@/components/job-work/JobLinesCell';
 import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, ourStyleCode } from '@/lib/style-code';
 
 type Column<T> = {
@@ -483,13 +484,19 @@ export default function ProcessingList() {
       render: (item) => {
         const style = item.jobWorkOrder?.style;
         return (
-          <StyleIdentity
-            style={style}
-            name={style?.styleName}
-            layout="stacked"
-            showStyleCode={false}
-            fallback="-"
-            codeClassName="text-foreground"
+          <JobLinesCell
+            lines={item.jobWorkOrder?.lines}
+            show="style"
+            fallback={
+              <StyleIdentity
+                style={style}
+                name={style?.styleName}
+                layout="stacked"
+                showStyleCode={false}
+                fallback="-"
+                codeClassName="text-foreground"
+              />
+            }
           />
         );
       },
@@ -497,7 +504,11 @@ export default function ProcessingList() {
     {
       key: 'styleCode',
       header: STYLE_CODE_LABEL,
-      render: (item) => <span className="text-sm">{ourStyleCode(item.jobWorkOrder?.style)}</span>,
+      render: (item) => (
+        <span className="text-sm">
+          {(item.jobWorkOrder?.lines?.length ?? 0) > 1 ? 'Several' : ourStyleCode(item.jobWorkOrder?.style)}
+        </span>
+      ),
     },
     {
       key: 'processor',
@@ -508,12 +519,20 @@ export default function ProcessingList() {
       key: 'fabric',
       header: 'Fabric',
       render: (item) => {
+        // The fabric the job brings BACK — `fabric` is the one SENT, set only when an existing lot is reprocessed
         const jwo = item.jobWorkOrder;
+        const back = jwo?.finishedFabric ?? jwo?.fabric;
         return (
-          <div>
-            <div className="text-sm">{jwo?.fabric?.fabricCode || '-'}</div>
-            <div className="text-xs text-muted-foreground">{jwo?.fabric?.fabricName}</div>
-          </div>
+          <JobLinesCell
+            lines={jwo?.lines}
+            show="fabric"
+            fallback={
+              <div>
+                <div className="text-sm">{back?.fabricCode || '-'}</div>
+                <div className="text-xs text-muted-foreground">{back?.fabricName}</div>
+              </div>
+            }
+          />
         );
       },
     },
@@ -637,7 +656,11 @@ export default function ProcessingList() {
                 size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
-                  navigate(`/job-work-orders/${item.id}/receive`);
+                  navigate(
+                    item.purchaseOrder
+                      ? `/procurement/grn/new?poId=${item.purchaseOrder.id}`
+                      : `/job-work-orders/${item.id}/receive`
+                  );
                 }}
                 className="text-success hover:text-success hover:bg-success-muted"
                 title="Receive from processor"
@@ -645,7 +668,9 @@ export default function ProcessingList() {
                 <PackageCheck className="h-4 w-4" />
               </Button>
             )}
-            {(status === 'AT_MILL' || status === 'PARTIALLY_RECEIVED' || status === 'RECEIVED') && (
+            {/* Return Unprocessed — only while nothing has come back: the server refuses the whole job's return once a
+                delivery is in (close it short, or return one colour from the job's page) */}
+            {status === 'AT_MILL' && (
               <Button
                 variant="ghost"
                 size="sm"

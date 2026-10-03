@@ -135,6 +135,15 @@ export interface GRNDetailLabelsRequest {
 export interface GRNItem {
   id: string;
   grnId: string;
+  /** A job-work return: the colour (job line) this receipt brought back */
+  jobWorkOrderLine?: {
+    id: string;
+    lineNo: number;
+    colorName?: string | null;
+    colorMaster?: { colorName: string } | null;
+    style?: { styleCode: string; buyerStyleRef?: string | null } | null;
+    jobWorkOrder?: { _count?: { lines: number } };
+  } | null;
   poItemId: string;
   materialId: string;
   orderedQuantity: number;
@@ -202,6 +211,8 @@ export interface GRN {
     agreedRatePerMeter?: number;
     processTypeMaster?: { name: string; code: string } | null;
   } | null;
+  /** A job-work return's challans (keyed on this receipt): the INWARD one, and the onward one when it went on */
+  inwardChallans?: Array<{ id: string; challanNumber: string; challanType: string; toName?: string | null }>;
   supplier?: SupplierSummary;
   warehouse?: WarehouseSummary;
   items?: GRNItem[];

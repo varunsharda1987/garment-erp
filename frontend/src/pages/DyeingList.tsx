@@ -588,7 +588,11 @@ export default function DyeingList() {
                 size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
-                  navigate(`/job-work-orders/${item.id}/receive`);
+                  navigate(
+                    item.purchaseOrder
+                      ? `/procurement/grn/new?poId=${item.purchaseOrder.id}`
+                      : `/job-work-orders/${item.id}/receive`
+                  );
                 }}
                 className="text-success hover:text-success hover:bg-success-muted"
                 title="Receive from processor"
@@ -596,8 +600,10 @@ export default function DyeingList() {
                 <PackageCheck className="h-4 w-4" />
               </Button>
             )}
-            {/* Return Unprocessed — available when AT_MILL or RECEIVED */}
-            {(status === 'AT_MILL' || status === 'PARTIALLY_RECEIVED' || status === 'RECEIVED') && (
+
+            {/* Return Unprocessed — only while nothing has come back: the server refuses the whole job's return once a
+                delivery is in (close it short, or return one colour from the job's page) */}
+            {status === 'AT_MILL' && (
               <Button
                 variant="ghost"
                 size="sm"

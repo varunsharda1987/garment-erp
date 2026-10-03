@@ -473,7 +473,13 @@ export default function DispatchToProcessor() {
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium">{order.jobWorkNumber}</span>
                         <Badge variant="outline">{order.processType}</Badge>
-                        {order.styleCode ? (
+                        {order.styles?.length ? (
+                          order.styles.map((s) => (
+                            <Badge key={s.styleCode} variant="secondary">
+                              {styleCodeLabel(s)}
+                            </Badge>
+                          ))
+                        ) : order.styleCode ? (
                           <Badge variant="secondary">{styleCodeLabel(order)}</Badge>
                         ) : (
                           <Badge variant="secondary">Stock — no style</Badge>

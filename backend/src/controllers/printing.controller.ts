@@ -780,8 +780,12 @@ export const getAllPrintJobs = async (req: Request, res: Response, _next: NextFu
     where.labDipId = labDipId as string;
   }
 
+  // The job's style, or any of its colours' — a job for several styles has no header style
   if (styleId) {
-    where.styleId = styleId as string;
+    where.AND = [
+      ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+      { OR: [{ styleId: styleId as string }, { lines: { some: { styleId: styleId as string } } }] },
+    ];
   }
 
   if (processorId) {
@@ -2353,10 +2357,11 @@ export const getSummaryByStyle = async (req: Request, res: Response, _next: Next
     prisma.lab_dips.count({ where: { processType, styleId } }),
     prisma.lab_dips.count({ where: { processType, styleId, status: 'PENDING' } }),
     prisma.lab_dips.count({ where: { processType, styleId, status: 'APPROVED' } }),
-    prisma.job_work_orders.count({ where: { processType, styleId } }),
+    // A job for several styles counts for each of them (its header style is blank)
+    prisma.job_work_orders.count({ where: { processType, OR: [{ styleId }, { lines: { some: { styleId } } }] } }),
     prisma.job_work_orders.groupBy({
       by: ['jwoStatus'],
-      where: { processType, styleId },
+      where: { processType, OR: [{ styleId }, { lines: { some: { styleId } } }] },
       _count: true,
     }),
   ]);

@@ -113,7 +113,28 @@ export default function ProcessPODetail({ processType, backPath, title }: Proces
         </div>
 
         {/* Status-based action hints */}
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          {/* The job's own page holds every receipt, colour and challan; receiving is its own page (a job raised on a
+              purchase order is received on that order's GRN form) */}
+          {(status === 'AT_MILL' || status === 'PARTIALLY_RECEIVED') && (
+            <Button
+              size="sm"
+              onClick={() =>
+                navigate(
+                  processPO.purchaseOrder
+                    ? `/procurement/grn/new?poId=${processPO.purchaseOrder.id}`
+                    : `/job-work-orders/${processPO.id}/receive`
+                )
+              }
+            >
+              <ArrowDownToLine className="h-4 w-4 mr-2" />
+              Receive from processor
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => navigate(`/job-work-orders/${processPO.id}`)}>
+            <FileText className="h-4 w-4 mr-2" />
+            Open job
+          </Button>
           {status === 'DRAFT' && (
             <Badge variant="outline" className="text-info">
               <Send className="h-3 w-3 mr-1" />

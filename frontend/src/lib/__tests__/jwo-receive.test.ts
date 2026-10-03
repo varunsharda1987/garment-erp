@@ -37,6 +37,11 @@ describe('a colour of the delivery', () => {
     expect(rowIsFinal(row('brown', { qtyMeters: 2400 }), brown, TOL)).toBe(true);
     expect(rowIsFinal(row('brown', { qtyMeters: 1200 }), brown, TOL)).toBe(false);
     expect(rowIsFinal(row('brown', { qtyMeters: 1200, finalOverride: true }), brown, TOL)).toBe(true);
+    // No expected quantity: never final by itself, only when ticked
+    expect(rowIsFinal(row('brown', { qtyMeters: 2400 }), { ...brown, qtyExpected: null }, TOL)).toBe(false);
+    expect(
+      rowIsFinal(row('brown', { qtyMeters: 2400, finalOverride: true }), { ...brown, qtyExpected: null }, TOL)
+    ).toBe(true);
     // An earlier part counts towards it
     expect(rowIsFinal(row('brown', { qtyMeters: 1300 }), { ...brown, receivedQty: 1100 }, TOL)).toBe(true);
   });

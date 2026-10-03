@@ -577,7 +577,11 @@ export default function PrintingList() {
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(`/job-work-orders/${item.id}/receive`);
+                navigate(
+                  item.purchaseOrder
+                    ? `/procurement/grn/new?poId=${item.purchaseOrder.id}`
+                    : `/job-work-orders/${item.id}/receive`
+                );
               }}
               className="text-success hover:text-success hover:bg-success-muted"
               title="Receive from processor"
@@ -585,10 +589,9 @@ export default function PrintingList() {
               <PackageCheck className="h-4 w-4" />
             </Button>
           )}
-          {/* Return Unprocessed — available when AT_MILL or RECEIVED */}
-          {(item.processPOStatus === 'AT_MILL' ||
-            item.processPOStatus === 'PARTIALLY_RECEIVED' ||
-            item.processPOStatus === 'RECEIVED') && (
+          {/* Return Unprocessed — only while nothing has come back: the server refuses the whole job's return once a
+              delivery is in (close it short, or return one colour from the job's page) */}
+          {item.processPOStatus === 'AT_MILL' && (
             <Button
               variant="ghost"
               size="sm"

@@ -42,6 +42,7 @@ import {
 } from 'lucide-react';
 import type { PendingCuttingInfo } from '@/services/grn.service';
 import { formatDate, toDateInputValue } from '@/lib/date';
+import { buyerStyleCode } from '@/lib/style-code';
 import { foldActual, hasFold } from '@/lib/fold-length';
 import { formatCurrency } from '@/lib/currency';
 import { materialDetailLine } from '@/lib/material-detail';
@@ -136,8 +137,12 @@ export default function GRNDetail() {
     if (!grn) return;
     try {
       setIsSavingInvoice(true);
-      await updateGRNInvoice(grn.id, { invoiceNumber: invoiceDraft.number.trim(), invoiceDate: invoiceDraft.date });
-      handleApiSuccess('Invoice saved', `${invoiceDraft.number.trim()} recorded on ${grn.grnNumber}`);
+      const saved = await updateGRNInvoice(grn.id, {
+        invoiceNumber: invoiceDraft.number.trim(),
+        invoiceDate: invoiceDraft.date,
+      });
+      // The server names the same truck's other receipts that took this bill too
+      handleApiSuccess('Invoice saved', saved.message ?? `${invoiceDraft.number.trim()} recorded on ${grn.grnNumber}`);
       setInvoiceDialogOpen(false);
       await fetchGRN();
     } catch (err) {
@@ -305,6 +310,7 @@ export default function GRNDetail() {
 
   const canApprove = grn.status === 'PENDING_QC';
   const anyFold = grn.items?.some((item) => hasFold(item.foldLengthCm)) ?? false;
+  const receiptLine = grn.items?.find((item) => item.jobWorkOrderLine)?.jobWorkOrderLine ?? null;
   const isProcessingGRN = isProcessingReceipt(grn);
 
   return (
@@ -447,6 +453,35 @@ export default function GRNDetail() {
                       <span>{grn.jobWorkOrder.processType}</span>
                     </div>
                   )}
+                  {/* A job that brings back several colours files one receipt per colour — name this one's */}
+                  {receiptLine && (receiptLine.jobWorkOrder?._count?.lines ?? 0) > 1 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Colour:</span>
+                      <span>
+                        {[
+                          receiptLine.style ? buyerStyleCode(receiptLine.style) : null,
+                          receiptLine.colorMaster?.colorName ?? receiptLine.colorName,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ') || `Line ${receiptLine.lineNo}`}
+                      </span>
+                    </div>
+                  )}
+                  {(grn.inwardChallans ?? []).map((challan) => (
+                    <div key={challan.id} className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        {challan.challanType === 'INWARD'
+                          ? 'Inward challan:'
+                          : `Sent on to ${challan.toName ?? 'processor'}:`}
+                      </span>
+                      <button
+                        onClick={() => navigate(`/manufacturing/challans/${challan.id}`)}
+                        className="text-info hover:underline font-medium"
+                      >
+                        {challan.challanNumber}
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
             ) : (

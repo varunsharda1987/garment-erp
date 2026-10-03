@@ -450,6 +450,11 @@ async function resolveReferences(events: LedgerEvent[]): Promise<ReferenceMaps> 
             processType: true,
             processor: { select: { name: true } },
             style: { select: { styleCode: true, buyerStyleRef: true } },
+            // A job for several styles has no header style — the ledger names each of its colours' styles
+            lines: {
+              select: { style: { select: { styleCode: true, buyerStyleRef: true } } },
+              orderBy: { lineNo: 'asc' },
+            },
           },
         })
       : [],
@@ -506,7 +511,14 @@ async function resolveReferences(events: LedgerEvent[]): Promise<ReferenceMaps> 
         {
           number: j.jobWorkNumber,
           processor: j.processor?.name ?? null,
-          style: j.style ? styleCodeLabel(j.style, null, '') || null : null,
+          style:
+            (j.style
+              ? styleCodeLabel(j.style, null, '')
+              : [
+                  ...new Set(
+                    j.lines.flatMap((l) => (l.style ? [styleCodeLabel(l.style, null, '')] : [])).filter(Boolean)
+                  ),
+                ].join(', ')) || null,
           processType: j.processType,
         },
       ])

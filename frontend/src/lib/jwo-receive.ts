@@ -60,11 +60,15 @@ export const rowEntered = (row: ReceiveRow) =>
 
 const expectedOf = (line: ReceiveLine) => (line.qtyExpected != null ? Number(line.qtyExpected) : null);
 
-/** "Final for this colour" ticks itself once the colour's total reaches its expected quantity less the tolerance */
+/**
+ * "Final for this colour" ticks itself once the colour's total reaches its expected quantity less the tolerance.
+ * A colour with no expected quantity is never final by itself — the person ticks it (ticking it for them closed
+ * such a colour, and with it the job, on its first part delivery).
+ */
 export function rowIsFinal(row: ReceiveRow, line: ReceiveLine, tolerancePercent: number): boolean {
   if (row.finalOverride != null) return row.finalOverride;
   const expected = expectedOf(line);
-  if (expected == null || expected <= 0) return true;
+  if (expected == null || expected <= 0) return false;
   return Number(line.receivedQty ?? 0) + rowActual(row) >= expected * (1 - tolerancePercent / 100);
 }
 
@@ -128,6 +132,8 @@ export interface DeliveryHeader {
   toProcessor: boolean;
   warehouseId: string;
   vehicle: string;
+  /** Anything worth keeping about this truck — stored on each colour's receipt */
+  remarks?: string;
 }
 
 /** The POST /grn/jwo/receive-delivery payload — only the colours that came, in the server's shape */
@@ -147,6 +153,7 @@ export function deliveryPayload(
       : { invoiceNumber: header.invoiceNumber.trim() || undefined, invoiceDate: header.invoiceDate || undefined }),
     warehouseId: header.warehouseId,
     ...(header.toProcessor ? { deliveredToProcessor: true, vehicleNumber: header.vehicle.trim() || undefined } : {}),
+    remarks: header.remarks?.trim() || undefined,
     shortCloseConfirmed: opts.shortCloseConfirmed || undefined,
     submissionKey: opts.submissionKey || undefined,
     lines: rows

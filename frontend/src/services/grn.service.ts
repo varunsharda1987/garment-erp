@@ -151,13 +151,19 @@ export const updateGRNDetailLabels = async (
 export const updateGRNInvoice = async (
   id: string,
   request: UpdateGRNInvoiceRequest
-): Promise<Pick<GRN, 'id' | 'grnNumber' | 'invoiceNumber' | 'invoiceDate' | 'status'>> => {
+): Promise<
+  Pick<GRN, 'id' | 'grnNumber' | 'invoiceNumber' | 'invoiceDate' | 'status'> & {
+    /** The same truck's other receipts that took the same bill */
+    alsoBilled: string[];
+    message?: string;
+  }
+> => {
   const { data } = await api.patch<{
     success: boolean;
-    data: Pick<GRN, 'id' | 'grnNumber' | 'invoiceNumber' | 'invoiceDate' | 'status'>;
+    data: Pick<GRN, 'id' | 'grnNumber' | 'invoiceNumber' | 'invoiceDate' | 'status'> & { alsoBilled?: string[] };
     message?: string;
   }>(`${BASE_URL}/${id}/invoice`, request);
-  return data.data;
+  return { ...data.data, alsoBilled: data.data.alsoBilled ?? [], message: data.message };
 };
 
 // ============================================

@@ -90,7 +90,7 @@ import {
 } from './helpers/direct-supply-challan.helper';
 import { challanDestination } from './helpers/lot-location.helper';
 import { resolveNextProcessorUnit, sendReceiptOnToProcessor } from './helpers/held-stock-doors.helper';
-import { styleCodeLabel } from '../utils/style-code';
+import { buyerStyleCode, styleCodeLabel } from '../utils/style-code';
 import { BusinessError, NotFoundError, ValidationError } from '../errors';
 import {
   addCurrency,
@@ -2852,6 +2852,13 @@ class GRNService {
           processType: true,
         },
       },
+      // A job-work return's own challans: the inward challan for this receipt, and the onward challan when it went
+      // straight on to another processor (both keyed on grnId)
+      inwardChallans: {
+        where: { status: { not: 'CANCELLED' as const } },
+        select: { id: true, challanNumber: true, challanType: true, toName: true },
+        orderBy: { createdAt: Prisma.SortOrder.asc },
+      },
       suppliers: {
         select: {
           id: true,
@@ -2884,6 +2891,17 @@ class GRNService {
           },
           grn_item_details: {
             orderBy: [{ baleNumber: Prisma.SortOrder.asc }, { sequenceNo: Prisma.SortOrder.asc }],
+          },
+          // The colour of a job that brings back several — which line this receipt is
+          jobWorkOrderLine: {
+            select: {
+              id: true,
+              lineNo: true,
+              colorName: true,
+              colorMaster: { select: { colorName: true } },
+              style: { select: { styleCode: true, buyerStyleRef: true } },
+              jobWorkOrder: { select: { _count: { select: { lines: true } } } },
+            },
           },
         },
       },
@@ -3755,19 +3773,45 @@ class GRNService {
           if (existing.length > 0) return { receipts: existing, replayed: true };
           const receipts: Filed[] = [];
           for (const { lineId, ...perColour } of ordered) {
-            receipts.push(
-              await this.fileJwoReceiptInTx(
-                tx,
-                {
-                  ...delivery,
-                  ...perColour,
-                  lineId,
-                  submissionKey: keyPrefix ? `${keyPrefix}${lineNoOf.get(lineId)}` : null,
-                },
-                userId,
-                target
-              )
-            );
+            try {
+              receipts.push(
+                await this.fileJwoReceiptInTx(
+                  tx,
+                  {
+                    ...delivery,
+                    ...perColour,
+                    lineId,
+                    submissionKey: keyPrefix ? `${keyPrefix}${lineNoOf.get(lineId)}` : null,
+                  },
+                  userId,
+                  target
+                )
+              );
+            } catch (err) {
+              // On a truck with several colours, say WHICH colour was refused (the page marks its row). The short-close
+              // question is about the whole job and keeps its own words.
+              if (
+                ordered.length > 1 &&
+                err instanceof BusinessError &&
+                err.details?.reason !== 'SHORT_CLOSE_UNCONFIRMED'
+              ) {
+                const line = await tx.job_work_order_lines.findUnique({
+                  where: { id: lineId },
+                  select: {
+                    lineNo: true,
+                    colorName: true,
+                    colorMaster: { select: { colorName: true } },
+                    style: { select: { styleCode: true, buyerStyleRef: true } },
+                  },
+                });
+                const label =
+                  [line?.style ? buyerStyleCode(line.style) : null, line?.colorMaster?.colorName ?? line?.colorName]
+                    .filter(Boolean)
+                    .join(' · ') || `Line ${line?.lineNo ?? lineNoOf.get(lineId)}`;
+                throw new BusinessError(`${label}: ${err.message}`, { ...err.details, lineId });
+              }
+              throw err;
+            }
           }
           return { receipts, replayed: false };
         },
@@ -3872,6 +3916,14 @@ class GRNService {
     await this.approvePolessJwoGrnInTx(tx, created, data.processingQC, data.warehouseId, userId, created.id, {
       isFinal: data.isFinal ?? true,
     });
+    // The processor's challan for the latest delivery, beside the job's latest receipt and inward challan (grnId,
+    // inwardChallanId). Kept until 2026-10-03 only in the receipt's remarks, so every job page read "-".
+    if (data.receivedChallan?.trim()) {
+      await tx.job_work_orders.update({
+        where: { id: data.jobWorkOrderId },
+        data: { receivedChallan: data.receivedChallan.trim() },
+      });
+    }
     if (nextProcessor && job.processorId && created.grn_items?.[0]?.id) {
       await sendReceiptOnToProcessor(tx, {
         grnId: created.id,
@@ -4998,7 +5050,9 @@ class GRNService {
           const gone = toNumber(roundToCent(subtractCurrency(bookedQty, qty)));
           throw new BusinessError(
             `Cannot reverse GRN ${grn.grnNumber}: its fabric lot no longer holds what the receipt booked ` +
-              (qtyExceeds(bookedQty, qty) ? `(${gone} m of ${bookedQty} m has gone on — to the store, another processor or a job)` : '') +
+              (qtyExceeds(bookedQty, qty)
+                ? `(${gone} m of ${bookedQty} m has gone on — to the store, another processor or a job)`
+                : '') +
               (!isQtyZero(Number(stock.quantityReserved))
                 ? `${qtyExceeds(bookedQty, qty) ? ' and ' : '('}${Number(stock.quantityReserved)} m is reserved for an order)`
                 : '') +

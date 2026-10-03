@@ -414,6 +414,8 @@ export interface DispatchableOrder {
   styleCode: string | null;
   /** The style's Buyer Style Code (null when none) — shown first, see `@/lib/style-code`. */
   buyerStyleRef?: string | null;
+  /** Every style the job's colours are for (a job for two styles has no header style) */
+  styles?: Array<{ styleCode: string; buyerStyleRef?: string | null }>;
   requiredQty: number;
   uom: string;
   fabricType: string | null;

@@ -1573,9 +1573,23 @@ class JobWorkOrderController {
           isActive: true,
           jwoStatus: 'APPROVED',
         },
-        select: { id: true },
+        select: {
+          id: true,
+          // A job for several styles has no header style (the mirror is blank when lines differ) — name each
+          lines: {
+            select: { style: { select: { styleCode: true, buyerStyleRef: true } } },
+            orderBy: { lineNo: 'asc' },
+          },
+        },
         orderBy: { createdAt: 'asc' },
       });
+      const stylesOf = new Map(
+        orders.map((o) => {
+          const seen = new Map<string, { styleCode: string; buyerStyleRef: string | null }>();
+          for (const l of o.lines) if (l.style) seen.set(l.style.styleCode, l.style);
+          return [o.id, [...seen.values()]];
+        })
+      );
 
       // validateIssue per order gives the cloth, the blockers and the same rules the issue
       // itself will apply — no second, drifting definition of "ready to send".
@@ -1606,6 +1620,7 @@ class JobWorkOrderController {
           processType: v.jwo.processType,
           styleCode: v.jwo.style?.styleCode ?? null,
           buyerStyleRef: v.jwo.style?.buyerStyleRef ?? null,
+          styles: stylesOf.get(v.jwo.id) ?? [],
           requiredQty: Number(v.jwo.qtySentMeters),
           uom: v.jwo.uom,
           fabricType: v.jwo.fabricType,

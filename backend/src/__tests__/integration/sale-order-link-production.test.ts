@@ -434,6 +434,39 @@ describe('a sale order meets the production order raised before it', () => {
       expect(JSON.stringify(audit?.newValues)).toContain('split corrected');
     });
 
+    it("follows when the sale order's lines are blank-coloured and the order's carry the style's only colour", async () => {
+      // SO2609-0382 (2026-10-03): its lines had no colour, ORD2026090132's sizes the style's one colour —
+      // the same split, yet the amendment called the order "re-sized by hand" and its run kept the old sizes
+      await prisma.sale_order_items.updateMany({ where: { saleOrderId: soId }, data: { colorId: null } });
+      try {
+        const m = await lineFor('M');
+        const l = await lineFor('L');
+        const res = await request(app)
+          .post(`/api/sale-orders/${soId}/amend-quantities`)
+          .set(authHeader)
+          .send({
+            lines: [
+              { itemId: m.id, quantity: 39 },
+              { itemId: l.id, quantity: 32 },
+            ],
+            reason: 'blank-colour lines',
+          })
+          .expect(200);
+        expect(res.body.data.notFollowed).toEqual([]);
+        const breakup = await prisma.order_item_breakup.findMany({ where: { orderItemId } });
+        expect(breakup.find((b) => b.sizeId === sizeIds.M)?.quantity).toBe(39);
+        expect(breakup.every((b) => b.colorId === colourId)).toBe(true);
+        const run = await prisma.work_orders.findFirstOrThrow({
+          where: { orderId },
+          include: { work_order_breakup: true },
+        });
+        expect(run.totalQuantity).toBe(101);
+        expect(run.work_order_breakup.find((b) => b.sizeId === sizeIds.M)?.plannedQuantity).toBe(39);
+      } finally {
+        await prisma.sale_order_items.updateMany({ where: { saleOrderId: soId }, data: { colorId: colourId } });
+      }
+    });
+
     it('leaves a production order whose sizes differ from the sale order alone', async () => {
       // Hand-edit the order so it no longer mirrors the sale order
       await request(app)

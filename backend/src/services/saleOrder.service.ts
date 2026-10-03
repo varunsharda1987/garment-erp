@@ -1544,12 +1544,25 @@ export class SaleOrderService {
       throw new BusinessError('A sale order cannot be amended to zero pieces — cancel it instead.');
     }
 
-    // Per style: colour|size → quantity, before and after (lines without a size are not a split)
+    // Per style: colour|size → quantity, before and after (lines without a size are not a split).
+    // Colours are settled by the one colour rule (sku-colour.helper) on BOTH sides: a blank colour on a
+    // one-colour style IS that colour. The production order's sizes carry it filled in while the sale
+    // order's lines stay blank, so comparing raw keys called SO2609-0382's untouched order "re-sized by
+    // hand" and left it — and its pending run — on the old split (2026-10-03).
     const soItems = so.items;
-    const splitOf = (styleId: string, qty: (i: (typeof soItems)[number]) => number) => {
+    const settleColour = async (styleId: string) => {
+      const colours = await prisma.color_options.findMany({ where: { styleId }, select: { id: true } });
+      const only = colours.length === 1 ? colours[0].id : null;
+      return (colorId: string | null) => colorId || only;
+    };
+    const splitOf = (
+      styleId: string,
+      qty: (i: (typeof soItems)[number]) => number,
+      colour: (colorId: string | null) => string | null
+    ) => {
       const m = new Map<string, number>();
       for (const i of soItems.filter((x) => x.styleId === styleId && x.sizeId)) {
-        const k = `${i.colorId ?? ''}|${i.sizeId}`;
+        const k = skuKey(colour(i.colorId), i.sizeId);
         m.set(k, (m.get(k) ?? 0) + qty(i));
       }
       return m;
@@ -1606,10 +1619,11 @@ export class SaleOrderService {
     const notFollowed: string[] = [];
     for (const item of linked?.order_items ?? []) {
       if (!changed.some((c) => c.styleId === item.styleId)) continue;
-      const before = splitOf(item.styleId, (i) => i.quantity);
+      const colour = await settleColour(item.styleId);
+      const before = splitOf(item.styleId, (i) => i.quantity, colour);
       const current = new Map<string, number>();
       for (const b of item.order_item_breakup) {
-        const k = `${b.colorId ?? ''}|${b.sizeId}`;
+        const k = skuKey(colour(b.colorId), b.sizeId);
         current.set(k, (current.get(k) ?? 0) + b.quantity);
       }
       const mirrors =
@@ -1618,7 +1632,7 @@ export class SaleOrderService {
         notFollowed.push(styleCodeLabel(item.styles));
         continue;
       }
-      const after = splitOf(item.styleId, (i) => newQty.get(i.id) as number);
+      const after = splitOf(item.styleId, (i) => newQty.get(i.id) as number, colour);
       const breakup = [...after]
         .filter(([, q]) => q > 0)
         .map(([k, quantity]) => {

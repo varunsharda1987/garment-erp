@@ -2162,6 +2162,7 @@ model style_costing {
   trimItems                               style_costing_trim_items[] // Trim costing items (relational)
   accessoryItems                          style_costing_accessory_items[] // Accessory costing items (relational)
   costSheetPoGenerations                  cost_sheet_po_generation[]
+  stitchingIssues                         stitching_issues[]              @relation("StitchingIssueCostingSheet")
 
   @@unique([styleId, purpose, version])
   @@index([styleId, version])
@@ -7056,6 +7057,16 @@ model stitching_issues {
   expectedCompletionDate     DateTime?
   status                     StitchingIssueStatus         @default(PENDING_RECEIPT)
   remarks                    String?
+  /// What the OPERATORS get per piece — typed at issue (helpers/stitching-rate.helper.ts). NULL only on
+  /// issues made before 2026-10-03. The contractor's commission is paid on top of it.
+  operatorRatePerPiece       Decimal?                     @db.Decimal(10, 2)
+  /// The contractor commission % on the day of issue (setting STITCHING_CONTRACTOR_COMMISSION_PERCENT),
+  /// frozen so a later change of the setting does not change what this issue owes
+  commissionPercent          Decimal?                     @db.Decimal(5, 2)
+  /// The cost sheet's stitching cost per piece on the day of issue — it INCLUDES the commission — kept
+  /// to compare with what was given; costingSheetId = the cost sheet it came from
+  costingRatePerPiece        Decimal?                     @db.Decimal(10, 2)
+  costingSheetId             String?
   startDate                  DateTime?
   endDate                    DateTime?
   createdById                String
@@ -7068,6 +7079,7 @@ model stitching_issues {
   /// What this issue took from each cutting slip (stitching-slip-balance.helper.ts)
   slipAllocations            stitching_issue_slip_skus[]
   contractor                 suppliers?                   @relation("StitchingContractor", fields: [contractorId], references: [id])
+  costingSheet               style_costing?               @relation("StitchingIssueCostingSheet", fields: [costingSheetId], references: [id], onDelete: SetNull)
   createdBy                  users                        @relation("StitchingIssueCreator", fields: [createdById], references: [id])
   manager                    users?                       @relation("StitchingManager", fields: [managerId], references: [id])
   workOrder                  work_orders                  @relation(fields: [workOrderId], references: [id])

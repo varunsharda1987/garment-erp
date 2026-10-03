@@ -166,6 +166,8 @@ describe('the printed GRN', () => {
           buttonRatePerUnit: null,
           processTypeMaster: null,
           components: [],
+          // The job's colours (the print names the receipt's colour since 2026-10-03) — one here
+          lines: [],
         },
         grn_items: [item('METER', 1707.3)],
       } as unknown as Partial<GrnWithDetails>)

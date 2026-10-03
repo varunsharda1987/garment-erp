@@ -17,6 +17,7 @@ import { getDerivedOnHandMap } from '../services/helpers/derived-stock.helper';
 import { runLineAvailability } from '../services/helpers/run-line-availability.helper';
 import { untrackedHeldByMaterial } from '../services/helpers/stock-reservation.helper';
 import { buildCuttingChartData } from './cutting.controller';
+import { lotProductionCads } from './cutting.utils';
 import {
   assertCuttingBatchCutsLot,
   createChallan,
@@ -478,6 +479,15 @@ export const getFabricIssuanceData = async (req: Request, res: Response) => {
   // Each lot's roll / than list at a glance — the screen expands a listed lot into its picker
   const piecesByLot = await lotPiecesSummary(availableStockRecords);
 
+  // Issued / returned / still at Cutting per lot — the run's fabric position (run-fabric.helper.ts)
+  const position = await getRunFabricPosition([id]);
+  // Each lot's OWN approved Production CAD — what a batch cut from it uses (cutting.utils lotProductionCads,
+  // 2026-10-03). The panel used to show one average per fabric, picked across all of its lots.
+  const lotCads = await lotProductionCads(workOrder.styleId, [
+    ...availableStockRecords.map((s) => s.id),
+    ...[...position.lots.values()].map((l) => l.fabricStockId),
+  ]);
+
   // Group available stock by fabricId
   const availableStockMap = new Map<string, typeof availableStockRecords>();
   for (const fs of availableStockRecords) {
@@ -507,6 +517,9 @@ export const getFabricIssuanceData = async (req: Request, res: Response) => {
           pieces: pieces ? { total: pieces.total, left: pieces.left, kind: pieces.kind } : null,
           listState: pieces?.state ?? 'NO_LIST',
           listActual: pieces?.listActual ?? 0,
+          // null = no approved Production CAD of its own: no batch can be cut from it yet
+          productionAverage: lotCads.get(s.id)?.average ?? null,
+          productionWidth: lotCads.get(s.id)?.width ?? null,
         };
       }),
     };
@@ -541,10 +554,9 @@ export const getFabricIssuanceData = async (req: Request, res: Response) => {
     orderBy: { challanDate: 'desc' },
   });
 
-  // Issued / returned / still at Cutting per fabric — the run's fabric position (run-fabric.helper.ts).
+  // Issued / returned / still at Cutting per fabric — the run's fabric position (read above).
   // This panel used to count every INTERNAL challan on the run as "issued": drafts, cancelled ones and
   // the returns FROM Cutting included.
-  const position = await getRunFabricPosition([id]);
   const byFabric = new Map<string, { issued: number; returned: number; atCutting: number }>();
   for (const lot of position.lots.values()) {
     if (!lot.fabricId) continue;
@@ -559,12 +571,28 @@ export const getFabricIssuanceData = async (req: Request, res: Response) => {
     const stocks = f.fabricId ? availableStockMap.get(f.fabricId) || [] : [];
     const availableStock = stocks.reduce((sum: number, s: any) => sum + Number(s.quantityAvailable), 0);
     const moved = (f.fabricId && byFabric.get(f.fabricId)) || { issued: 0, returned: 0, atCutting: 0 };
-    // The same CAD average the Cutting Chart uses (approved Production only)
+    // The same CAD average the Cutting Chart uses: the lowest of the lots' own Production CADs
     const chartRow = chartData.fabricAnalysis.find((fa: any) => fa.part === f.part);
     const cadAvg = chartRow?.cadAverage || 0;
     const cadSet = cadAvg > 0;
-    // Pieces from what is physically there for this run: in the store + at Cutting
-    const maxPcs = cadSet ? Math.floor((availableStock + moved.atCutting) / cadAvg) : null;
+    // Pieces from what is physically there for this run (in the store + at Cutting), lot by lot on each lot's
+    // own marker — a lot with no Production CAD cannot be cut yet and adds none
+    const metresByLot = new Map<string, number>();
+    for (const s of stocks) metresByLot.set(s.id, Number(s.quantityAvailable));
+    for (const l of position.lots.values()) {
+      if (l.fabricId === f.fabricId && l.atCutting > 0) {
+        metresByLot.set(l.fabricStockId, (metresByLot.get(l.fabricStockId) ?? 0) + l.atCutting);
+      }
+    }
+    const lotsWithoutCad = [...metresByLot.keys()].filter((lotId) => !lotCads.has(lotId));
+    const maxPcs = cadSet
+      ? Math.floor(
+          [...metresByLot].reduce(
+            (sum, [lotId, metres]) => (lotCads.has(lotId) ? sum + metres / lotCads.get(lotId)!.average : sum),
+            0
+          ) + 1e-9
+        )
+      : null;
     const totalOrderQty = chartData.totalOrderQty || 0;
     const requiredMeters = totalOrderQty * cadAvg;
     const netIssued = Math.max(0, moved.issued - moved.returned);
@@ -574,6 +602,10 @@ export const getFabricIssuanceData = async (req: Request, res: Response) => {
       fabricId: f.fabricId,
       fabricName: f.fabricName,
       cadAverage: cadAvg,
+      /** every distinct lot average, lowest first — more than one = lots on different markers */
+      lotAverages: chartRow?.lotAverages ?? [],
+      /** lots in the store or at Cutting with no Production CAD of their own */
+      lotsWithoutCad: lotsWithoutCad.length,
       cadSet,
       availableStock,
       issuedStock: moved.issued,

@@ -600,6 +600,8 @@ describe('the first cut: from greige to a cutting batch', () => {
     const ourLot = ours.lots.find((l: any) => l.lotId === fabricStockId);
     expect(ourLot.pieces).toMatchObject({ total: THANS, left: THANS, kind: 'THAN' });
     expect(ourLot.listState).toBe('IN_STEP');
+    // …and shows the lot's OWN Production CAD (2026-10-03), as the Cutting Chart does
+    expect(ourLot.productionAverage).toBeCloseTo(CAD_AVERAGE, 4);
 
     // Owner rule 2026-09-24: fabric is issued FOR a cutting batch (deleting the batch returns it)
     const refused = await request(app)
@@ -829,6 +831,25 @@ describe('the first cut: from greige to a cutting batch', () => {
       expect(lots.find((l: any) => l.lotId === fabricStockId)?.productionAverage).toBeCloseTo(CAD_AVERAGE, 4);
       const analysis = chart.body.data.fabricAnalysis.find((a: any) => a.fabricId === source.fabricId);
       expect(analysis.lotsWithoutCad.map((l: any) => l.lotId)).toContain(noCadLot.id);
+
+      // The Issue to Cutting panel says the same, and its Max Pcs counts only lots with a CAD of their own
+      const panel = await request(app).get(`/api/work-orders/${workOrderId}/fabric-issuance-data`).set(authHeader);
+      expectStatus(panel, (s) => s === 200);
+      const panelLot = panel.body.data.fabrics.flatMap((f: any) => f.lots).find((l: any) => l.lotId === noCadLot.id);
+      expect(panelLot.productionAverage).toBeNull();
+      const panelRow = panel.body.data.fabricAnalysis.find((a: any) => a.fabricId === source.fabricId);
+      expect(panelRow.lotsWithoutCad).toBeGreaterThanOrEqual(1);
+      expect(panelRow.maxPcsFromStock).toBe(Math.floor(RECEIVE_QTY / CAD_AVERAGE)); // the 10 m no-CAD lot adds none
+
+      // Editing a batch cannot type over its CAD average — it is the lot's (stripped by the update schema)
+      const edited = await request(app)
+        .put(`/api/cutting/batches/${secondBatchId}`)
+        .set(authHeader)
+        .send({ cadAverageUsed: 9.99, cadWidthUsed: 99, remarks: 'edited' });
+      expectStatus(edited, (s) => s === 200);
+      const afterEdit = await prisma.cutting_batches.findUniqueOrThrow({ where: { id: secondBatchId } });
+      expect(Number(afterEdit.cadAverageUsed)).toBeCloseTo(CAD_AVERAGE, 4);
+      expect(afterEdit.remarks).toBe('edited');
     } finally {
       await prisma.fabric_stock.delete({ where: { id: noCadLot.id } });
     }

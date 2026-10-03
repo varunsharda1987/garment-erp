@@ -375,6 +375,9 @@ export interface FabricIssuanceLot {
   listState?: LotListState;
   /** ACTUAL metres of the pieces left on the list */
   listActual?: number;
+  /** This lot's own approved Production CAD — null: no batch can be cut from it yet */
+  productionAverage?: number | null;
+  productionWidth?: number | null;
 }
 
 export interface FabricIssuanceFabric {
@@ -393,7 +396,12 @@ export interface FabricIssuanceAnalysis {
   part: string;
   fabricId: string | null;
   fabricName: string;
+  /** The lowest of the lots' own Production CAD averages */
   cadAverage: number;
+  /** Every distinct lot average, lowest first — more than one = lots on different markers */
+  lotAverages?: number[];
+  /** Lots in the store or at Cutting with no Production CAD of their own */
+  lotsWithoutCad?: number;
   cadSet: boolean;
   availableStock: number;
   issuedStock: number; // Meters issued to Cutting for this run

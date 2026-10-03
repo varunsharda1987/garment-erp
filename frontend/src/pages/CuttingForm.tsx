@@ -369,8 +369,7 @@ export default function CuttingForm() {
         cuttingDate: formData.cuttingDate,
         fabricStockId: formData.fabricStockId,
         actualFabricWidth: formData.actualFabricWidth,
-        cadAverageUsed: formData.cadAverageUsed,
-        cadWidthUsed: formData.cadWidthUsed || undefined,
+        // No CAD average / width: the server takes the lot's own approved Production CAD
         layersPerLay: formData.layersPerLay,
         numberOfLays: formData.numberOfLays,
         cuttingTableId: formData.cuttingTableId || undefined,
@@ -588,24 +587,24 @@ export default function CuttingForm() {
                       placeholder="e.g., 150"
                     />
                   </div>
+                  {/* Read-only: the lot's own approved Production CAD, set when the batch is created */}
                   <div className="space-y-2">
                     <Label>CAD Average (m/pc)</Label>
                     <Input
-                      type="number"
-                      step="0.01"
-                      value={formData.cadAverageUsed || ''}
-                      onChange={(e) => setFormData({ ...formData, cadAverageUsed: parseFloat(e.target.value) || 0 })}
-                      placeholder="From CAD planning"
+                      value={formData.cadAverageUsed ? Number(formData.cadAverageUsed).toFixed(4) : ''}
+                      placeholder="From the lot's Production CAD"
+                      readOnly
+                      disabled
                     />
+                    <p className="text-xs text-muted-foreground">From the lot's own Production CAD — not typed</p>
                   </div>
                   <div className="space-y-2">
-                    <Label>CAD Width (cm)</Label>
+                    <Label>Marker Width (in)</Label>
                     <Input
-                      type="number"
-                      step="0.1"
-                      value={formData.cadWidthUsed || ''}
-                      onChange={(e) => setFormData({ ...formData, cadWidthUsed: parseFloat(e.target.value) || 0 })}
-                      placeholder="From CAD planning"
+                      value={formData.cadWidthUsed ? `${formData.cadWidthUsed}"` : ''}
+                      placeholder="From the lot's Production CAD"
+                      readOnly
+                      disabled
                     />
                   </div>
                 </div>
@@ -786,7 +785,8 @@ export default function CuttingForm() {
                   <strong>Extra %:</strong> Additional pieces for wastage/rejects (typically 2-5%).
                 </p>
                 <p>
-                  <strong>CAD Average:</strong> Expected fabric consumption per piece from marker planning.
+                  <strong>CAD Average:</strong> Expected fabric per piece — taken from the lot's own approved Production
+                  CAD (CAD Planning → Create CAD on the lot); it cannot be typed here.
                 </p>
               </CardContent>
             </Card>

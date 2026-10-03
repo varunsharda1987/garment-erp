@@ -331,7 +331,18 @@ export default function FabricIssuanceSection({ workOrderId }: FabricIssuanceSec
                       <TableCell className="max-w-[160px] truncate" title={fa.fabricName}>
                         {fa.fabricName}
                       </TableCell>
-                      <TableCell className="text-right">{fa.cadSet ? fa.cadAverage.toFixed(2) : '-'}</TableCell>
+                      <TableCell className="text-right">
+                        {!fa.cadSet
+                          ? '-'
+                          : (fa.lotAverages?.length ?? 0) > 1
+                            ? fa.lotAverages!.map((a) => a.toFixed(3)).join(' / ')
+                            : fa.cadAverage.toFixed(3)}
+                        {(fa.lotsWithoutCad ?? 0) > 0 && (
+                          <span className="block text-xs text-warning">
+                            {fa.lotsWithoutCad} lot{fa.lotsWithoutCad === 1 ? '' : 's'} without a Production CAD
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right">{fa.availableStock.toFixed(1)}</TableCell>
                       <TableCell className="text-right text-success font-medium">
                         {(fa.issuedStock ?? 0) > 0 ? fa.issuedStock.toFixed(1) : '-'}
@@ -378,6 +389,7 @@ export default function FabricIssuanceSection({ workOrderId }: FabricIssuanceSec
                     <TableHead>Lot</TableHead>
                     <TableHead>Rolls / thans</TableHead>
                     <TableHead className="text-right">Width</TableHead>
+                    <TableHead className="text-right">CAD Avg (m/pc)</TableHead>
                     <TableHead className="text-right">Available (m)</TableHead>
                     <TableHead>Grade</TableHead>
                   </TableRow>
@@ -422,6 +434,13 @@ export default function FabricIssuanceSection({ workOrderId }: FabricIssuanceSec
                         ) : null}
                       </TableCell>
                       <TableCell className="text-right">{lot.actualWidth}"</TableCell>
+                      <TableCell className="text-right">
+                        {lot.productionAverage != null ? (
+                          lot.productionAverage.toFixed(3)
+                        ) : (
+                          <span className="text-xs text-warning">No Production CAD</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right font-semibold">{lot.quantityAvailable.toFixed(1)}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-xs">

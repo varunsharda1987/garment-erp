@@ -107,8 +107,9 @@ export const createCuttingBatchSchema = z.object({
 export const updateCuttingBatchSchema = z.object({
   cuttingDate: z.string().or(z.date()).optional(),
   actualFabricWidth: z.number().positive().optional(),
-  cadAverageUsed: z.number().positive().optional(),
-  cadWidthUsed: z.number().positive().optional(),
+  // No cadAverageUsed / cadWidthUsed (2026-10-03): a batch's CAD is its lot's own approved Production CAD, set when
+  // the batch is created (cutting.utils lotProductionCads) — a typed-over average would make the variance compare
+  // against a number no marker gave. Sent anyway by an older page, they are stripped here.
   layersPerLay: z.number().int().positive().optional(),
   numberOfLays: z.number().int().positive().optional(),
   cuttingTableId: z.string().uuid().optional().nullable(),

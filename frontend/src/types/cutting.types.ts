@@ -214,6 +214,8 @@ export interface CreateCuttingBatchRequest {
     cadWidthUsed: number;
     actualWidth: number;
   }[];
+  /** ADMIN only: cut past a fabric shortage, with why (logged as a stage override) */
+  materialShortageOverrideReason?: string;
 }
 
 export interface UpdateCuttingBatchRequest extends Partial<CreateCuttingBatchRequest> {

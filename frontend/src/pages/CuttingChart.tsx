@@ -30,6 +30,7 @@ import { Scissors, ArrowLeft, Save, Loader2, FileText, Image as ImageIcon, Alert
 import { MiniMarkerBadge } from '@/components/cad/MiniMarkerBadge';
 import { toDateInputValue } from '@/lib/date';
 import { qtyExceeds } from '@/lib/quantity';
+import { useShortageOverride } from '@/components/cutting/useShortageOverride';
 
 interface AvailableWorkOrder {
   id: string;
@@ -56,6 +57,7 @@ export default function CuttingChart() {
   // State
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const { offerOverride, overrideDialog } = useShortageOverride();
   const [availableWorkOrders, setAvailableWorkOrders] = useState<AvailableWorkOrder[]>([]);
   const [selectedWorkOrderId, setSelectedWorkOrderId] = useState(preSelectedWorkOrderId || '');
   const [selectedColorId, setSelectedColorId] = useState(preSelectedColorId || '');
@@ -179,7 +181,8 @@ export default function CuttingChart() {
   }, [chartData]);
 
   // Handle batch creation — one batch per selected fabric lot
-  const handleCreateBatch = async () => {
+  // materialShortageOverrideReason: an admin cutting past a fabric shortage (useShortageOverride)
+  const handleCreateBatch = async (materialShortageOverrideReason?: string) => {
     if (!chartData) return;
 
     const fabricsWithLots = chartData.fabrics.filter((f) => f.lots.length > 0);
@@ -248,6 +251,7 @@ export default function CuttingChart() {
             };
           });
         }),
+        ...(materialShortageOverrideReason ? { materialShortageOverrideReason } : {}),
       };
 
       const { batch, warning } = await cuttingBatchService.create(requestData);
@@ -258,6 +262,7 @@ export default function CuttingChart() {
       if (warning) notify.warning(warning);
       navigate(`/manufacturing/cutting/${batch.id}`);
     } catch (err) {
+      if (offerOverride(err, (reason) => void handleCreateBatch(reason))) return;
       handleApiError(err, 'Failed to create cutting batch');
     } finally {
       setIsSaving(false);
@@ -341,11 +346,12 @@ export default function CuttingChart() {
             </span>
           )}
           {chartData && (
-            <Button onClick={handleCreateBatch} disabled={isSaving || !hasProductionCAD || cutPlanBlocked}>
+            <Button onClick={() => handleCreateBatch()} disabled={isSaving || !hasProductionCAD || cutPlanBlocked}>
               <Save className="h-4 w-4 mr-2" />
               {isSaving ? 'Creating...' : 'Create Batch'}
             </Button>
           )}
+          {overrideDialog}
         </div>
       </div>
 

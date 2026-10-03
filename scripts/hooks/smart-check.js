@@ -14,6 +14,7 @@ const path = require('path');
 const { loadBaseline, diff } = require('./ratchet');
 const { checkAlignment } = require('./check-schema-controller-alignment');
 const detectors = require('./drift-detectors');
+const migrationContract = require('./migration-contract');
 
 // Colors for terminal output
 const c = {
@@ -479,6 +480,36 @@ function checkSchemaServiceUpdateParity(schemaFiles) {
     'schema-service-parity-baseline.json',
     'Add the field to the service\'s Prisma update({ data: {...} }) block. If intentional (nested/relation), add the key to scripts/hooks/schema-service-parity-baseline.json.'
   );
+}
+
+/** Check: a migration that drops / renames / retypes / tightens — it reaches the live database
+ * before its code deploys, so the running code breaks (retire_legacy_jwo_status, jwo_line_links_required).
+ * No baseline: only migrations dated from CONTRACT_RULE_SINCE are checked. BLOCKING. */
+function checkMigrationContract(migrationFiles, readFile) {
+  const ruled = migrationFiles.filter((f) => migrationContract.isRuledMigration(f));
+  if (!ruled.length) return true;
+  console.log(`
+${c.cyan}Checking migrations only ADD (the live code runs against them before the deploy)...${c.reset}`);
+  let bad = 0;
+  for (const f of ruled) {
+    let sql;
+    try {
+      sql = readFile(f);
+    } catch {
+      continue;
+    }
+    for (const v of migrationContract.findContractViolations(sql)) {
+      bad++;
+      console.log(`${c.red}  ✗ ${f}:${v.line}  ${v.reason}${c.reset}`);
+      console.log(`${c.dim}      ${v.statement}${c.reset}`);
+    }
+  }
+  if (!bad) {
+    console.log(`${c.green}  ✓ ${ruled.length} migration(s) only add${c.reset}`);
+    return true;
+  }
+  console.log(`${c.yellow}    ${migrationContract.FIX_HINT}${c.reset}`);
+  return false;
 }
 
 /** Check (E1): materials.create with a hand-written literal id (`mat-<code>` etc.) — BLOCKING new + ratchet. */
@@ -1435,6 +1466,11 @@ function runAllModeChecks() {
   if (!checkSinglePrismaClient(tsFiles)) ok = false;
   if (!checkOrphanedDemandLinks(tsFiles)) ok = false;
   if (!checkSchemaServiceUpdateParity(schemaFiles)) ok = false;
+  {
+    const migDir = path.join(root, 'backend/prisma/migrations');
+    const migs = fs.readdirSync(migDir).map((d) => `backend/prisma/migrations/${d}/migration.sql`);
+    if (!checkMigrationContract(migs, (f) => fs.readFileSync(path.join(root, f), 'utf8'))) ok = false;
+  }
   checkAiGuides(); // warn-only
 
   // Frontend typecheck gate (CI mode only — too slow for per-commit). The frontend reached ZERO tsc
@@ -1504,6 +1540,13 @@ function main() {
   // so a split that arrived via --no-verify is caught too.
   checksRun++;
   if (!checkRadixSingletons()) allPassed = false;
+
+  // Staged migrations may only ADD — the live API runs on them before this commit deploys.
+  const stagedMigrations = stagedFiles.filter((f) => f.endsWith('/migration.sql'));
+  if (stagedMigrations.length) {
+    checksRun++;
+    if (!checkMigrationContract(stagedMigrations, (f) => execSync(`git show :${f}`, { encoding: 'utf-8' }))) allPassed = false;
+  }
 
   // Schema or Controller or Route changes → basic sync + field alignment (BLOCKING + ratchet)
   if (categories.schemas.length || categories.controllers.length || categories.routes.length) {

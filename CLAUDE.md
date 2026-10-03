@@ -753,6 +753,11 @@ Several terminals edit this ONE folder at once and share ONE git index and ONE l
    → `cd backend && npx prisma migrate deploy && npx prisma generate` → `pm2 start garment-erp-api`
    → `npm run ship -- resume`. A changed `package-lock.json` likewise needs `npm ci` in that folder
    first. Retry a blocked/failed deploy with `npm run ship -- now`.
+   **A migration may only ADD** (nullable / defaulted columns, tables, indexes, enum values): it reaches
+   the live database before its code deploys, and the running code breaks on a drop, rename, retype or
+   `SET NOT NULL` (retire_legacy_jwo_status, jwo_line_links_required did). Do that in a LATER migration,
+   once no live code uses the old shape, marked `-- allow-contract: <why>`. Enforced at commit and by the
+   deployer (`scripts/hooks/migration-contract.js`, migrations from 2026-10-03 on).
 8. **Coordinate with the other terminals yourselves — never ask the owner to carry messages.** One
    terminal: `SendMessage` (find it with `ListAgents`). Every terminal: `npm run notice -- "text"
    --from <your ListAgents name>` — each terminal gets it on its next prompt, new ones at start

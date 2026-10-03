@@ -33,6 +33,7 @@ const { spawn, spawnSync, execSync } = require('child_process');
 const S = require('./state');
 const { ensureBuildTree, copyEnvFiles } = require('./setup-build-tree');
 const notices = require('../hooks/notices');
+const migrationContract = require('../hooks/migration-contract');
 
 /** Tell every Claude terminal (notice board) — not in a dry run. */
 function announce(text, opts) {
@@ -314,6 +315,19 @@ async function preflight(sha, changed, sides) {
     if (changed === null || changed.some((f) => f.startsWith('backend/prisma/migrations/'))) {
       const m = await migrationsProblem();
       if (m) problems.push(m);
+    }
+    // Backstop for `git commit --no-verify`: a migration in this deploy that drops/renames/tightens.
+    for (const f of (changed || []).filter((p) => migrationContract.isRuledMigration(p))) {
+      let sql;
+      try {
+        sql = S.git(['show', `${sha}:${f}`]);
+      } catch {
+        continue; // deleted in this range
+      }
+      const v = migrationContract.findContractViolations(sql);
+      if (v.length) {
+        problems.push(`${f} is not additive:\n${v.map((x) => `  line ${x.line}: ${x.reason}`).join('\n')}\n${migrationContract.FIX_HINT}`);
+      }
     }
   }
   return problems.length ? problems.join('\n') : null;
